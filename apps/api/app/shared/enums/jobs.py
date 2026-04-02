@@ -1,0 +1,34 @@
+from enum import StrEnum
+
+
+class SearchJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    PARTIALLY_COMPLETED = "partially_completed"
+    FAILED = "failed"
+
+
+class LeadStatus(StrEnum):
+    NEW = "new"
+    REVIEWED = "reviewed"
+    QUALIFIED = "qualified"
+    CONTACTED = "contacted"
+    INTERESTED = "interested"
+    WON = "won"
+    LOST = "lost"
+    ARCHIVED = "archived"
+
+
+class LeadScoreBand(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    NOT_QUALIFIED = "not_qualified"
+
+
+class ProviderFetchStatus(StrEnum):
+    OK = "ok"
+    ERROR = "error"
+    TIMEOUT = "timeout"
+    RATE_LIMITED = "rate_limited"

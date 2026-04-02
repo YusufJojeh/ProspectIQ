@@ -1,0 +1,22 @@
+services:
+  db:
+    image: mariadb:11
+    container_name: prospectiq-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: prospectiq
+      MARIADB_USER: prospectiq
+      MARIADB_PASSWORD: prospectiq
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - prospectiq-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  prospectiq-db-data:

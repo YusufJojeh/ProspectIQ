@@ -1,0 +1,52 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #edf2ee;
+  --panel: rgba(250, 252, 250, 0.88);
+  --surface-soft: #eef6f3;
+  --text: #17211d;
+  --muted: #5f6f68;
+  --border: rgba(23, 33, 29, 0.1);
+  --accent: #0f766e;
+  --accent-soft: #d6f1eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.1), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(180, 83, 9, 0.08), transparent 22%),
+    linear-gradient(180deg, #f7faf7 0%, #ebf1ec 100%);
+  color: var(--text);
+  font-family: Manrope, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

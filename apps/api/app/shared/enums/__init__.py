@@ -1,0 +1,2 @@
+"""Shared enum package."""
+

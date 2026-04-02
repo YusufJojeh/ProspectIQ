@@ -1,0 +1,59 @@
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.modules.leads.models import Lead
+from app.modules.scoring.models import LeadScore
+
+
+class LeadsRepository:
+    def list_paginated(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        page: int,
+        page_size: int,
+        status: str | None,
+        search_job_public_id: str | None,
+        has_website: bool | None,
+    ) -> tuple[list[Lead], int]:
+        statement = select(Lead).where(Lead.workspace_id == workspace_id)
+        count_statement = select(func.count(Lead.id)).where(Lead.workspace_id == workspace_id)
+        if status is not None:
+            statement = statement.where(Lead.status == status)
+            count_statement = count_statement.where(Lead.status == status)
+        if search_job_public_id is not None:
+            from app.modules.search_jobs.models import SearchJob  # local import to avoid cycles
+
+            statement = statement.join(SearchJob).where(SearchJob.public_id == search_job_public_id)
+            count_statement = count_statement.join(SearchJob).where(SearchJob.public_id == search_job_public_id)
+        if has_website is not None:
+            statement = statement.where(Lead.has_website == has_website)
+            count_statement = count_statement.where(Lead.has_website == has_website)
+        statement = statement.order_by(Lead.updated_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        return list(db.scalars(statement)), int(db.scalar(count_statement) or 0)
+
+    def get_by_public_id(self, db: Session, public_id: str) -> Lead | None:
+        return db.scalar(select(Lead).where(Lead.public_id == public_id))
+
+    def save(self, db: Session, lead: Lead) -> Lead:
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+        return lead
+
+    def get_latest_scores(self, db: Session, lead_ids: list[int]) -> dict[int, LeadScore]:
+        if not lead_ids:
+            return {}
+        subq = (
+            select(LeadScore.lead_id, func.max(LeadScore.scored_at).label("max_scored_at"))
+            .where(LeadScore.lead_id.in_(lead_ids))
+            .group_by(LeadScore.lead_id)
+            .subquery()
+        )
+        statement = select(LeadScore).join(
+            subq,
+            (LeadScore.lead_id == subq.c.lead_id) & (LeadScore.scored_at == subq.c.max_scored_at),
+        )
+        results = list(db.scalars(statement))
+        return {item.lead_id: item for item in results}
