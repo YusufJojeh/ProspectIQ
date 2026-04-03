@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.27
 
 ENV API_UPSTREAM=http://api:8000 \
     VITE_API_BASE_URL=
