@@ -67,7 +67,6 @@ wait_for_service web
 compose exec -T api python scripts/seed.py
 
 compose exec -T api python -c "from urllib.request import urlopen; response = urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5); print(response.status)"
-compose exec -T web wget -q -O - http://127.0.0.1/healthz
 compose exec -T \
   -e BOOTSTRAP_WORKSPACE="$DEFAULT_WORKSPACE_PUBLIC_ID" \
   -e BOOTSTRAP_EMAIL="$DEFAULT_ADMIN_EMAIL" \
