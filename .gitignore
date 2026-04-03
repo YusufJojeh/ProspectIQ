@@ -1,5 +1,7 @@
 .DS_Store
 Thumbs.db
+.idea/
+.pnpm-store/
 
 .env
 .env.*
@@ -9,10 +11,12 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+.pytype/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
 
 .venv/
@@ -26,9 +30,14 @@ dist/
 build/
 coverage/
 .vite/
+*.tsbuildinfo
 apps/web/tsconfig.tsbuildinfo
 apps/web/.env.local
 apps/web/.env.development.local
 apps/web/.env.production.local
 
 *.log
+playwright-report/
+test-results/
+apps/web/playwright-report/
+apps/web/test-results/

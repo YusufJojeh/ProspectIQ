@@ -25,7 +25,9 @@ class LocalTrustStrategy:
             reason = "Low review volume suggests weak local proof."
         elif rating < 4.0:
             base_score = 80.0
-            reason = "Rating is below typical leaders in the market, leaving room for reputation work."
+            reason = (
+                "Rating is below typical leaders in the market, leaving room for reputation work."
+            )
         elif rating >= 4.5 and reviews >= 50:
             base_score = 30.0
             reason = "Strong rating and review count reduce immediate local-trust opportunity."
@@ -76,7 +78,9 @@ class SearchVisibilityStrategy:
             reason = f"Website is discoverable via {source}, reducing visibility opportunity."
         elif confidence >= 0.5:
             base_score = 60.0
-            reason = f"Website is partially discoverable via {source}, suggesting room for improvement."
+            reason = (
+                f"Website is partially discoverable via {source}, suggesting room for improvement."
+            )
         else:
             base_score = 90.0
             reason = f"Website is not strongly discoverable via {source}, indicating high visibility opportunity."
@@ -123,4 +127,3 @@ class DataConfidenceStrategy:
             contribution=round(base_score * weight, 2),
             reason=reason,
         )
-

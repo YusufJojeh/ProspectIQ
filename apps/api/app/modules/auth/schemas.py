@@ -1,10 +1,19 @@
-from pydantic import BaseModel, EmailStr
+from typing import Annotated
+
+from pydantic import BaseModel, EmailStr, StringConstraints
 
 
 class LoginRequest(BaseModel):
-    workspace: str
+    workspace: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     email: EmailStr
-    password: str
+    password: Annotated[str, StringConstraints(min_length=8)]
+
+
+class AuthTokenClaims(BaseModel):
+    sub: str
+    workspace_id: int
+    workspace_public_id: str
+    role: str
 
 
 class AuthenticatedUser(BaseModel):

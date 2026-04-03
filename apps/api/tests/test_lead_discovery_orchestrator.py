@@ -9,11 +9,17 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.modules.leads.models import Lead
-from app.modules.provider_serpapi.models import LeadIdentity, ProviderFetch, ProviderNormalizedFact, ProviderRawPayload
+from app.modules.provider_serpapi.models import (
+    LeadIdentity,
+    ProviderFetch,
+    ProviderNormalizedFact,
+    ProviderRawPayload,
+)
+from app.modules.provider_serpapi.schemas import PlaceLookupKey
 from app.modules.scoring.models import LeadScore
 from app.modules.search_jobs.models import SearchJob
 from app.modules.users.models import User, Workspace
-from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus
+from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsitePreference
 from app.workers.orchestration.lead_discovery import LeadDiscoveryOrchestrator
 
 
@@ -46,6 +52,9 @@ class _FakeProviderService:
         business_type: str,  # noqa: ARG002
         city: str,  # noqa: ARG002
         region: str | None,  # noqa: ARG002
+        radius_km: int | None = None,  # noqa: ARG002
+        keyword_filter: str | None = None,  # noqa: ARG002
+        page: int = 1,  # noqa: ARG002
         attempt: int = 1,
     ):
         return self._persist_fetch(
@@ -64,7 +73,7 @@ class _FakeProviderService:
         *,
         workspace_id: int,
         search_job_id: int | None,
-        place_key: str,  # noqa: ARG002
+        lookup: PlaceLookupKey,  # noqa: ARG002
         attempt: int = 1,
     ):
         return self._persist_fetch(
@@ -145,7 +154,9 @@ def _build_session_factory() -> sessionmaker[Session]:
         poolclass=StaticPool,
     )
     Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, class_=Session)
+    return sessionmaker(
+        bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, class_=Session
+    )
 
 
 def _seed_job(session_factory: sessionmaker[Session]) -> str:
@@ -172,7 +183,7 @@ def _seed_job(session_factory: sessionmaker[Session]) -> str:
             business_type="Dentist",
             city="Istanbul",
             max_results=10,
-            require_website=False,
+            website_preference=WebsitePreference.ANY.value,
         )
         db.add(job)
         db.commit()
@@ -201,7 +212,9 @@ def test_orchestrator_persists_leads_evidence_and_scores() -> None:
         web_payload={"knowledge_graph": {"website": "https://acme.example"}},
     )
 
-    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(job_public_id)
+    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(
+        job_public_id
+    )
 
     with session_factory() as db:
         job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
@@ -244,7 +257,9 @@ def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failur
         web_status=ProviderFetchStatus.ERROR.value,
     )
 
-    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(job_public_id)
+    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(
+        job_public_id
+    )
 
     with session_factory() as db:
         job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
@@ -254,3 +269,28 @@ def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failur
         assert job.provider_error_count == 1
         assert db.scalar(select(func.count(ProviderNormalizedFact.id))) == 1
         assert db.scalar(select(func.count(LeadScore.id))) == 2
+
+
+def test_orchestrator_marks_job_failed_when_provider_configuration_is_missing(
+    monkeypatch,
+) -> None:
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+
+    class _BrokenProviderService:
+        def __init__(self) -> None:
+            raise RuntimeError("SERPAPI_API_KEY is not configured.")
+
+    monkeypatch.setattr(
+        "app.workers.orchestration.lead_discovery.SerpApiService",
+        _BrokenProviderService,
+    )
+
+    LeadDiscoveryOrchestrator(session_factory=session_factory).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.FAILED.value
+        assert job.provider_error_count == 1
+        assert job.finished_at is not None

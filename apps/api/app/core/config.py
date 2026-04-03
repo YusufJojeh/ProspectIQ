@@ -1,24 +1,24 @@
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, Field, computed_field
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "ProspectIQ API"
+    app_name: str = "LeadScope AI API"
     app_env: str = "development"
     api_v1_prefix: str = "/api/v1"
     database_url: str = "mysql+pymysql://prospectiq:prospectiq@127.0.0.1:3306/prospectiq"
     jwt_secret: str = "<replace-me>"
     jwt_expire_minutes: int = 120
-    web_origin: AnyHttpUrl = Field(default="http://localhost:5173")
+    web_origin: str = "http://localhost:5173"
     sql_echo: bool = False
     log_level: str = "INFO"
     enable_db_healthcheck: bool = True
     enable_request_logging: bool = True
-    default_admin_email: str = "admin@prospectiq.local"
+    default_admin_email: str = "admin@prospectiq.dev"
     default_admin_password: str = "ChangeMe123!"
-    default_admin_name: str = "ProspectIQ Admin"
+    default_admin_name: str = "LeadScope AI Admin"
     default_workspace_public_id: str = "ws_default"
     default_workspace_name: str = "Default Workspace"
 
@@ -36,7 +36,22 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @computed_field
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        normalized = value.lower()
+        if not normalized.startswith(("mysql://", "mysql+", "mariadb://", "mariadb+")):
+            raise ValueError("DATABASE_URL must use a MySQL or MariaDB SQLAlchemy dialect.")
+        return value
+
+    @field_validator("web_origin")
+    @classmethod
+    def validate_web_origin(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("WEB_ORIGIN must not be empty.")
+        return stripped.rstrip("/")
+
     @property
     def is_development(self) -> bool:
         return self.app_env.lower() == "development"
@@ -45,3 +60,7 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    get_settings.cache_clear()

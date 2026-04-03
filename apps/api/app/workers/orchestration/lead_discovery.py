@@ -2,31 +2,40 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol, TypeVar
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.database import get_session_factory
 from app.modules.leads.models import Lead
-from app.modules.provider_serpapi.models import ProviderNormalizedFact
+from app.modules.provider_serpapi.models import (
+    ProviderFetch,
+    ProviderNormalizedFact,
+    ProviderSettings,
+)
 from app.modules.provider_serpapi.normalizers.maps_local_normalizer import MapsLocalNormalizer
 from app.modules.provider_serpapi.normalizers.maps_place_normalizer import MapsPlaceNormalizer
 from app.modules.provider_serpapi.normalizers.web_search_normalizer import WebSearchNormalizer
 from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
-from app.modules.provider_serpapi.schemas import LeadCandidate, WebsiteDiscoveryResult
+from app.modules.provider_serpapi.schemas import (
+    LeadCandidate,
+    PlaceLookupKey,
+    WebsiteDiscoveryResult,
+)
 from app.modules.provider_serpapi.service import SerpApiService
 from app.modules.scoring.schemas import ScoringThresholds, ScoringWeights
 from app.modules.scoring.service import ScoringConfigService, ScoringEngine, persist_lead_score
 from app.modules.search_jobs.models import SearchJob
 from app.modules.search_jobs.repository import SearchJobRepository
 from app.shared.dto.lead_facts import NormalizedLeadFacts
-from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus
+from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsitePreference
 
 logger = logging.getLogger(__name__)
+ValueT = TypeVar("ValueT")
 
 
 class ProviderServiceProtocol(Protocol):
-    def get_settings(self, db: Session, workspace_id: int): ...
+    def get_settings(self, db: Session, workspace_id: int) -> ProviderSettings: ...
 
     def maps_search(
         self,
@@ -37,8 +46,11 @@ class ProviderServiceProtocol(Protocol):
         business_type: str,
         city: str,
         region: str | None,
+        radius_km: int | None = None,
+        keyword_filter: str | None = None,
+        page: int = 1,
         attempt: int = 1,
-    ): ...
+    ) -> tuple[ProviderFetch, dict[str, Any]]: ...
 
     def maps_place(
         self,
@@ -46,9 +58,9 @@ class ProviderServiceProtocol(Protocol):
         *,
         workspace_id: int,
         search_job_id: int | None,
-        place_key: str,
+        lookup: PlaceLookupKey,
         attempt: int = 1,
-    ): ...
+    ) -> tuple[ProviderFetch, dict[str, Any]]: ...
 
     def web_search(
         self,
@@ -58,7 +70,7 @@ class ProviderServiceProtocol(Protocol):
         search_job_id: int | None,
         query: str,
         attempt: int = 1,
-    ): ...
+    ) -> tuple[ProviderFetch, dict[str, Any]]: ...
 
 
 class LeadDiscoveryOrchestrator:
@@ -86,8 +98,6 @@ class LeadDiscoveryOrchestrator:
         self.scoring_config_service = scoring_config_service or ScoringConfigService()
 
     def run(self, job_public_id: str) -> None:
-        if self.provider_service is None:
-            self.provider_service = SerpApiService()
         with self.session_factory() as db:
             job = self.search_job_repository.get_by_public_id(db, job_public_id)
             if job is None:
@@ -107,13 +117,16 @@ class LeadDiscoveryOrchestrator:
                 self._mark_failed(db, job, str(exc))
 
     def _discover_leads(self, db: Session, job: SearchJob) -> list[int]:
-        fetch, payload = self.provider_service.maps_search(
+        provider_service = self._get_provider_service()
+        fetch, payload = provider_service.maps_search(
             db,
             workspace_id=job.workspace_id,
             search_job_id=job.id,
             business_type=job.business_type,
             city=job.city,
             region=job.region,
+            radius_km=job.radius_km,
+            keyword_filter=job.keyword_filter,
         )
         if fetch.status != ProviderFetchStatus.OK.value:
             job.provider_error_count += 1
@@ -140,17 +153,18 @@ class LeadDiscoveryOrchestrator:
         return list(lead_ids)
 
     def _enrich_top_candidates(self, db: Session, job: SearchJob, lead_ids: list[int]) -> None:
-        settings = self.provider_service.get_settings(db, job.workspace_id)
+        provider_service = self._get_provider_service()
+        settings = provider_service.get_settings(db, job.workspace_id)
         for lead in self._select_enrichment_targets(db, lead_ids, limit=settings.enrich_top_n):
-            place_key = self.evidence_repository.get_best_place_key(db, lead.id)
-            if not place_key:
+            lookup = self.evidence_repository.get_best_place_lookup(db, lead.id)
+            if lookup is None:
                 continue
 
-            fetch, payload = self.provider_service.maps_place(
+            fetch, payload = provider_service.maps_place(
                 db,
                 workspace_id=job.workspace_id,
                 search_job_id=job.id,
-                place_key=place_key,
+                lookup=lookup,
             )
             if fetch.status != ProviderFetchStatus.OK.value:
                 job.provider_error_count += 1
@@ -175,11 +189,12 @@ class LeadDiscoveryOrchestrator:
             self.search_job_repository.save(db, job)
 
     def _validate_web_presence(self, db: Session, job: SearchJob, lead_ids: list[int]) -> None:
+        provider_service = self._get_provider_service()
         for lead in self._list_leads(db, lead_ids):
             if lead.website_domain:
                 continue
             query = self._build_web_query(lead)
-            fetch, payload = self.provider_service.web_search(
+            fetch, payload = provider_service.web_search(
                 db,
                 workspace_id=job.workspace_id,
                 search_job_id=job.id,
@@ -205,7 +220,9 @@ class LeadDiscoveryOrchestrator:
         thresholds = ScoringThresholds.model_validate(version.thresholds_json)
 
         for lead in self._list_leads(db, lead_ids):
-            visibility_confidence, visibility_source = self.evidence_repository.get_latest_visibility(db, lead.id)
+            visibility_confidence, visibility_source = (
+                self.evidence_repository.get_latest_visibility(db, lead.id)
+            )
             facts = NormalizedLeadFacts(
                 company_name=lead.company_name,
                 category=lead.category,
@@ -396,15 +413,22 @@ class LeadDiscoveryOrchestrator:
             or (priority == current_priority and candidate.completeness >= lead.data_completeness)
         )
         lead.search_job_id = search_job_id
-        lead.company_name = candidate.company_name or lead.company_name
+        if should_promote:
+            lead.company_name = candidate.company_name
         lead.category = self._prefer(candidate.category, lead.category, should_promote)
         lead.address = self._prefer(candidate.address, lead.address, should_promote)
         lead.city = self._prefer(candidate.city, lead.city, should_promote)
         lead.phone = self._prefer(candidate.phone, lead.phone, should_promote)
         lead.website_url = self._prefer(candidate.website_url, lead.website_url, should_promote)
-        lead.website_domain = self._prefer(candidate.website_domain, lead.website_domain, should_promote)
+        lead.website_domain = self._prefer(
+            candidate.website_domain, lead.website_domain, should_promote
+        )
         lead.rating = self._prefer(candidate.rating, lead.rating, should_promote)
-        lead.review_count = self._prefer_numeric(candidate.review_count, lead.review_count, should_promote)
+        lead.review_count = (
+            candidate.review_count
+            if should_promote
+            else max(lead.review_count, candidate.review_count)
+        )
         lead.lat = self._prefer(candidate.lat, lead.lat, should_promote)
         lead.lng = self._prefer(candidate.lng, lead.lng, should_promote)
         lead.data_completeness = max(lead.data_completeness, candidate.completeness)
@@ -412,7 +436,9 @@ class LeadDiscoveryOrchestrator:
         lead.has_website = bool(lead.website_domain or lead.website_url)
         lead.updated_at = datetime.now(tz=UTC)
 
-    def _select_enrichment_targets(self, db: Session, lead_ids: list[int], *, limit: int) -> list[Lead]:
+    def _select_enrichment_targets(
+        self, db: Session, lead_ids: list[int], *, limit: int
+    ) -> list[Lead]:
         if not lead_ids or limit <= 0:
             return []
         candidates = self._list_leads(db, lead_ids)
@@ -438,11 +464,36 @@ class LeadDiscoveryOrchestrator:
     def _qualifies(self, job: SearchJob, lead: Lead) -> bool:
         if job.min_rating is not None and (lead.rating or 0.0) < job.min_rating:
             return False
+        if job.max_rating is not None and lead.rating is not None and lead.rating > job.max_rating:
+            return False
         if job.min_reviews is not None and lead.review_count < job.min_reviews:
             return False
-        if job.require_website and not lead.has_website:
+        if job.max_reviews is not None and lead.review_count > job.max_reviews:
+            return False
+        if job.website_preference == WebsitePreference.MUST_HAVE.value and not lead.has_website:
+            return False
+        if job.website_preference == WebsitePreference.MUST_BE_MISSING.value and lead.has_website:
+            return False
+        if job.keyword_filter and not self._matches_keyword_filter(lead, job.keyword_filter):
             return False
         return True
+
+    def _matches_keyword_filter(self, lead: Lead, keyword_filter: str) -> bool:
+        needle = keyword_filter.casefold().strip()
+        if not needle:
+            return True
+        haystack = " ".join(
+            part
+            for part in (
+                lead.company_name,
+                lead.category or "",
+                lead.address or "",
+                lead.city or "",
+                lead.website_domain or "",
+            )
+            if part
+        ).casefold()
+        return needle in haystack
 
     def _list_leads(self, db: Session, lead_ids: list[int]) -> list[Lead]:
         from sqlalchemy import select
@@ -475,18 +526,19 @@ class LeadDiscoveryOrchestrator:
         job.provider_error_count += 1
         self.search_job_repository.save(db, job)
 
-    def _prefer(self, incoming, current, should_promote: bool):
+    def _get_provider_service(self) -> ProviderServiceProtocol:
+        if self.provider_service is None:
+            self.provider_service = SerpApiService()
+        return self.provider_service
+
+    def _prefer(
+        self,
+        incoming: ValueT | None,
+        current: ValueT | None,
+        should_promote: bool,
+    ) -> ValueT | None:
         if incoming is None:
             return current
         if should_promote or current is None:
             return incoming
         return current
-
-    def _prefer_numeric(self, incoming: int | float | None, current: int | float | None, should_promote: bool):
-        if incoming is None:
-            return current
-        if current is None:
-            return incoming
-        if should_promote:
-            return incoming
-        return max(current, incoming)

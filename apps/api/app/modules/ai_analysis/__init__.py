@@ -1,2 +1,1 @@
 """AI analysis module."""
-

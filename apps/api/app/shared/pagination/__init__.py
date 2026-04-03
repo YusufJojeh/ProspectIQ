@@ -1,2 +1,1 @@
 """Shared pagination package."""
-

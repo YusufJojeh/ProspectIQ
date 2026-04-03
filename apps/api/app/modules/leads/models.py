@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -10,12 +10,22 @@ from app.shared.utils.identifiers import new_public_id
 
 class Lead(Base):
     __tablename__ = "leads"
+    __table_args__ = (
+        Index("ix_leads_workspace_status_updated_at", "workspace_id", "status", "updated_at"),
+        Index("ix_leads_workspace_city", "workspace_id", "city"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    public_id: Mapped[str] = mapped_column(String(24), unique=True, default=lambda: new_public_id("lead"))
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("lead")
+    )
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    search_job_id: Mapped[int | None] = mapped_column(ForeignKey("search_jobs.id"), index=True, nullable=True)
-    assigned_to_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    search_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("search_jobs.id"), index=True, nullable=True
+    )
+    assigned_to_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), index=True, nullable=True
+    )
     company_name: Mapped[str] = mapped_column(String(255))
     category: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -39,9 +49,14 @@ class Lead(Base):
 
 class LeadNote(Base):
     __tablename__ = "lead_notes"
+    __table_args__ = (
+        Index("ix_lead_notes_lead_created_at", "lead_id", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    public_id: Mapped[str] = mapped_column(String(24), unique=True, default=lambda: new_public_id("note"))
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("note")
+    )
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
     note: Mapped[str] = mapped_column(Text())
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
@@ -50,6 +65,9 @@ class LeadNote(Base):
 
 class LeadStatusHistory(Base):
     __tablename__ = "lead_status_history"
+    __table_args__ = (
+        Index("ix_lead_status_history_lead_changed_at", "lead_id", "changed_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)

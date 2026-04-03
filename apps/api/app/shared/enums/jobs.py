@@ -9,6 +9,12 @@ class SearchJobStatus(StrEnum):
     FAILED = "failed"
 
 
+class WebsitePreference(StrEnum):
+    ANY = "any"
+    MUST_HAVE = "must_have"
+    MUST_BE_MISSING = "must_be_missing"
+
+
 class LeadStatus(StrEnum):
     NEW = "new"
     REVIEWED = "reviewed"

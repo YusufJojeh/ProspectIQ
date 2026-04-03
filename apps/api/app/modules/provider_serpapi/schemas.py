@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -35,3 +35,7 @@ class WebsiteDiscoveryResult(BaseModel):
     confidence: float = 0.6
     facts: dict[str, Any] = Field(default_factory=dict)
 
+
+class PlaceLookupKey(BaseModel):
+    key_type: Literal["place_id", "data_cid", "data"]
+    value: str

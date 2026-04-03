@@ -3,12 +3,18 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
-from app.modules.scoring.models import LeadScore, ScoreBreakdown, ScoringConfigVersion, WorkspaceScoringActive
+from app.modules.scoring.models import (
+    LeadScore,
+    ScoreBreakdown,
+    ScoringConfigVersion,
+    WorkspaceScoringActive,
+)
 from app.modules.scoring.schemas import LeadScoreResult, ScoringThresholds, ScoringWeights
 from app.modules.scoring.strategies import (
     DataConfidenceStrategy,
     LocalTrustStrategy,
     OpportunityStrategy,
+    ScoringStrategy,
     SearchVisibilityStrategy,
     WebsitePresenceStrategy,
 )
@@ -18,7 +24,7 @@ from app.shared.enums.jobs import LeadScoreBand
 
 class ScoringEngine:
     def __init__(self) -> None:
-        self.strategies = [
+        self.strategies: list[ScoringStrategy] = [
             LocalTrustStrategy(),
             WebsitePresenceStrategy(),
             SearchVisibilityStrategy(),
@@ -34,13 +40,21 @@ class ScoringEngine:
         thresholds: ScoringThresholds,
         is_qualified_candidate: bool = True,
     ) -> LeadScoreResult:
-        breakdown = [strategy.score(facts, getattr(weights, strategy.key)) for strategy in self.strategies]
+        breakdown = [
+            strategy.score(facts, getattr(weights, strategy.key)) for strategy in self.strategies
+        ]
         total_score = round(sum(item.contribution for item in breakdown), 2)
-        qualified = bool(is_qualified_candidate and facts.data_confidence >= thresholds.confidence_min)
+        qualified = bool(
+            is_qualified_candidate and facts.data_confidence >= thresholds.confidence_min
+        )
         band = self._band(total_score, thresholds, qualified)
-        return LeadScoreResult(total_score=total_score, band=band, qualified=qualified, breakdown=breakdown)
+        return LeadScoreResult(
+            total_score=total_score, band=band, qualified=qualified, breakdown=breakdown
+        )
 
-    def _band(self, total_score: float, thresholds: ScoringThresholds, qualified: bool) -> LeadScoreBand:
+    def _band(
+        self, total_score: float, thresholds: ScoringThresholds, qualified: bool
+    ) -> LeadScoreBand:
         if not qualified:
             return LeadScoreBand.NOT_QUALIFIED
         if total_score >= thresholds.high_min:
@@ -62,7 +76,9 @@ class ScoringConfigService:
             raise NotFoundError("Active scoring configuration was not found.")
         return version
 
-    def ensure_active_version(self, db: Session, workspace_id: int, *, created_by_user_id: int) -> ScoringConfigVersion:
+    def ensure_active_version(
+        self, db: Session, workspace_id: int, *, created_by_user_id: int
+    ) -> ScoringConfigVersion:
         active = db.get(WorkspaceScoringActive, workspace_id)
         if active is not None:
             version = db.get(ScoringConfigVersion, active.active_scoring_config_version_id)
@@ -110,7 +126,9 @@ class ScoringConfigService:
         db.refresh(version)
         return version
 
-    def activate_version(self, db: Session, *, workspace_id: int, version: ScoringConfigVersion) -> None:
+    def activate_version(
+        self, db: Session, *, workspace_id: int, version: ScoringConfigVersion
+    ) -> None:
         if version.workspace_id != workspace_id:
             raise NotFoundError("Scoring configuration was not found.")
         active = db.get(WorkspaceScoringActive, workspace_id)
@@ -156,4 +174,3 @@ def persist_lead_score(
     db.add_all(breakdown)
     db.commit()
     return lead_score
-

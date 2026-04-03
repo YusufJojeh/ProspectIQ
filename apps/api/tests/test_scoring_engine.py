@@ -54,4 +54,3 @@ def test_scoring_engine_disqualifies_low_confidence() -> None:
 
     assert result.qualified is False
     assert result.band == LeadScoreBand.NOT_QUALIFIED
-

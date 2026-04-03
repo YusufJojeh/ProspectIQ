@@ -1,16 +1,20 @@
-from typing import Generic, TypeVar
+from typing import Any
 
 from pydantic import BaseModel
 
-T = TypeVar("T")
 
-
-class ApiEnvelope(BaseModel, Generic[T]):
+class ApiEnvelope[T](BaseModel):
     data: T
 
 
-class HealthStatus(BaseModel):
-    status: str
+class ErrorDetail(BaseModel):
+    code: str
+    detail: str
+    fields: list[dict[str, Any]] | None = None
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
 
 
 class HealthCheckResponse(BaseModel):

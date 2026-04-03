@@ -1,13 +1,15 @@
 from app.shared.responses.envelope import (
     ApiEnvelope,
     DatabaseHealthResponse,
+    ErrorDetail,
+    ErrorResponse,
     HealthCheckResponse,
-    HealthStatus,
 )
 
 __all__ = [
     "ApiEnvelope",
     "DatabaseHealthResponse",
+    "ErrorDetail",
+    "ErrorResponse",
     "HealthCheckResponse",
-    "HealthStatus",
 ]

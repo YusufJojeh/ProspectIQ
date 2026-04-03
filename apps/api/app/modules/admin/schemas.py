@@ -21,7 +21,7 @@ class ProviderSettingsUpdateRequest(BaseModel):
     hl: str | None = Field(default=None, max_length=16)
     gl: str | None = Field(default=None, max_length=16)
     google_domain: str | None = Field(default=None, max_length=64)
-    enrich_top_n: int | None = Field(default=None, ge=1, le=100)
+    enrich_top_n: int | None = Field(default=None, ge=0, le=100)
 
 
 __all__ = [
@@ -32,4 +32,3 @@ __all__ = [
     "ProviderSettingsResponse",
     "ProviderSettingsUpdateRequest",
 ]
-

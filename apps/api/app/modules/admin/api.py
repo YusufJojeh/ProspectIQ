@@ -46,6 +46,7 @@ def create_scoring_version(
         db,
         workspace_id=workspace_id,
         created_by=current_user,
+        actor=current_user,
         payload=payload,
     )
 
@@ -55,9 +56,14 @@ def activate_scoring_version(
     version_id: str,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin")),
 ) -> ActiveScoringConfigResponse:
-    return AdminService().activate_scoring_version(db, workspace_id=workspace_id, version_public_id=version_id)
+    return AdminService().activate_scoring_version(
+        db,
+        workspace_id=workspace_id,
+        version_public_id=version_id,
+        actor=current_user,
+    )
 
 
 @router.get("/provider-settings", response_model=ProviderSettingsResponse)
@@ -74,7 +80,11 @@ def update_provider_settings(
     payload: ProviderSettingsUpdateRequest,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin")),
 ) -> ProviderSettingsResponse:
-    return AdminService().update_provider_settings(db, workspace_id=workspace_id, payload=payload)
-
+    return AdminService().update_provider_settings(
+        db,
+        workspace_id=workspace_id,
+        payload=payload,
+        actor=current_user,
+    )

@@ -1,11 +1,92 @@
-from sqlalchemy import func, select
+from typing import Any
+
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.modules.leads.models import Lead
+from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
 from app.modules.scoring.models import LeadScore
+from app.modules.users.models import User
 
 
 class LeadsRepository:
+    def _latest_scores_subquery(self) -> Any:
+        latest_scored_at = (
+            select(
+                LeadScore.lead_id.label("lead_id"),
+                func.max(LeadScore.scored_at).label("max_scored_at"),
+            )
+            .group_by(LeadScore.lead_id)
+            .subquery()
+        )
+        return (
+            select(
+                LeadScore.lead_id.label("lead_id"),
+                LeadScore.total_score.label("total_score"),
+                LeadScore.band.label("band"),
+            )
+            .join(
+                latest_scored_at,
+                and_(
+                    LeadScore.lead_id == latest_scored_at.c.lead_id,
+                    LeadScore.scored_at == latest_scored_at.c.max_scored_at,
+                ),
+            )
+            .subquery()
+        )
+
+    def _filtered_statements(
+        self,
+        *,
+        workspace_id: int,
+        status: str | None,
+        search_job_public_id: str | None,
+        has_website: bool | None,
+        q: str | None,
+        city: str | None,
+        band: str | None,
+    ) -> tuple[Any, Any]:
+        statement = select(Lead).select_from(Lead).where(Lead.workspace_id == workspace_id)
+        count_statement = (
+            select(func.count(Lead.id)).select_from(Lead).where(Lead.workspace_id == workspace_id)
+        )
+
+        if status is not None:
+            statement = statement.where(Lead.status == status)
+            count_statement = count_statement.where(Lead.status == status)
+        if search_job_public_id is not None:
+            from app.modules.search_jobs.models import SearchJob  # local import to avoid cycles
+
+            statement = statement.join(SearchJob).where(SearchJob.public_id == search_job_public_id)
+            count_statement = count_statement.join(SearchJob).where(
+                SearchJob.public_id == search_job_public_id
+            )
+        if has_website is not None:
+            statement = statement.where(Lead.has_website == has_website)
+            count_statement = count_statement.where(Lead.has_website == has_website)
+        if q:
+            pattern = f"%{q.strip()}%"
+            query_filter = or_(
+                Lead.company_name.ilike(pattern),
+                Lead.city.ilike(pattern),
+                Lead.address.ilike(pattern),
+                Lead.website_domain.ilike(pattern),
+            )
+            statement = statement.where(query_filter)
+            count_statement = count_statement.where(query_filter)
+        if city:
+            city_filter = Lead.city.ilike(f"%{city.strip()}%")
+            statement = statement.where(city_filter)
+            count_statement = count_statement.where(city_filter)
+        if band:
+            latest_scores = self._latest_scores_subquery()
+            statement = statement.outerjoin(
+                latest_scores, latest_scores.c.lead_id == Lead.id
+            ).where(latest_scores.c.band == band)
+            count_statement = count_statement.outerjoin(
+                latest_scores, latest_scores.c.lead_id == Lead.id
+            ).where(latest_scores.c.band == band)
+        return statement, count_statement
+
     def list_paginated(
         self,
         db: Session,
@@ -16,22 +97,48 @@ class LeadsRepository:
         status: str | None,
         search_job_public_id: str | None,
         has_website: bool | None,
+        q: str | None = None,
+        city: str | None = None,
+        band: str | None = None,
     ) -> tuple[list[Lead], int]:
-        statement = select(Lead).where(Lead.workspace_id == workspace_id)
-        count_statement = select(func.count(Lead.id)).where(Lead.workspace_id == workspace_id)
-        if status is not None:
-            statement = statement.where(Lead.status == status)
-            count_statement = count_statement.where(Lead.status == status)
-        if search_job_public_id is not None:
-            from app.modules.search_jobs.models import SearchJob  # local import to avoid cycles
-
-            statement = statement.join(SearchJob).where(SearchJob.public_id == search_job_public_id)
-            count_statement = count_statement.join(SearchJob).where(SearchJob.public_id == search_job_public_id)
-        if has_website is not None:
-            statement = statement.where(Lead.has_website == has_website)
-            count_statement = count_statement.where(Lead.has_website == has_website)
-        statement = statement.order_by(Lead.updated_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        statement, count_statement = self._filtered_statements(
+            workspace_id=workspace_id,
+            status=status,
+            search_job_public_id=search_job_public_id,
+            has_website=has_website,
+            q=q,
+            city=city,
+            band=band,
+        )
+        statement = (
+            statement.order_by(Lead.updated_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         return list(db.scalars(statement)), int(db.scalar(count_statement) or 0)
+
+    def list_all(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        status: str | None,
+        search_job_public_id: str | None,
+        has_website: bool | None,
+        q: str | None = None,
+        city: str | None = None,
+        band: str | None = None,
+    ) -> list[Lead]:
+        statement, _ = self._filtered_statements(
+            workspace_id=workspace_id,
+            status=status,
+            search_job_public_id=search_job_public_id,
+            has_website=has_website,
+            q=q,
+            city=city,
+            band=band,
+        )
+        return list(db.scalars(statement.order_by(Lead.updated_at.desc())))
 
     def get_by_public_id(self, db: Session, public_id: str) -> Lead | None:
         return db.scalar(select(Lead).where(Lead.public_id == public_id))
@@ -41,6 +148,40 @@ class LeadsRepository:
         db.commit()
         db.refresh(lead)
         return lead
+
+    def add_note(self, db: Session, note: LeadNote) -> LeadNote:
+        db.add(note)
+        db.commit()
+        db.refresh(note)
+        return note
+
+    def list_notes(
+        self, db: Session, lead_id: int
+    ) -> list[tuple[LeadNote, str | None, str | None]]:
+        statement = (
+            select(LeadNote, User.public_id, User.full_name)
+            .outerjoin(User, User.id == LeadNote.created_by_user_id)
+            .where(LeadNote.lead_id == lead_id)
+            .order_by(LeadNote.created_at.desc(), LeadNote.id.desc())
+        )
+        return [
+            (note, actor_public_id, actor_full_name)
+            for note, actor_public_id, actor_full_name in db.execute(statement).all()
+        ]
+
+    def list_status_history(
+        self, db: Session, lead_id: int
+    ) -> list[tuple[LeadStatusHistory, str | None, str | None]]:
+        statement = (
+            select(LeadStatusHistory, User.public_id, User.full_name)
+            .outerjoin(User, User.id == LeadStatusHistory.changed_by_user_id)
+            .where(LeadStatusHistory.lead_id == lead_id)
+            .order_by(LeadStatusHistory.changed_at.desc(), LeadStatusHistory.id.desc())
+        )
+        return [
+            (history, actor_public_id, actor_full_name)
+            for history, actor_public_id, actor_full_name in db.execute(statement).all()
+        ]
 
     def get_latest_scores(self, db: Session, lead_ids: list[int]) -> dict[int, LeadScore]:
         if not lead_ids:

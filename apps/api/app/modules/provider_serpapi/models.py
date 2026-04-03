@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -26,14 +27,18 @@ class ProviderFetch(Base):
     __tablename__ = "provider_fetches"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    public_id: Mapped[str] = mapped_column(String(24), unique=True, default=lambda: new_public_id("pf"))
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("pf")
+    )
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     provider: Mapped[str] = mapped_column(String(32), default="serpapi")
     engine: Mapped[str] = mapped_column(String(32))
     mode: Mapped[str] = mapped_column(String(32))
-    search_job_id: Mapped[int | None] = mapped_column(ForeignKey("search_jobs.id"), index=True, nullable=True)
+    search_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("search_jobs.id"), index=True, nullable=True
+    )
     request_fingerprint: Mapped[str] = mapped_column(String(64), index=True)
-    request_params_json: Mapped[dict] = mapped_column(JSON())
+    request_params_json: Mapped[dict[str, Any]] = mapped_column(JSON())
     serpapi_search_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="ok")
     http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -42,7 +47,9 @@ class ProviderFetch(Base):
     error_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
     attempt: Mapped[int] = mapped_column(Integer, default=1)
 
-    raw_payloads = relationship("ProviderRawPayload", back_populates="provider_fetch", cascade="all, delete-orphan")
+    raw_payloads = relationship(
+        "ProviderRawPayload", back_populates="provider_fetch", cascade="all, delete-orphan"
+    )
 
 
 class ProviderRawPayload(Base):
@@ -50,7 +57,7 @@ class ProviderRawPayload(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     provider_fetch_id: Mapped[int] = mapped_column(ForeignKey("provider_fetches.id"), index=True)
-    payload_json: Mapped[dict] = mapped_column(JSON())
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON())
     payload_sha256: Mapped[str] = mapped_column(String(64), index=True)
     captured_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
 
@@ -59,6 +66,14 @@ class ProviderRawPayload(Base):
 
 class ProviderNormalizedFact(Base):
     __tablename__ = "provider_normalized_facts"
+    __table_args__ = (
+        Index(
+            "ix_provider_normalized_facts_lead_source_created_at",
+            "lead_id",
+            "source_type",
+            "created_at",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -82,7 +97,7 @@ class ProviderNormalizedFact(Base):
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=0.7)
     completeness: Mapped[float] = mapped_column(Float, default=0.5)
-    facts_json: Mapped[dict] = mapped_column(JSON(), default=dict)
+    facts_json: Mapped[dict[str, Any]] = mapped_column(JSON(), default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
 
 
@@ -91,7 +106,9 @@ class LeadSourceRecord(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
-    provider_normalized_fact_id: Mapped[int] = mapped_column(ForeignKey("provider_normalized_facts.id"), index=True)
+    provider_normalized_fact_id: Mapped[int] = mapped_column(
+        ForeignKey("provider_normalized_facts.id"), index=True
+    )
     priority: Mapped[int] = mapped_column(Integer, default=100)
     is_current: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
@@ -106,4 +123,3 @@ class LeadIdentity(Base):
     identity_type: Mapped[str] = mapped_column(String(32))
     identity_value: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
-

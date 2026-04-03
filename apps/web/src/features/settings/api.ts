@@ -1,10 +1,38 @@
 import { request } from "@/lib/api-client";
-import type { ActiveScoringConfigResponse, ProviderSettingsResponse } from "@/types/api";
+import type {
+  ActiveScoringConfigResponse,
+  AuditLogListResponse,
+  ProviderSettingsResponse,
+  ProviderSettingsUpdateRequest,
+  ScoringConfigVersionResponse,
+  ScoringConfigVersionCreateRequest,
+  ScoringConfigVersionListResponse,
+} from "@/types/api";
 
 export function getActiveScoringConfig() {
   return request<ActiveScoringConfigResponse>("/api/v1/admin/scoring-config/active");
 }
 
+export function listScoringVersions() {
+  return request<ScoringConfigVersionListResponse>("/api/v1/admin/scoring-config/versions");
+}
+
+export function createScoringVersion(payload: ScoringConfigVersionCreateRequest) {
+  return request<ScoringConfigVersionResponse>("/api/v1/admin/scoring-config/versions", { method: "POST" }, payload);
+}
+
+export function activateScoringVersion(versionId: string) {
+  return request<ActiveScoringConfigResponse>(`/api/v1/admin/scoring-config/activate/${versionId}`, { method: "POST" });
+}
+
 export function getProviderSettings() {
   return request<ProviderSettingsResponse>("/api/v1/admin/provider-settings");
+}
+
+export function updateProviderSettings(payload: ProviderSettingsUpdateRequest) {
+  return request<ProviderSettingsResponse>("/api/v1/admin/provider-settings", { method: "PATCH" }, payload);
+}
+
+export function listAuditLogs() {
+  return request<AuditLogListResponse>("/api/v1/audit-logs");
 }

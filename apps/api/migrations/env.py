@@ -7,6 +7,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.core.database import Base
+from app.modules.admin import models as admin_models  # noqa: F401
 
 # Import models so Base.metadata is populated for autogenerate.
 from app.modules.ai_analysis import models as ai_models  # noqa: F401

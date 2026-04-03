@@ -4,8 +4,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
-from app.modules.leads.schemas import LeadEvidenceItem, LeadScoreBreakdownResponse, ScoreBreakdownItem
-from app.modules.provider_serpapi.models import ProviderNormalizedFact
+from app.modules.leads.schemas import (
+    LeadEvidenceItem,
+    LeadScoreBreakdownResponse,
+    ScoreBreakdownItem,
+)
+from app.modules.provider_serpapi.models import ProviderFetch, ProviderNormalizedFact
 from app.modules.scoring.models import LeadScore, ScoreBreakdown, ScoringConfigVersion
 from app.shared.enums.jobs import LeadScoreBand
 
@@ -13,33 +17,39 @@ from app.shared.enums.jobs import LeadScoreBand
 class ScoringRepository:
     def list_evidence_items(self, db: Session, lead_id: int) -> list[LeadEvidenceItem]:
         statement = (
-            select(ProviderNormalizedFact)
+            select(ProviderNormalizedFact, ProviderFetch)
+            .join(ProviderFetch, ProviderFetch.id == ProviderNormalizedFact.provider_fetch_id)
             .where(ProviderNormalizedFact.lead_id == lead_id)
             .order_by(ProviderNormalizedFact.created_at.desc())
         )
-        items = list(db.scalars(statement))
+        rows = db.execute(statement).all()
         return [
             LeadEvidenceItem(
-                source_type=item.source_type,
-                data_cid=item.data_cid,
-                data_id=item.data_id,
-                place_id=item.place_id,
-                company_name=item.company_name,
-                category=item.category,
-                address=item.address,
-                city=item.city,
-                phone=item.phone,
-                website_url=item.website_url,
-                website_domain=item.website_domain,
-                rating=item.rating,
-                review_count=item.review_count,
-                lat=item.lat,
-                lng=item.lng,
-                confidence=item.confidence,
-                completeness=item.completeness,
-                created_at=item.created_at,
+                source_type=fact.source_type,
+                provider_fetch_public_id=fetch.public_id,
+                provider_status=fetch.status,
+                request_mode=fetch.mode,
+                http_status=fetch.http_status,
+                data_cid=fact.data_cid,
+                data_id=fact.data_id,
+                place_id=fact.place_id,
+                company_name=fact.company_name,
+                category=fact.category,
+                address=fact.address,
+                city=fact.city,
+                phone=fact.phone,
+                website_url=fact.website_url,
+                website_domain=fact.website_domain,
+                rating=fact.rating,
+                review_count=fact.review_count,
+                lat=fact.lat,
+                lng=fact.lng,
+                confidence=fact.confidence,
+                completeness=fact.completeness,
+                facts=fact.facts_json,
+                created_at=fact.created_at,
             )
-            for item in items
+            for fact, fetch in rows
         ]
 
     def get_latest_score_breakdown(self, db: Session, lead_id: int) -> LeadScoreBreakdownResponse:
@@ -56,7 +66,11 @@ class ScoringRepository:
         breakdown_stmt = select(ScoreBreakdown).where(ScoreBreakdown.lead_score_id == score.id)
         breakdown = list(db.scalars(breakdown_stmt))
 
-        version = db.scalar(select(ScoringConfigVersion).where(ScoringConfigVersion.id == score.scoring_config_version_id))
+        version = db.scalar(
+            select(ScoringConfigVersion).where(
+                ScoringConfigVersion.id == score.scoring_config_version_id
+            )
+        )
         version_public_id = version.public_id if version else "unknown"
 
         return LeadScoreBreakdownResponse(

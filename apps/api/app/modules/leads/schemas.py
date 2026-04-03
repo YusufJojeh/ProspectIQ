@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.modules.ai_analysis.schemas import LeadAnalysisResult
 from app.modules.outreach.schemas import OutreachMessageResult
@@ -42,6 +43,10 @@ class LeadStatusUpdateRequest(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+class LeadNoteCreateRequest(BaseModel):
+    note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
 class LeadAnalysisResponse(BaseModel):
     lead_id: str
     analysis: LeadAnalysisResult
@@ -58,6 +63,10 @@ class LeadAssignRequest(BaseModel):
 
 class LeadEvidenceItem(BaseModel):
     source_type: str
+    provider_fetch_public_id: str
+    provider_status: str
+    request_mode: str
+    http_status: int | None
     data_cid: str | None
     data_id: str | None
     place_id: str | None
@@ -74,12 +83,37 @@ class LeadEvidenceItem(BaseModel):
     lng: float | None
     confidence: float
     completeness: float
+    facts: dict[str, Any]
     created_at: datetime
 
 
 class LeadEvidenceResponse(BaseModel):
     lead_id: str
     items: list[LeadEvidenceItem]
+
+
+class LeadNoteResponse(BaseModel):
+    public_id: str
+    note: str
+    actor_user_public_id: str | None
+    actor_full_name: str | None
+    created_at: datetime
+
+
+class LeadActivityEntry(BaseModel):
+    entry_id: str
+    entry_type: Literal["status_change", "note"]
+    actor_user_public_id: str | None
+    actor_full_name: str | None
+    created_at: datetime
+    from_status: LeadStatus | None = None
+    to_status: LeadStatus | None = None
+    note: str | None = None
+
+
+class LeadActivityResponse(BaseModel):
+    lead_id: str
+    items: list[LeadActivityEntry]
 
 
 class ScoreBreakdownItem(BaseModel):

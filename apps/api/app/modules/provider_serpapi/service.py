@@ -8,13 +8,20 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.provider_serpapi.client import ProviderCallResult
-from app.modules.provider_serpapi.client import SerpApiClient, fingerprint_params
+from app.modules.provider_serpapi.client import (
+    ProviderCallResult,
+    SerpApiClient,
+    fingerprint_params,
+)
 from app.modules.provider_serpapi.engines.maps_place import build_maps_place_params, run_maps_place
-from app.modules.provider_serpapi.engines.maps_search import build_maps_search_params, run_maps_search
+from app.modules.provider_serpapi.engines.maps_search import (
+    build_maps_search_params,
+    run_maps_search,
+)
 from app.modules.provider_serpapi.engines.web_search import build_web_search_params, run_web_search
 from app.modules.provider_serpapi.exceptions import RetryableProviderError
 from app.modules.provider_serpapi.models import ProviderFetch, ProviderRawPayload, ProviderSettings
+from app.modules.provider_serpapi.schemas import PlaceLookupKey
 from app.shared.enums.jobs import ProviderFetchStatus
 
 
@@ -46,6 +53,9 @@ class SerpApiService:
         business_type: str,
         city: str,
         region: str | None,
+        radius_km: int | None = None,
+        keyword_filter: str | None = None,
+        page: int = 1,
         attempt: int = 1,
     ) -> tuple[ProviderFetch, dict[str, Any]]:
         settings = self.get_settings(db, workspace_id)
@@ -53,9 +63,12 @@ class SerpApiService:
             business_type=business_type,
             city=city,
             region=region,
+            radius_km=radius_km,
+            keyword_filter=keyword_filter,
             hl=settings.hl,
             gl=settings.gl,
             google_domain=settings.google_domain,
+            page=page,
         )
         return self._run_and_persist(
             db,
@@ -73,12 +86,15 @@ class SerpApiService:
         *,
         workspace_id: int,
         search_job_id: int | None,
-        place_key: str,
+        lookup: PlaceLookupKey,
         attempt: int = 1,
     ) -> tuple[ProviderFetch, dict[str, Any]]:
         settings = self.get_settings(db, workspace_id)
         params = build_maps_place_params(
-            place_key=place_key, hl=settings.hl, gl=settings.gl, google_domain=settings.google_domain
+            lookup=lookup,
+            hl=settings.hl,
+            gl=settings.gl,
+            google_domain=settings.google_domain,
         )
         return self._run_and_persist(
             db,
@@ -183,7 +199,9 @@ class SerpApiService:
     def _resolve_fetch_status(self, result: ProviderCallResult) -> str:
         if result.ok:
             return ProviderFetchStatus.OK.value
-        if result.status_code == 429:
+        if result.status_code == 429 or (
+            result.error_message and "rate limit" in result.error_message.lower()
+        ):
             return ProviderFetchStatus.RATE_LIMITED.value
         if result.error_message and "timeout" in result.error_message.lower():
             return ProviderFetchStatus.TIMEOUT.value

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import select
 
 from app.core.database import SessionLocal
 from app.modules.ai_analysis.models import PromptTemplate
@@ -22,7 +23,9 @@ def seed() -> None:
     with SessionLocal() as db:
         workspace, admin = seed_default_workspace_and_admin(db)
 
-        existing_provider_settings = db.query(ProviderSettings).filter(ProviderSettings.workspace_id == workspace.id).one_or_none()
+        existing_provider_settings = db.scalar(
+            select(ProviderSettings).where(ProviderSettings.workspace_id == workspace.id)
+        )
         if existing_provider_settings is None:
             db.add(
                 ProviderSettings(
@@ -35,7 +38,11 @@ def seed() -> None:
             )
             db.commit()
 
-        active = db.query(WorkspaceScoringActive).filter(WorkspaceScoringActive.workspace_id == workspace.id).one_or_none()
+        active = db.scalar(
+            select(WorkspaceScoringActive).where(
+                WorkspaceScoringActive.workspace_id == workspace.id
+            )
+        )
         if active is None:
             version = ScoringConfigVersion(
                 workspace_id=workspace.id,
@@ -67,13 +74,21 @@ def seed() -> None:
             )
             db.commit()
 
-        prompt = db.query(PromptTemplate).filter(PromptTemplate.workspace_id == workspace.id, PromptTemplate.is_active == True).first()  # noqa: E712
+        prompt = db.scalar(
+            select(PromptTemplate).where(
+                PromptTemplate.workspace_id == workspace.id,
+                PromptTemplate.is_active.is_(True),
+            )
+        )
         if prompt is None:
             db.add(
                 PromptTemplate(
                     workspace_id=workspace.id,
                     name="Default lead analysis",
-                    template_text="Analyze the lead using only normalized facts and deterministic score context.",
+                    template_text=(
+                        "Analyze the lead using only normalized facts and deterministic "
+                        "score context."
+                    ),
                     is_active=True,
                     created_by_user_id=admin.id,
                 )
@@ -82,8 +97,12 @@ def seed() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed LeadScope AI (ProspectIQ) database.")
-    parser.add_argument("--migrate", action="store_true", help="Run alembic migrations before seeding.")
+    parser = argparse.ArgumentParser(description="Seed the LeadScope AI database.")
+    parser.add_argument(
+        "--migrate",
+        action="store_true",
+        help="Run alembic migrations before seeding.",
+    )
     args = parser.parse_args()
 
     if args.migrate:

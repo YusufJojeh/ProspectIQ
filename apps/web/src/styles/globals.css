@@ -5,14 +5,21 @@
 @tailwind utilities;
 
 :root {
-  --bg: #edf2ee;
-  --panel: rgba(250, 252, 250, 0.88);
-  --surface-soft: #eef6f3;
-  --text: #17211d;
-  --muted: #5f6f68;
-  --border: rgba(23, 33, 29, 0.1);
+  --bg: #eef2ec;
+  --bg-strong: #dfe7de;
+  --panel: rgba(252, 254, 252, 0.9);
+  --panel-strong: #ffffff;
+  --surface-soft: #edf4ef;
+  --surface-raised: #f7faf8;
+  --text: #18221d;
+  --muted: #617167;
+  --border: rgba(24, 34, 29, 0.1);
+  --border-strong: rgba(24, 34, 29, 0.18);
   --accent: #0f766e;
-  --accent-soft: #d6f1eb;
+  --accent-soft: #d3f0ea;
+  --accent-ink: #0a4d47;
+  --warning: #b45309;
+  --warning-soft: #ffedd5;
 }
 
 * {
@@ -28,9 +35,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.1), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(180, 83, 9, 0.08), transparent 22%),
-    linear-gradient(180deg, #f7faf7 0%, #ebf1ec 100%);
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(180, 83, 9, 0.08), transparent 24%),
+    linear-gradient(180deg, #f8fbf8 0%, #ebf1ec 100%);
   color: var(--text);
   font-family: Manrope, sans-serif;
 }
@@ -49,4 +56,15 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 1rem;
+  font-family: Manrope, sans-serif;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
 }

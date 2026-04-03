@@ -1,16 +1,28 @@
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
 import { AppProviders } from "@/app/providers";
 import { AppShell } from "@/app/layouts/app-shell";
+import { useAuthSession } from "@/features/auth/session";
 import { LoginPage } from "@/features/auth/routes/login-page";
 import { DashboardPage } from "@/features/dashboard/routes/dashboard-page";
 import { LeadDetailPage } from "@/features/lead-detail/routes/lead-detail-page";
 import { LeadsPage } from "@/features/leads/routes/leads-page";
 import { SearchesPage } from "@/features/searches/routes/searches-page";
 import { SettingsPage } from "@/features/settings/routes/settings-page";
-import { readToken } from "@/lib/api-client";
+
+function LoginRoute() {
+  const { isAuthenticated } = useAuthSession();
+
+  if (isAuthenticated) {
+    return <Navigate replace to="/" />;
+  }
+
+  return <LoginPage />;
+}
 
 function ProtectedShell() {
-  if (!readToken()) {
+  const { isAuthenticated } = useAuthSession();
+
+  if (!isAuthenticated) {
     return <Navigate replace to="/login" />;
   }
 
@@ -24,7 +36,7 @@ function ProtectedShell() {
 const router = createBrowserRouter([
   {
     path: "/login",
-    element: <LoginPage />,
+    element: <LoginRoute />,
   },
   {
     path: "/",

@@ -1,17 +1,118 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, Download, RefreshCw, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { listLeads } from "@/features/leads/api";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import {
+  assignLead,
+  analyzeLead,
+  downloadLeadsExport,
+  generateLeadOutreach,
+  getLead,
+  listLeads,
+  refreshLead,
+  updateLeadStatus,
+} from "@/features/leads/api";
+import { LeadMap } from "@/features/leads/components/lead-map";
+import { listSearchJobs } from "@/features/searches/api";
+import { listUsers } from "@/features/users/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { bandTone, formatScore, statusTone, titleCaseLabel } from "@/lib/presenters";
+import type { LeadAnalysisResult, LeadScoreBand, LeadStatus, OutreachMessageResult } from "@/types/api";
 
 export function LeadsPage() {
   useDocumentTitle("Leads");
+  const queryClient = useQueryClient();
+  const [q, setQ] = useState("");
+  const [city, setCity] = useState("");
+  const [status, setStatus] = useState<LeadStatus | "all">("all");
+  const [band, setBand] = useState<LeadScoreBand | "all">("all");
+  const [hasWebsite, setHasWebsite] = useState<"all" | "true" | "false">("all");
+  const [searchJobId, setSearchJobId] = useState<"all" | string>("all");
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [analysisPreview, setAnalysisPreview] = useState<LeadAnalysisResult | null>(null);
+  const [outreachPreview, setOutreachPreview] = useState<OutreachMessageResult | null>(null);
+
   const leadsQuery = useQuery({
-    queryKey: ["leads", "table"],
-    queryFn: listLeads,
+    queryKey: ["leads", "table", { q, city, status, band, hasWebsite, searchJobId }],
+    queryFn: () =>
+      listLeads({
+        page_size: 50,
+        q: q || undefined,
+        city: city || undefined,
+        status,
+        band,
+        search_job_id: searchJobId,
+        has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
+      }),
+  });
+  const jobsQuery = useQuery({
+    queryKey: ["search-jobs", "filters"],
+    queryFn: listSearchJobs,
+  });
+  const usersQuery = useQuery({
+    queryKey: ["users", "workspace"],
+    queryFn: listUsers,
+  });
+  const selectedLeadQuery = useQuery({
+    queryKey: ["lead", selectedLeadId, "workspace-panel"],
+    queryFn: () => getLead(selectedLeadId ?? ""),
+    enabled: Boolean(selectedLeadId),
+  });
+
+  useEffect(() => {
+    const leads = leadsQuery.data?.items ?? [];
+    if (leads.length === 0) {
+      setSelectedLeadId(null);
+      return;
+    }
+    if (!selectedLeadId || !leads.some((lead) => lead.public_id === selectedLeadId)) {
+      setSelectedLeadId(leads[0].public_id);
+    }
+  }, [leadsQuery.data?.items, selectedLeadId]);
+
+  useEffect(() => {
+    setAnalysisPreview(null);
+    setOutreachPreview(null);
+  }, [selectedLeadId]);
+
+  const invalidateLeadQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["leads"] });
+    queryClient.invalidateQueries({ queryKey: ["lead"] });
+  };
+
+  const statusMutation = useMutation({
+    mutationFn: ({ leadId, nextStatus }: { leadId: string; nextStatus: LeadStatus }) =>
+      updateLeadStatus(leadId, nextStatus),
+    onSuccess: invalidateLeadQueries,
+  });
+  const assignMutation = useMutation({
+    mutationFn: ({ leadId, assigneeId }: { leadId: string; assigneeId: string | null }) =>
+      assignLead(leadId, assigneeId),
+    onSuccess: invalidateLeadQueries,
+  });
+  const analysisMutation = useMutation({
+    mutationFn: (leadId: string) => analyzeLead(leadId),
+    onSuccess: (payload) => setAnalysisPreview(payload.analysis),
+  });
+  const outreachMutation = useMutation({
+    mutationFn: (leadId: string) => generateLeadOutreach(leadId),
+    onSuccess: (payload) => setOutreachPreview(payload.message),
+  });
+  const refreshMutation = useMutation({
+    mutationFn: (leadId: string) => refreshLead(leadId),
+    onSuccess: (payload) => {
+      invalidateLeadQueries();
+      setSelectedLeadId(payload.public_id);
+      setAnalysisPreview(null);
+      setOutreachPreview(null);
+    },
   });
 
   if (leadsQuery.isError) {
@@ -23,75 +124,276 @@ export function LeadsPage() {
     );
   }
 
-  if (!leadsQuery.data) {
-    return (
-      <p className="text-sm text-[color:var(--muted)]">Loading leads...</p>
-    );
+  if (!leadsQuery.data || jobsQuery.isLoading || usersQuery.isLoading) {
+    return <p className="text-sm text-[color:var(--muted)]">Loading leads...</p>;
   }
 
   const leads = leadsQuery.data.items;
+  const selectedLead = selectedLeadQuery.data ?? leads.find((lead) => lead.public_id === selectedLeadId) ?? null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Leads"
-        title="Persisted lead records"
-        description="This table stays empty until the evidence pipeline starts writing normalized lead records."
+        title="Qualification workspace"
+        description="Filter live leads, inspect score signals, navigate the current geography, and draft the next action from stored evidence."
+        action={
+          <Button
+            variant="secondary"
+            onClick={() =>
+              void downloadLeadsExport({
+                q: q || undefined,
+                city: city || undefined,
+                status,
+                band,
+                search_job_id: searchJobId,
+                has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
+              })
+            }
+          >
+            <Download className="me-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lead queue</CardTitle>
-          <CardDescription>Live API data only. No generated sample rows are rendered here.</CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-hidden p-0">
-          {leads.length === 0 ? (
-            <div className="p-5">
-              <EmptyState
-                title="No leads available"
-                description="Leads will appear here once search discovery and normalization are implemented."
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[color:var(--border)] text-left text-sm">
-                <thead className="bg-[color:var(--surface-soft)] text-[color:var(--muted)]">
-                  <tr>
-                    <th className="px-5 py-3 font-semibold">Company</th>
-                    <th className="px-5 py-3 font-semibold">City</th>
-                    <th className="px-5 py-3 font-semibold">Band</th>
-                    <th className="px-5 py-3 font-semibold">Score</th>
-                    <th className="px-5 py-3 font-semibold">Status</th>
-                    <th className="px-5 py-3 font-semibold">Website</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[color:var(--border)]">
-                  {leads.map((lead) => (
-                    <tr key={lead.public_id} className="bg-white/70">
-                      <td className="px-5 py-4">
-                        <Link className="font-semibold hover:text-[color:var(--accent)]" to={`/leads/${lead.public_id}`}>
-                          {lead.company_name}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-4 text-[color:var(--muted)]">{lead.city ?? "Unknown"}</td>
-                      <td className="px-5 py-4">
-                        <Badge tone={lead.latest_band === "high" ? "warning" : "accent"}>
-                          {lead.latest_band ?? "unscored"}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4">{lead.latest_score ? Math.round(lead.latest_score) : "N/A"}</td>
-                      <td className="px-5 py-4">
-                        <Badge tone="neutral">{lead.status}</Badge>
-                      </td>
-                      <td className="px-5 py-4 text-[color:var(--muted)]">{lead.website_domain ?? "Missing"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Filters</CardTitle>
+              <CardDescription>Table, map, and export all use the same backend query filters.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <Input placeholder="Search company, city, domain" value={q} onChange={(event) => setQ(event.target.value)} />
+              <Input placeholder="Filter by city" value={city} onChange={(event) => setCity(event.target.value)} />
+              <Select value={searchJobId} onChange={(event) => setSearchJobId(event.target.value)}>
+                <option value="all">All search jobs</option>
+                {(jobsQuery.data?.items ?? []).map((job) => (
+                  <option key={job.public_id} value={job.public_id}>
+                    {job.business_type} / {job.city}
+                  </option>
+                ))}
+              </Select>
+              <Select value={status} onChange={(event) => setStatus(event.target.value as LeadStatus | "all")}>
+                <option value="all">All statuses</option>
+                <option value="new">New</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="qualified">Qualified</option>
+                <option value="contacted">Contacted</option>
+                <option value="interested">Interested</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
+                <option value="archived">Archived</option>
+              </Select>
+              <Select value={band} onChange={(event) => setBand(event.target.value as LeadScoreBand | "all")}>
+                <option value="all">All score bands</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="not_qualified">Not qualified</option>
+              </Select>
+              <Select value={hasWebsite} onChange={(event) => setHasWebsite(event.target.value as "all" | "true" | "false")}>
+                <option value="all">Any website state</option>
+                <option value="true">Has website</option>
+                <option value="false">Missing website</option>
+              </Select>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Lead queue</CardTitle>
+              <CardDescription>Rows remain tied to live API data and persisted score bands.</CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-hidden p-0">
+              {leads.length === 0 ? (
+                <div className="p-5">
+                  <EmptyState
+                    title="No leads match the current filters"
+                    description="Adjust the filters or queue another discovery job to expand the current lead pool."
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-[color:var(--border)] text-left text-sm">
+                    <thead className="bg-[color:var(--surface-soft)] text-[color:var(--muted)]">
+                      <tr>
+                        <th className="px-5 py-3 font-semibold">Company</th>
+                        <th className="px-5 py-3 font-semibold">City</th>
+                        <th className="px-5 py-3 font-semibold">Band</th>
+                        <th className="px-5 py-3 font-semibold">Score</th>
+                        <th className="px-5 py-3 font-semibold">Status</th>
+                        <th className="px-5 py-3 font-semibold">Website</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[color:var(--border)]">
+                      {leads.map((lead) => (
+                        <tr
+                          key={lead.public_id}
+                          className={lead.public_id === selectedLeadId ? "bg-[color:var(--accent-soft)]/60" : "bg-white/70"}
+                          onClick={() => setSelectedLeadId(lead.public_id)}
+                        >
+                          <td className="px-5 py-4">
+                            <Link className="font-semibold hover:text-[color:var(--accent)]" to={`/leads/${lead.public_id}`}>
+                              {lead.company_name}
+                            </Link>
+                          </td>
+                          <td className="px-5 py-4 text-[color:var(--muted)]">{lead.city ?? "Unknown"}</td>
+                          <td className="px-5 py-4">
+                            <Badge tone={bandTone(lead.latest_band)}>
+                              {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
+                            </Badge>
+                          </td>
+                          <td className="px-5 py-4">{formatScore(lead.latest_score)}</td>
+                          <td className="px-5 py-4">
+                            <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
+                          </td>
+                          <td className="px-5 py-4 text-[color:var(--muted)]">{lead.website_domain ?? "Missing"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lead map</CardTitle>
+              <CardDescription>Markers stay synchronized with the current filter set and selected lead.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[320px] p-3">
+              {leads.filter((lead) => lead.lat !== null && lead.lng !== null).length === 0 ? (
+                <EmptyState
+                  title="No map coordinates available"
+                  description="When provider evidence includes locations, matching leads will appear here."
+                  className="h-full"
+                />
+              ) : (
+                <LeadMap className="h-full" leads={leads} selectedLeadId={selectedLeadId} onSelect={setSelectedLeadId} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Selected lead</CardTitle>
+              <CardDescription>Use quick actions here, then open the full detail view for deeper evidence review.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!selectedLead ? (
+                <p className="text-sm text-[color:var(--muted)]">Select a lead from the queue to inspect it.</p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-lg font-bold">{selectedLead.company_name}</p>
+                    <p className="mt-1 text-sm text-[color:var(--muted)]">
+                      {selectedLead.city ?? "Unknown city"} / {selectedLead.website_domain ?? "No website found"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone={bandTone(selectedLead.latest_band)}>
+                      {selectedLead.latest_band ? titleCaseLabel(selectedLead.latest_band) : "Unscored"}
+                    </Badge>
+                    <Badge tone={statusTone(selectedLead.status)}>{titleCaseLabel(selectedLead.status)}</Badge>
+                    <Badge tone="neutral">{formatScore(selectedLead.latest_score)}</Badge>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">Rating</p>
+                      <p className="mt-2 text-xl font-extrabold">{selectedLead.rating ?? "N/A"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">Reviews</p>
+                      <p className="mt-2 text-xl font-extrabold">{selectedLead.review_count}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Assign owner</label>
+                    <Select
+                      value={selectedLead.assigned_to_user_public_id ?? ""}
+                      onChange={(event) =>
+                        assignMutation.mutate({
+                          leadId: selectedLead.public_id,
+                          assigneeId: event.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      {(usersQuery.data?.items ?? []).map((user) => (
+                        <option key={user.public_id} value={user.public_id}>
+                          {user.full_name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "reviewed" })}
+                    >
+                      Mark reviewed
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "qualified" })}
+                    >
+                      Mark qualified
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "contacted" })}
+                    >
+                      Mark contacted
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => refreshMutation.mutate(selectedLead.public_id)}
+                      disabled={refreshMutation.isPending}
+                    >
+                      <RefreshCw className="me-2 h-4 w-4" />
+                      {refreshMutation.isPending ? "Refreshing..." : "Refresh lead"}
+                    </Button>
+                    <Button variant="secondary" onClick={() => analysisMutation.mutate(selectedLead.public_id)}>
+                      <Sparkles className="me-2 h-4 w-4" />
+                      Generate analysis
+                    </Button>
+                    <Button variant="secondary" onClick={() => outreachMutation.mutate(selectedLead.public_id)}>
+                      Draft outreach
+                    </Button>
+                  </div>
+                  {analysisPreview ? (
+                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+                      <p className="font-semibold">Analysis summary</p>
+                      <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{analysisPreview.summary}</p>
+                    </div>
+                  ) : null}
+                  {outreachPreview ? (
+                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+                      <p className="font-semibold">{outreachPreview.subject}</p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[color:var(--muted)]">
+                        {outreachPreview.message}
+                      </p>
+                    </div>
+                  ) : null}
+                  <Button asChild className="w-full justify-center">
+                    <Link to={`/leads/${selectedLead.public_id}`}>
+                      Open lead detail
+                      <ArrowRight className="ms-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

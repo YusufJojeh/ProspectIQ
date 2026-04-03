@@ -9,10 +9,20 @@ class UsersRepository:
         return db.scalar(select(User).where(User.workspace_id == workspace_id, User.email == email))
 
     def get_by_public_id(self, db: Session, workspace_id: int, public_id: str) -> User | None:
-        return db.scalar(select(User).where(User.workspace_id == workspace_id, User.public_id == public_id))
+        return db.scalar(
+            select(User).where(User.workspace_id == workspace_id, User.public_id == public_id)
+        )
 
     def get_workspace_by_public_id(self, db: Session, public_id: str) -> Workspace | None:
         return db.scalar(select(Workspace).where(Workspace.public_id == public_id))
+
+    def list_for_workspace(self, db: Session, workspace_id: int) -> list[User]:
+        statement = (
+            select(User)
+            .where(User.workspace_id == workspace_id)
+            .order_by(User.full_name.asc(), User.email.asc())
+        )
+        return list(db.scalars(statement))
 
     def add(self, db: Session, user: User) -> User:
         db.add(user)

@@ -1,2 +1,1 @@
-"""ProspectIQ API package."""
-
+"""LeadScope AI API package."""

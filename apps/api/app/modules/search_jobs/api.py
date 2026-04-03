@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
-from app.modules.search_jobs.schemas import SearchJobCreateRequest, SearchJobListResponse, SearchJobResponse
+from app.modules.search_jobs.schemas import (
+    SearchJobCreateRequest,
+    SearchJobListResponse,
+    SearchJobResponse,
+)
 from app.modules.search_jobs.service import SearchJobService
 from app.modules.users.models import User
 from app.workers.orchestration.lead_discovery import LeadDiscoveryOrchestrator

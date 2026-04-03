@@ -1,4 +1,5 @@
-export type UserRole = "admin" | "manager" | "sales";
+export type UserRole = "admin" | "agency_manager" | "sales_user";
+export type WebsitePreference = "any" | "must_have" | "must_be_missing";
 
 export type SearchJobStatus =
   | "queued"
@@ -50,10 +51,14 @@ export interface SearchJobCreateRequest {
   business_type: string;
   city: string;
   region?: string;
+  radius_km?: number;
   max_results: number;
   min_rating?: number;
+  max_rating?: number;
   min_reviews?: number;
-  require_website: boolean;
+  max_reviews?: number;
+  website_preference: WebsitePreference;
+  keyword_filter?: string;
 }
 
 export interface SearchJobResponse {
@@ -61,10 +66,14 @@ export interface SearchJobResponse {
   business_type: string;
   city: string;
   region: string | null;
+  radius_km: number | null;
   max_results: number;
   min_rating: number | null;
+  max_rating: number | null;
   min_reviews: number | null;
-  require_website: boolean;
+  max_reviews: number | null;
+  website_preference: WebsitePreference;
+  keyword_filter: string | null;
   status: SearchJobStatus;
   queued_at: string;
   started_at: string | null;
@@ -110,6 +119,10 @@ export interface LeadListResponse {
 
 export interface LeadEvidenceItem {
   source_type: string;
+  provider_fetch_public_id: string;
+  provider_status: string;
+  request_mode: string;
+  http_status: number | null;
   data_cid: string | null;
   data_id: string | null;
   place_id: string | null;
@@ -126,6 +139,7 @@ export interface LeadEvidenceItem {
   lng: number | null;
   confidence: number;
   completeness: number;
+  facts: Record<string, unknown>;
   created_at: string;
 }
 
@@ -149,6 +163,106 @@ export interface LeadScoreBreakdownResponse {
   band: LeadScoreBand;
   qualified: boolean;
   breakdown: ScoreBreakdownItem[];
+}
+
+export interface LeadAnalysisResult {
+  summary: string;
+  weaknesses: string[];
+  opportunities: string[];
+  recommended_services: string[];
+  outreach_subject: string;
+  outreach_message: string;
+  confidence: number;
+}
+
+export interface ServiceRecommendationResponse {
+  public_id: string;
+  service_name: string;
+  rationale: string | null;
+  confidence: number | null;
+  rank_order: number;
+  created_at: string;
+}
+
+export interface LeadAnalysisSnapshotResponse {
+  public_id: string;
+  lead_id: string;
+  ai_provider: string;
+  model_name: string;
+  created_at: string;
+  analysis: LeadAnalysisResult;
+  service_recommendations: ServiceRecommendationResponse[];
+}
+
+export interface LatestLeadAnalysisResponse {
+  lead_id: string;
+  snapshot: LeadAnalysisSnapshotResponse | null;
+}
+
+export interface LeadAnalysisResponse {
+  lead_id: string;
+  analysis: LeadAnalysisResult;
+}
+
+export interface OutreachMessageResult {
+  subject: string;
+  message: string;
+}
+
+export interface OutreachDraftResponse {
+  public_id: string;
+  lead_id: string;
+  ai_analysis_snapshot_public_id: string;
+  subject: string;
+  message: string;
+  generated_subject: string;
+  generated_message: string;
+  has_manual_edits: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LatestOutreachResponse {
+  lead_id: string;
+  message: OutreachDraftResponse | null;
+}
+
+export interface OutreachMessageUpdateRequest {
+  subject: string;
+  message: string;
+}
+
+export interface LeadOutreachResponse {
+  lead_id: string;
+  message: OutreachMessageResult;
+}
+
+export interface LeadNoteCreateRequest {
+  note: string;
+}
+
+export interface LeadNoteResponse {
+  public_id: string;
+  note: string;
+  actor_user_public_id: string | null;
+  actor_full_name: string | null;
+  created_at: string;
+}
+
+export interface LeadActivityEntry {
+  entry_id: string;
+  entry_type: "status_change" | "note";
+  actor_user_public_id: string | null;
+  actor_full_name: string | null;
+  created_at: string;
+  from_status: LeadStatus | null;
+  to_status: LeadStatus | null;
+  note: string | null;
+}
+
+export interface LeadActivityResponse {
+  lead_id: string;
+  items: LeadActivityEntry[];
 }
 
 export interface ScoringWeights {
@@ -179,9 +293,49 @@ export interface ActiveScoringConfigResponse {
   active_version: ScoringConfigVersionResponse;
 }
 
+export interface ScoringConfigVersionListResponse {
+  items: ScoringConfigVersionResponse[];
+}
+
+export interface ScoringConfigVersionCreateRequest {
+  weights: ScoringWeights;
+  thresholds: ScoringThresholds;
+  note?: string;
+}
+
 export interface ProviderSettingsResponse {
   hl: string;
   gl: string;
   google_domain: string;
   enrich_top_n: number;
+}
+
+export interface ProviderSettingsUpdateRequest {
+  hl?: string;
+  gl?: string;
+  google_domain?: string;
+  enrich_top_n?: number;
+}
+
+export interface UserOption {
+  public_id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+}
+
+export interface UserListResponse {
+  items: UserOption[];
+}
+
+export interface AuditLogResponse {
+  public_id: string;
+  actor_user_public_id: string | null;
+  event_name: string;
+  details: string;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLogResponse[];
 }

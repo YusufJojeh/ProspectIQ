@@ -6,6 +6,21 @@ from urllib.parse import urlparse
 from app.modules.provider_serpapi.schemas import LeadIdentityCandidate
 
 _PHONE_RE = re.compile(r"[^\d+]+")
+_NON_BUSINESS_DOMAIN_SUFFIXES = (
+    "google.com",
+    "g.page",
+    "facebook.com",
+    "instagram.com",
+    "linkedin.com",
+    "x.com",
+    "twitter.com",
+    "yelp.com",
+    "tripadvisor.com",
+    "foursquare.com",
+    "yellowpages.com",
+    "mapquest.com",
+    "nicelocal.com",
+)
 
 
 def normalize_phone(value: object) -> str | None:
@@ -27,6 +42,16 @@ def compute_domain(url: str | None) -> str | None:
         return host or None
     except Exception:
         return None
+
+
+def is_preferred_business_domain(domain: str | None) -> bool:
+    if not domain:
+        return False
+    normalized = domain.lower().strip(".")
+    return not any(
+        normalized == blocked or normalized.endswith(f".{blocked}")
+        for blocked in _NON_BUSINESS_DOMAIN_SUFFIXES
+    )
 
 
 def guess_city_from_address(address: str | None) -> str | None:
@@ -75,19 +100,34 @@ def compute_identities(
     lng: float | None,
 ) -> list[LeadIdentityCandidate]:
     identities: list[LeadIdentityCandidate] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add_identity(identity_type: str, identity_value: str | None) -> None:
+        if not identity_value:
+            return
+        key = (identity_type, identity_value)
+        if key in seen:
+            return
+        seen.add(key)
+        identities.append(
+            LeadIdentityCandidate(identity_type=identity_type, identity_value=identity_value)
+        )
+
     if data_cid:
-        identities.append(LeadIdentityCandidate(identity_type="data_cid", identity_value=data_cid))
+        add_identity("data_cid", data_cid)
     if data_id:
-        identities.append(LeadIdentityCandidate(identity_type="data_id", identity_value=data_id))
+        add_identity("data_id", data_id)
     if place_id:
-        identities.append(LeadIdentityCandidate(identity_type="place_id", identity_value=place_id))
-    if website_domain:
-        identities.append(LeadIdentityCandidate(identity_type="website_domain", identity_value=website_domain))
+        add_identity("place_id", place_id)
+    if is_preferred_business_domain(website_domain):
+        add_identity("website_domain", website_domain)
     if phone:
-        identities.append(LeadIdentityCandidate(identity_type="phone", identity_value=phone))
-    fingerprint = build_fingerprint(company_name=company_name, city=city, address=address, lat=lat, lng=lng)
+        add_identity("phone", phone)
+    fingerprint = build_fingerprint(
+        company_name=company_name, city=city, address=address, lat=lat, lng=lng
+    )
     if fingerprint:
-        identities.append(LeadIdentityCandidate(identity_type="fingerprint", identity_value=fingerprint))
+        add_identity("fingerprint", fingerprint)
     return identities
 
 
@@ -125,4 +165,3 @@ def compute_simple_confidence(
     if data_cid or data_id or place_id:
         base += 0.15
     return round(min(1.0, base), 3)
-

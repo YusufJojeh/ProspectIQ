@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { AppRouterProvider } from "@/app/router";
+import "leaflet/dist/leaflet.css";
 import "@/styles/globals.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -8,4 +9,3 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <AppRouterProvider />
   </React.StrictMode>,
 );
-

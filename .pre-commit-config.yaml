@@ -3,15 +3,18 @@ repos:
     rev: v0.11.7
     hooks:
       - id: ruff
-        args: ["--fix"]
+        args: ["--config", "apps/api/pyproject.toml", "--fix"]
         files: ^apps/api/
       - id: ruff-format
+        args: ["--config", "apps/api/pyproject.toml"]
         files: ^apps/api/
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.15.0
     hooks:
       - id: mypy
         files: ^apps/api/
+        pass_filenames: false
+        args: ["--config-file", "apps/api/pyproject.toml", "apps/api/app"]
         additional_dependencies:
           - pydantic
           - pydantic-settings
@@ -26,6 +29,7 @@ repos:
     hooks:
       - id: eslint
         files: ^apps/web/src/.*\.(ts|tsx)$
+        args: ["--config", "apps/web/.eslintrc.cjs"]
         additional_dependencies:
           - eslint@8.57.1
           - @typescript-eslint/eslint-plugin@8.12.0
@@ -35,4 +39,5 @@ repos:
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
+        args: ["--config", "apps/web/prettier.config.cjs"]
         files: ^apps/web/

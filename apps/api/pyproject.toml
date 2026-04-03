@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "prospectiq-api"
 version = "0.1.0"
-description = "FastAPI backend foundation for ProspectIQ"
+description = "FastAPI backend foundation for LeadScope AI"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.13.2",
@@ -39,11 +39,18 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A"]
+ignore = ["B008", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 packages = ["app"]
+exclude = ["migrations"]
+warn_unused_configs = true

@@ -1,4 +1,4 @@
-# ProspectIQ Implementation Reference
+# LeadScope AI Implementation Reference
 
 This repository applies the architecture described for the Smart Lead Finder for Agencies project.
 
@@ -20,14 +20,14 @@ Each module should prefer this shape:
 
 ```text
 module_name/
-├─ api.py
-├─ schemas.py
-├─ models.py
-├─ service.py
-├─ repository.py
-├─ policies.py
-├─ exceptions.py
-└─ tests/
+|-- api.py
+|-- schemas.py
+|-- models.py
+|-- service.py
+|-- repository.py
+|-- policies.py
+|-- exceptions.py
+`-- tests/
 ```
 
 ## Backend patterns
@@ -61,4 +61,3 @@ module_name/
 - Preserve raw provider payloads and normalized facts separately.
 - Attach every score to a scoring version.
 - Validate all AI outputs with strict schemas.
-
