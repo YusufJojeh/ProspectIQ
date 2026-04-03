@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -168,6 +169,23 @@ export function SettingsPage() {
   });
 
   if (
+    scoringQuery.isPending ||
+    providerQuery.isPending ||
+    versionsQuery.isPending ||
+    promptTemplatesQuery.isPending ||
+    healthQuery.isPending ||
+    auditQuery.isPending
+  ) {
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title="Loading admin workspace"
+        description="Fetching provider defaults, scoring versions, prompt templates, and operational health."
+      />
+    );
+  }
+
+  if (
     scoringQuery.isError ||
     providerQuery.isError ||
     versionsQuery.isError ||
@@ -178,7 +196,7 @@ export function SettingsPage() {
     return (
       <EmptyState
         title="Admin configuration is unavailable"
-        description="Make sure the current user is an admin in the seeded workspace and that the API is running."
+        description="Make sure the current user has admin access for this workspace and that the API is reachable."
       />
     );
   }
@@ -282,16 +300,16 @@ export function SettingsPage() {
             <form className="space-y-4" onSubmit={providerForm.handleSubmit((values) => providerMutation.mutate(values))}>
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Language (`hl`)">
-                  <Input {...providerForm.register("hl")} />
+                  <Input aria-label="Language (hl)" {...providerForm.register("hl")} />
                 </Field>
                 <Field label="Geo (`gl`)">
-                  <Input {...providerForm.register("gl")} />
+                  <Input aria-label="Geo (gl)" {...providerForm.register("gl")} />
                 </Field>
                 <Field label="Google domain">
-                  <Input {...providerForm.register("google_domain")} />
+                  <Input aria-label="Google domain" {...providerForm.register("google_domain")} />
                 </Field>
                 <Field label="Enrich top N">
-                  <Input type="number" {...providerForm.register("enrich_top_n")} />
+                  <Input aria-label="Enrich top N" type="number" {...providerForm.register("enrich_top_n")} />
                 </Field>
               </div>
               <Button type="submit" disabled={providerMutation.isPending}>
@@ -343,35 +361,35 @@ export function SettingsPage() {
             >
               <div className="grid gap-3 md:grid-cols-2">
                 <Field label="local_trust">
-                  <Input type="number" step="0.01" {...scoringForm.register("local_trust")} />
+                  <Input aria-label="local_trust" type="number" step="0.01" {...scoringForm.register("local_trust")} />
                 </Field>
                 <Field label="website_presence">
-                  <Input type="number" step="0.01" {...scoringForm.register("website_presence")} />
+                  <Input aria-label="website_presence" type="number" step="0.01" {...scoringForm.register("website_presence")} />
                 </Field>
                 <Field label="search_visibility">
-                  <Input type="number" step="0.01" {...scoringForm.register("search_visibility")} />
+                  <Input aria-label="search_visibility" type="number" step="0.01" {...scoringForm.register("search_visibility")} />
                 </Field>
                 <Field label="opportunity">
-                  <Input type="number" step="0.01" {...scoringForm.register("opportunity")} />
+                  <Input aria-label="opportunity" type="number" step="0.01" {...scoringForm.register("opportunity")} />
                 </Field>
                 <Field label="data_confidence">
-                  <Input type="number" step="0.01" {...scoringForm.register("data_confidence")} />
+                  <Input aria-label="data_confidence" type="number" step="0.01" {...scoringForm.register("data_confidence")} />
                 </Field>
                 <Field label="high_min">
-                  <Input type="number" step="0.01" {...scoringForm.register("high_min")} />
+                  <Input aria-label="high_min" type="number" step="0.01" {...scoringForm.register("high_min")} />
                 </Field>
                 <Field label="medium_min">
-                  <Input type="number" step="0.01" {...scoringForm.register("medium_min")} />
+                  <Input aria-label="medium_min" type="number" step="0.01" {...scoringForm.register("medium_min")} />
                 </Field>
                 <Field label="low_min">
-                  <Input type="number" step="0.01" {...scoringForm.register("low_min")} />
+                  <Input aria-label="low_min" type="number" step="0.01" {...scoringForm.register("low_min")} />
                 </Field>
                 <Field label="confidence_min">
-                  <Input type="number" step="0.01" {...scoringForm.register("confidence_min")} />
+                  <Input aria-label="confidence_min" type="number" step="0.01" {...scoringForm.register("confidence_min")} />
                 </Field>
               </div>
               <Field label="Version note">
-                <Textarea {...scoringForm.register("note")} />
+                <Textarea aria-label="Version note" {...scoringForm.register("note")} />
               </Field>
               <Button type="submit" disabled={createVersionMutation.isPending}>
                 {createVersionMutation.isPending ? "Creating..." : "Create scoring version"}
@@ -413,10 +431,10 @@ export function SettingsPage() {
               onSubmit={promptTemplateForm.handleSubmit((values) => createPromptTemplateMutation.mutate(values))}
             >
               <Field label="Template name">
-                <Input {...promptTemplateForm.register("name")} />
+                <Input aria-label="Template name" {...promptTemplateForm.register("name")} />
               </Field>
               <Field label="Template text">
-                <Textarea className="min-h-[180px]" {...promptTemplateForm.register("template_text")} />
+                <Textarea aria-label="Template text" className="min-h-[180px]" {...promptTemplateForm.register("template_text")} />
               </Field>
               <label className="flex items-center gap-3 text-sm font-medium">
                 <input type="checkbox" className="h-4 w-4 rounded border-[color:var(--border)]" {...promptTemplateForm.register("activate")} />

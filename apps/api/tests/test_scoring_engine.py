@@ -124,6 +124,47 @@ def test_scoring_engine_disqualifies_low_confidence_even_when_business_signals_a
     assert result.band == LeadScoreBand.NOT_QUALIFIED
 
 
+def test_scoring_engine_penalizes_directory_heavy_visibility_even_when_a_website_exists() -> None:
+    engine = ScoringEngine()
+    result = engine.evaluate(
+        NormalizedLeadFacts(
+            company_name="Visibility Gap Dental",
+            city="Bursa",
+            category="Dentist",
+            review_count=18,
+            rating=4.1,
+            data_completeness=0.72,
+            data_confidence=0.71,
+            has_website=True,
+            phone_present=True,
+            address_present=True,
+            hours_present=False,
+            category_clarity=0.9,
+            official_website_found=True,
+            official_website_source="web_search",
+            website_domain="visibilitygapdental.com",
+            website_domain_matches_brand=True,
+            website_evidence_consistent=True,
+            official_site_discoverability=0.42,
+            directory_dominance=0.9,
+            local_presence_signal=0.45,
+            weak_website_signal=0.7,
+            digital_footprint_gap=0.68,
+            source_agreement=0.7,
+            evidence_sources_count=2,
+        ),
+        weights=_weights(),
+        thresholds=_thresholds(),
+    )
+
+    search_visibility = next(item for item in result.breakdown if item.key == "search_visibility")
+    opportunity = next(item for item in result.breakdown if item.key == "opportunity")
+
+    assert result.qualified is True
+    assert search_visibility.contribution < 8
+    assert opportunity.contribution > search_visibility.contribution
+
+
 def test_scoring_config_requires_weight_sum_and_threshold_order() -> None:
     try:
         ScoringWeights(

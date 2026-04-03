@@ -198,6 +198,28 @@ class LeadsRepository:
     def get_by_public_id(self, db: Session, public_id: str) -> Lead | None:
         return db.scalar(select(Lead).where(Lead.public_id == public_id))
 
+    def get_by_public_id_for_workspace(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        public_id: str,
+    ) -> Lead | None:
+        return db.scalar(
+            select(Lead).where(
+                Lead.public_id == public_id,
+                Lead.workspace_id == workspace_id,
+            )
+        )
+
+    def get_by_id_for_workspace(self, db: Session, *, workspace_id: int, lead_id: int) -> Lead | None:
+        return db.scalar(
+            select(Lead).where(
+                Lead.id == lead_id,
+                Lead.workspace_id == workspace_id,
+            )
+        )
+
     def save(self, db: Session, lead: Lead) -> Lead:
         db.add(lead)
         db.commit()

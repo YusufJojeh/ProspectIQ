@@ -89,6 +89,21 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         return self.app_env.lower() == "development"
 
+    @property
+    def runtime_warnings(self) -> list[str]:
+        warnings: list[str] = []
+        if self.jwt_secret == "<replace-me>":
+            warnings.append("JWT_SECRET is still set to the placeholder value.")
+        if self.serpapi_api_key == "<replace-me>":
+            warnings.append("SERPAPI_API_KEY is still set to the placeholder value.")
+        if self.default_admin_password == "ChangeMe123!":
+            warnings.append("DEFAULT_ADMIN_PASSWORD is still using the local-development default.")
+        if not self.web_origins and "127.0.0.1" not in self.allowed_web_origins:
+            warnings.append(
+                "WEB_ORIGINS is not set; only the primary WEB_ORIGIN will be allowed outside development."
+            )
+        return warnings
+
 
 @lru_cache
 def get_settings() -> Settings:

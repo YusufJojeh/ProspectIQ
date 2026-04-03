@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
+import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,35 +47,41 @@ export function LoginPage() {
             Sign in to the agency lead qualification workspace
           </CardTitle>
           <CardDescription className="mt-3 max-w-lg text-sm leading-6">
-            This login flow is wired to the seeded workspace and admin account. After sign-in, the app works against the live FastAPI API and stored MySQL evidence.
+            Use a valid workspace account to access the live FastAPI API, persisted evidence, deterministic scores, and assistive workflow tools.
           </CardDescription>
 
           <form className="mt-8 space-y-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Workspace</label>
-              <Input {...form.register("workspace")} />
+              <label className="text-sm font-semibold" htmlFor="login-workspace">Workspace</label>
+              <Input id="login-workspace" {...form.register("workspace")} />
               {form.formState.errors.workspace ? (
                 <p className="text-sm text-red-600">{form.formState.errors.workspace.message}</p>
               ) : null}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Email</label>
-              <Input {...form.register("email")} />
+              <label className="text-sm font-semibold" htmlFor="login-email">Email</label>
+              <Input id="login-email" {...form.register("email")} />
               {form.formState.errors.email ? (
                 <p className="text-sm text-red-600">{form.formState.errors.email.message}</p>
               ) : null}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Password</label>
-              <Input type="password" {...form.register("password")} />
+              <label className="text-sm font-semibold" htmlFor="login-password">Password</label>
+              <Input id="login-password" type="password" {...form.register("password")} />
               {form.formState.errors.password ? (
                 <p className="text-sm text-red-600">{form.formState.errors.password.message}</p>
               ) : null}
             </div>
 
-            {mutation.error ? <p className="text-sm text-red-600">{mutation.error.message}</p> : null}
+            {mutation.error ? (
+              <QueryStateNotice
+                tone="error"
+                title="Sign-in failed"
+                description={mutation.error.message}
+              />
+            ) : null}
 
             <Button className="w-full justify-center" type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Signing in..." : "Open workspace"}

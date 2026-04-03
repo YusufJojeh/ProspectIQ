@@ -147,6 +147,79 @@ def test_repository_prefers_stronger_identity_match_over_first_match() -> None:
     assert resolved.public_id == stronger.public_id
 
 
+def test_repository_prioritizes_provider_identity_over_website_domain_overlap() -> None:
+    session_factory = _build_session_factory()
+    repository = ProviderEvidenceRepository()
+
+    with session_factory() as db:
+        workspace = Workspace(name="LeadScope Workspace")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
+
+        domain_match = Lead(
+            workspace_id=workspace.id,
+            company_name="North Dental Directory",
+            city="Istanbul",
+            address="Kadikoy, Istanbul, Turkey",
+            website_domain="northdental.example",
+            data_completeness=0.45,
+            data_confidence=0.5,
+            has_website=True,
+        )
+        provider_match = Lead(
+            workspace_id=workspace.id,
+            company_name="North Dental Clinic",
+            city="Istanbul",
+            address="Kadikoy, Istanbul, Turkey",
+            data_completeness=0.82,
+            data_confidence=0.88,
+            has_website=False,
+        )
+        db.add_all([domain_match, provider_match])
+        db.commit()
+        db.refresh(domain_match)
+        db.refresh(provider_match)
+
+        db.add_all(
+            [
+                LeadIdentity(
+                    workspace_id=workspace.id,
+                    lead_id=domain_match.id,
+                    identity_type="website_domain",
+                    identity_value="northdental.example",
+                    created_at=datetime.now(tz=UTC),
+                ),
+                LeadIdentity(
+                    workspace_id=workspace.id,
+                    lead_id=provider_match.id,
+                    identity_type="data_id",
+                    identity_value="0xabc:0xdef",
+                    created_at=datetime.now(tz=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        resolved = repository.find_lead_by_identities(
+            db,
+            workspace_id=workspace.id,
+            identities=[
+                LeadIdentityCandidate(
+                    identity_type="website_domain",
+                    identity_value="northdental.example",
+                ),
+                LeadIdentityCandidate(
+                    identity_type="data_id",
+                    identity_value="0xabc:0xdef",
+                ),
+            ],
+        )
+
+    assert resolved is not None
+    assert resolved.public_id == provider_match.public_id
+
+
 def test_serpapi_client_retries_payload_rate_limit_then_succeeds(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "12345678901234567890123456789012")
     clear_settings_cache()

@@ -28,11 +28,9 @@ from app.modules.ai_analysis.validator import LLMOutputValidator
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
-from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
-from app.modules.scoring.fact_builder import EvidenceFactBuilder
-from app.modules.scoring.repository import ScoringRepository
 from app.modules.users.models import User
 from app.shared.dto.lead_facts import NormalizedLeadFacts
+from app.shared.services.lead_intelligence import LeadIntelligenceService
 
 
 class AIAnalysisService:
@@ -46,9 +44,7 @@ class AIAnalysisService:
         self.prompt_builder = PromptBuilder()
         self.validator = LLMOutputValidator()
         self.leads_repository = LeadsRepository()
-        self.evidence_repository = ProviderEvidenceRepository()
-        self.fact_builder = EvidenceFactBuilder()
-        self.scoring_repository = ScoringRepository()
+        self.lead_intelligence = LeadIntelligenceService()
         self.audit_logs = AuditLogService()
         self.llm_client = llm_client
         self.fallback_client = fallback_client or FallbackAnalysisBuilder()
@@ -178,15 +174,14 @@ class AIAnalysisService:
         created_by_user_id: int,
     ) -> tuple[Lead, AIAnalysisSnapshot, LeadAnalysisResult]:
         lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
-        facts = self._facts_from_lead(db, lead)
-        score_context = self._score_context(db, lead.id)
+        context = self.lead_intelligence.build(db, lead=lead)
         snapshot, result = self.analyze(
             db,
             workspace_id=workspace_id,
             lead=lead,
-            facts=facts,
+            facts=context.facts,
             created_by_user_id=created_by_user_id,
-            score_context=score_context,
+            score_context=context.score_context,
         )
         return lead, snapshot, result
 
@@ -237,34 +232,14 @@ class AIAnalysisService:
         workspace_id: int,
         lead_public_id: str,
     ) -> Lead:
-        lead = self.leads_repository.get_by_public_id(db, lead_public_id)
-        if lead is None or lead.workspace_id != workspace_id:
+        lead = self.leads_repository.get_by_public_id_for_workspace(
+            db,
+            workspace_id=workspace_id,
+            public_id=lead_public_id,
+        )
+        if lead is None:
             raise NotFoundError("Lead was not found.")
         return lead
-
-    def _facts_from_lead(self, db: Session, lead: Lead) -> NormalizedLeadFacts:
-        evidence = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
-        return self.fact_builder.build(lead, evidence)
-
-    def _score_context(self, db: Session, lead_id: int) -> LeadScoreContext | None:
-        try:
-            breakdown = self.scoring_repository.get_latest_score_breakdown(db, lead_id)
-        except NotFoundError:
-            return None
-        reasons = [
-            item.reason
-            for item in sorted(
-                breakdown.breakdown,
-                key=lambda item: abs(item.contribution),
-                reverse=True,
-            )[:3]
-        ]
-        return LeadScoreContext(
-            total_score=breakdown.total_score,
-            band=breakdown.band.value,
-            qualified=breakdown.qualified,
-            reasons=reasons,
-        )
 
     def _to_snapshot_response(
         self,

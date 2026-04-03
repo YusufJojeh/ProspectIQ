@@ -5,10 +5,12 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { createSearchJob, listSearchJobs } from "@/features/searches/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { formatDate, titleCaseLabel } from "@/lib/presenters";
@@ -137,8 +139,11 @@ export function SearchesPage() {
               onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
             >
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Business type</label>
+                <label className="text-sm font-semibold" htmlFor="search-business-type">
+                  Business type
+                </label>
                 <Input
+                  id="search-business-type"
                   placeholder="Dentist, lawyer, clinic, salon"
                   {...form.register("business_type")}
                 />
@@ -146,12 +151,17 @@ export function SearchesPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">City</label>
-                  <Input placeholder="Istanbul" {...form.register("city")} />
+                  <label className="text-sm font-semibold" htmlFor="search-city">
+                    City
+                  </label>
+                  <Input id="search-city" placeholder="Istanbul" {...form.register("city")} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">Region</label>
+                  <label className="text-sm font-semibold" htmlFor="search-region">
+                    Region
+                  </label>
                   <Input
+                    id="search-region"
                     placeholder="District, state, or broader geography"
                     {...form.register("region")}
                   />
@@ -160,16 +170,35 @@ export function SearchesPage() {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">Radius (km)</label>
-                  <Input type="number" min={1} max={500} {...form.register("radius_km")} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold">Max results</label>
-                  <Input type="number" min={1} max={100} {...form.register("max_results")} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold">Keyword filter</label>
+                  <label className="text-sm font-semibold" htmlFor="search-radius">
+                    Radius (km)
+                  </label>
                   <Input
+                    id="search-radius"
+                    type="number"
+                    min={1}
+                    max={500}
+                    {...form.register("radius_km")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold" htmlFor="search-max-results">
+                    Max results
+                  </label>
+                  <Input
+                    id="search-max-results"
+                    type="number"
+                    min={1}
+                    max={100}
+                    {...form.register("max_results")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold" htmlFor="search-keyword-filter">
+                    Keyword filter
+                  </label>
+                  <Input
+                    id="search-keyword-filter"
                     placeholder="implant, emergency, cosmetic"
                     {...form.register("keyword_filter")}
                   />
@@ -178,8 +207,11 @@ export function SearchesPage() {
 
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">Min rating</label>
+                  <label className="text-sm font-semibold" htmlFor="search-min-rating">
+                    Min rating
+                  </label>
                   <Input
+                    id="search-min-rating"
                     type="number"
                     min={0}
                     max={5}
@@ -188,8 +220,11 @@ export function SearchesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">Max rating</label>
+                  <label className="text-sm font-semibold" htmlFor="search-max-rating">
+                    Max rating
+                  </label>
                   <Input
+                    id="search-max-rating"
                     type="number"
                     min={0}
                     max={5}
@@ -198,32 +233,49 @@ export function SearchesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">Min reviews</label>
-                  <Input type="number" min={0} {...form.register("min_reviews")} />
+                  <label className="text-sm font-semibold" htmlFor="search-min-reviews">
+                    Min reviews
+                  </label>
+                  <Input
+                    id="search-min-reviews"
+                    type="number"
+                    min={0}
+                    {...form.register("min_reviews")}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold">Max reviews</label>
-                  <Input type="number" min={0} {...form.register("max_reviews")} />
+                  <label className="text-sm font-semibold" htmlFor="search-max-reviews">
+                    Max reviews
+                  </label>
+                  <Input
+                    id="search-max-reviews"
+                    type="number"
+                    min={0}
+                    {...form.register("max_reviews")}
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Website preference</label>
-                <select
-                  className="flex h-11 w-full rounded-xl border border-[color:var(--border)] bg-white px-3 text-sm"
-                  {...form.register("website_preference")}
-                >
+                <label className="text-sm font-semibold" htmlFor="search-website-preference">
+                  Website preference
+                </label>
+                <Select id="search-website-preference" {...form.register("website_preference")}>
                   <option value="any">Any</option>
                   <option value="must_have">Must have website</option>
                   <option value="must_be_missing">Must be missing website</option>
-                </select>
+                </Select>
               </div>
 
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "Submitting..." : "Queue discovery job"}
               </Button>
               {mutation.error ? (
-                <p className="text-sm text-red-600">{mutation.error.message}</p>
+                <QueryStateNotice
+                  tone="error"
+                  title="Search job could not be queued"
+                  description={mutation.error.message}
+                />
               ) : null}
             </form>
           </CardContent>
@@ -237,8 +289,18 @@ export function SearchesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {jobsQuery.isError ? (
-              <p className="text-sm text-red-600">{jobsQuery.error.message}</p>
+            {jobsQuery.isPending ? (
+              <QueryStateNotice
+                tone="loading"
+                title="Loading search jobs"
+                description="Fetching the latest queued, running, and completed discovery jobs."
+              />
+            ) : jobsQuery.isError ? (
+              <QueryStateNotice
+                tone="error"
+                title="Run queue is unavailable"
+                description={jobsQuery.error.message}
+              />
             ) : jobsQuery.data?.items.length ? (
               <div className="space-y-3">
                 {jobsQuery.data.items.map((job) => (

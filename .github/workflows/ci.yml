@@ -56,6 +56,40 @@ jobs:
       - name: Alembic offline migration render
         run: python -m alembic upgrade head --sql > /tmp/alembic.sql
 
+  docker-validate:
+    name: Container Build Validation
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            context: ./apps/api
+            file: ./apps/api/Dockerfile
+            build_args: ""
+          - component: web
+            context: ./apps/web
+            file: ./apps/web/Dockerfile
+            build_args: VITE_API_BASE_URL=
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          build-args: ${{ matrix.build_args }}
+          cache-from: type=gha,scope=ci-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.component }}
+          provenance: false
+          sbom: false
+
   frontend:
     name: Frontend Quality
     runs-on: ubuntu-latest
@@ -79,6 +113,9 @@ jobs:
 
       - name: ESLint
         run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Build
         run: npm run build

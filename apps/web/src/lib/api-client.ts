@@ -86,9 +86,13 @@ function getActiveSession(): AuthSession | null {
   return session;
 }
 
+function buildRequestUrl(path: string): string {
+  return env.VITE_API_BASE_URL ? `${env.VITE_API_BASE_URL}${path}` : path;
+}
+
 export async function request<T>(path: string, init: RequestInit = {}, body?: JsonBody): Promise<T> {
   const session = getActiveSession();
-  const response = await fetch(`${env.VITE_API_BASE_URL}${path}`, {
+  const response = await fetch(buildRequestUrl(path), {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -114,7 +118,7 @@ export async function request<T>(path: string, init: RequestInit = {}, body?: Js
 
 export async function requestBlob(path: string, init: RequestInit = {}): Promise<Blob> {
   const session = getActiveSession();
-  const response = await fetch(`${env.VITE_API_BASE_URL}${path}`, {
+  const response = await fetch(buildRequestUrl(path), {
     ...init,
     headers: {
       ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {}),

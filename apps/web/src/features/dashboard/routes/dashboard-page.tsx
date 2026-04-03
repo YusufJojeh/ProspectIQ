@@ -3,6 +3,7 @@ import { ArrowRight, Globe2, MapPinned } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +48,16 @@ export function DashboardPage() {
       <EmptyState
         title="Workspace data could not load"
         description="Make sure the API is running, the database is migrated, and the current session token is valid."
+      />
+    );
+  }
+
+  if (leadsQuery.isPending || jobsQuery.isPending) {
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title="Loading workspace snapshot"
+        description="Fetching lead coverage, score bands, and recent job activity from the API."
       />
     );
   }

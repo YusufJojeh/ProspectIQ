@@ -1,0 +1,80 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target GitHub environment name
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+      image_tag:
+        description: Image tag to deploy (for example latest, main, v1.0.0, or sha-<commit>)
+        required: true
+        default: latest
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy with Docker Compose over SSH
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Normalize image owner
+        id: vars
+        shell: bash
+        run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare deployment files
+        env:
+          DEPLOY_ENV_FILE: ${{ secrets.DEPLOY_ENV_FILE }}
+        shell: bash
+        run: |
+          printf '%s\n' "$DEPLOY_ENV_FILE" > deploy.env
+          {
+            echo "API_IMAGE=ghcr.io/${{ steps.vars.outputs.owner_lc }}/prospectiq-api:${{ inputs.image_tag }}"
+            echo "WEB_IMAGE=ghcr.io/${{ steps.vars.outputs.owner_lc }}/prospectiq-web:${{ inputs.image_tag }}"
+          } >> deploy.env
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Copy deployment bundle
+        shell: bash
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" "mkdir -p '${{ secrets.DEPLOY_PATH }}'"
+          scp infra/docker-compose.deploy.yml deploy.env "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/"
+
+      - name: Deploy on remote host
+        env:
+          GHCR_DEPLOY_TOKEN: ${{ secrets.GHCR_DEPLOY_TOKEN }}
+          GHCR_DEPLOY_USERNAME: ${{ secrets.GHCR_DEPLOY_USERNAME }}
+        shell: bash
+        run: |
+          token_b64="$(printf '%s' "$GHCR_DEPLOY_TOKEN" | base64 -w0)"
+          user_b64="$(printf '%s' "$GHCR_DEPLOY_USERNAME" | base64 -w0)"
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" "
+            set -eu
+            cd '${{ secrets.DEPLOY_PATH }}'
+            ghcr_user=\$(printf '%s' '$user_b64' | base64 -d)
+            printf '%s' '$token_b64' | base64 -d | docker login ghcr.io -u \"\$ghcr_user\" --password-stdin
+            docker compose --env-file deploy.env -f docker-compose.deploy.yml pull
+            docker compose --env-file deploy.env -f docker-compose.deploy.yml up -d
+            docker image prune -f
+          "

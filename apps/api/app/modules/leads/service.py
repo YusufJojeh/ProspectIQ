@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
-from app.modules.ai_analysis.schemas import LeadScoreContext
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
@@ -27,14 +26,12 @@ from app.modules.leads.schemas import (
 )
 from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.outreach.service import OutreachGenerationService
-from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
-from app.modules.scoring.fact_builder import EvidenceFactBuilder
 from app.modules.scoring.models import LeadScore
 from app.modules.scoring.repository import ScoringRepository
 from app.modules.users.models import User
-from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.enums.jobs import LeadScoreBand, LeadStatus
 from app.shared.pagination.schemas import PaginationMeta
+from app.shared.services.lead_intelligence import LeadIntelligenceService
 from app.workers.orchestration.lead_refresh import LeadRefreshOrchestrator
 
 
@@ -45,8 +42,7 @@ class LeadsService:
         self.outreach_service = OutreachGenerationService()
         self.audit_logs = AuditLogService()
         self.scoring_repository = ScoringRepository()
-        self.evidence_repository = ProviderEvidenceRepository()
-        self.fact_builder = EvidenceFactBuilder()
+        self.lead_intelligence = LeadIntelligenceService()
 
     def list_leads(
         self,
@@ -181,15 +177,14 @@ class LeadsService:
         lead = self._get_or_raise(db, lead_id)
         if lead.workspace_id != workspace_id:
             raise NotFoundError("Lead was not found.")
-        facts = self._facts_from_lead(db, lead)
-        score_context = self._score_context(db, lead.id)
+        context = self.lead_intelligence.build(db, lead=lead)
         _, result = self.analysis_service.analyze(
             db,
             workspace_id=workspace_id,
             lead=lead,
-            facts=facts,
+            facts=context.facts,
             created_by_user_id=current_user.id,
-            score_context=score_context,
+            score_context=context.score_context,
         )
         self.audit_logs.record(
             db,
@@ -247,15 +242,14 @@ class LeadsService:
         lead = self._get_or_raise(db, lead_id)
         if lead.workspace_id != workspace_id:
             raise NotFoundError("Lead was not found.")
-        facts = self._facts_from_lead(db, lead)
-        score_context = self._score_context(db, lead.id)
+        context = self.lead_intelligence.build(db, lead=lead)
         snapshot, analysis = self.analysis_service.analyze(
             db,
             workspace_id=workspace_id,
             lead=lead,
-            facts=facts,
+            facts=context.facts,
             created_by_user_id=current_user.id,
-            score_context=score_context,
+            score_context=context.score_context,
         )
         message = self.outreach_service.generate(
             db,
@@ -434,27 +428,3 @@ class LeadsService:
         if assigned_to_user_id is None:
             return None
         return assignees.get(assigned_to_user_id)
-
-    def _facts_from_lead(self, db: Session, lead: Lead) -> NormalizedLeadFacts:
-        evidence = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
-        return self.fact_builder.build(lead, evidence)
-
-    def _score_context(self, db: Session, lead_id: int) -> LeadScoreContext | None:
-        try:
-            breakdown = self.scoring_repository.get_latest_score_breakdown(db, lead_id)
-        except NotFoundError:
-            return None
-        reasons = [
-            item.reason
-            for item in sorted(
-                breakdown.breakdown,
-                key=lambda item: abs(item.contribution),
-                reverse=True,
-            )[:3]
-        ]
-        return LeadScoreContext(
-            total_score=breakdown.total_score,
-            band=breakdown.band.value,
-            qualified=breakdown.qualified,
-            reasons=reasons,
-        )

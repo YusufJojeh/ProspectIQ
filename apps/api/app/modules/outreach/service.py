@@ -167,8 +167,12 @@ class OutreachGenerationService:
         workspace_id: int,
         lead_public_id: str,
     ) -> Lead:
-        lead = self.leads_repository.get_by_public_id(db, lead_public_id)
-        if lead is None or lead.workspace_id != workspace_id:
+        lead = self.leads_repository.get_by_public_id_for_workspace(
+            db,
+            workspace_id=workspace_id,
+            public_id=lead_public_id,
+        )
+        if lead is None:
             raise NotFoundError("Lead was not found.")
         return lead
 
@@ -179,8 +183,12 @@ class OutreachGenerationService:
         workspace_id: int,
         lead_id: int,
     ) -> Lead:
-        lead = db.get(Lead, lead_id)
-        if lead is None or lead.workspace_id != workspace_id:
+        lead = self.leads_repository.get_by_id_for_workspace(
+            db,
+            workspace_id=workspace_id,
+            lead_id=lead_id,
+        )
+        if lead is None:
             raise NotFoundError("Lead was not found.")
         return lead
 

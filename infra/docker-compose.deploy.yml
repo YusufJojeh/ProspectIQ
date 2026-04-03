@@ -1,0 +1,75 @@
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+    volumes:
+      - leadscope-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ${API_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: ${APP_NAME}
+      APP_ENV: ${APP_ENV}
+      API_V1_PREFIX: ${API_V1_PREFIX}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      WEB_ORIGINS: ${WEB_ORIGINS}
+      SQL_ECHO: ${SQL_ECHO}
+      LOG_LEVEL: ${LOG_LEVEL}
+      ENABLE_DB_HEALTHCHECK: ${ENABLE_DB_HEALTHCHECK}
+      ENABLE_REQUEST_LOGGING: ${ENABLE_REQUEST_LOGGING}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      DEFAULT_ADMIN_NAME: ${DEFAULT_ADMIN_NAME}
+      DEFAULT_WORKSPACE_PUBLIC_ID: ${DEFAULT_WORKSPACE_PUBLIC_ID}
+      DEFAULT_WORKSPACE_NAME: ${DEFAULT_WORKSPACE_NAME}
+      SERPAPI_API_KEY: ${SERPAPI_API_KEY}
+      SERPAPI_BASE_URL: ${SERPAPI_BASE_URL}
+      AI_PROVIDER: ${AI_PROVIDER}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_MODEL: ${OLLAMA_MODEL}
+      PORT: ${API_PORT}
+      WEB_CONCURRENCY: ${API_WEB_CONCURRENCY}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS}
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: ${WEB_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM}
+      VITE_API_BASE_URL: ${WEB_PUBLIC_API_BASE_URL}
+    ports:
+      - "${WEB_PORT}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  leadscope-db-data:

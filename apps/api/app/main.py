@@ -25,7 +25,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def app_lifespan(_: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
     logger.info("app.startup")
+    logger.info("cors.allowed_origins %s", ", ".join(settings.allowed_web_origins))
+    for warning in settings.runtime_warnings:
+        logger.warning("config.runtime_warning %s", warning)
     try:
         yield
     finally:

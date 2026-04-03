@@ -4,6 +4,7 @@ import { ArrowRight, Download, RefreshCw, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -136,7 +137,7 @@ export function LeadsPage() {
     },
   });
 
-  if (leadsQuery.isError) {
+  if (leadsQuery.isError || jobsQuery.isError || usersQuery.isError) {
     return (
       <EmptyState
         title="Lead data is unavailable"
@@ -145,8 +146,14 @@ export function LeadsPage() {
     );
   }
 
-  if (!leadsQuery.data || jobsQuery.isLoading || usersQuery.isLoading) {
-    return <p className="text-sm text-[color:var(--muted)]">Loading leads...</p>;
+  if (!leadsQuery.data || jobsQuery.isPending || usersQuery.isPending) {
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title="Loading qualification workspace"
+        description="Fetching leads, owner options, and search-job filters from the API."
+      />
+    );
   }
 
   const leads = leadsQuery.data.items;
@@ -177,10 +184,10 @@ export function LeadsPage() {
               <CardDescription>Table, map, and export all use the same backend query filters.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <Input placeholder="Search company, city, domain" value={q} onChange={(event) => setQ(event.target.value)} />
-              <Input placeholder="Filter by city" value={city} onChange={(event) => setCity(event.target.value)} />
-              <Input placeholder="Filter by category" value={category} onChange={(event) => setCategory(event.target.value)} />
-              <Select value={searchJobId} onChange={(event) => setSearchJobId(event.target.value)}>
+              <Input aria-label="Search leads" placeholder="Search company, city, domain" value={q} onChange={(event) => setQ(event.target.value)} />
+              <Input aria-label="Filter leads by city" placeholder="Filter by city" value={city} onChange={(event) => setCity(event.target.value)} />
+              <Input aria-label="Filter leads by category" placeholder="Filter by category" value={category} onChange={(event) => setCategory(event.target.value)} />
+              <Select aria-label="Filter leads by search job" value={searchJobId} onChange={(event) => setSearchJobId(event.target.value)}>
                 <option value="all">All search jobs</option>
                 {(jobsQuery.data?.items ?? []).map((job) => (
                   <option key={job.public_id} value={job.public_id}>
@@ -188,7 +195,7 @@ export function LeadsPage() {
                   </option>
                 ))}
               </Select>
-              <Select value={status} onChange={(event) => setStatus(event.target.value as LeadStatus | "all")}>
+              <Select aria-label="Filter leads by status" value={status} onChange={(event) => setStatus(event.target.value as LeadStatus | "all")}>
                 <option value="all">All statuses</option>
                 <option value="new">New</option>
                 <option value="reviewed">Reviewed</option>
@@ -199,24 +206,24 @@ export function LeadsPage() {
                 <option value="lost">Lost</option>
                 <option value="archived">Archived</option>
               </Select>
-              <Select value={band} onChange={(event) => setBand(event.target.value as LeadScoreBand | "all")}>
+              <Select aria-label="Filter leads by score band" value={band} onChange={(event) => setBand(event.target.value as LeadScoreBand | "all")}>
                 <option value="all">All score bands</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
                 <option value="not_qualified">Not qualified</option>
               </Select>
-              <Select value={qualified} onChange={(event) => setQualified(event.target.value as "all" | "true" | "false")}>
+              <Select aria-label="Filter leads by qualification" value={qualified} onChange={(event) => setQualified(event.target.value as "all" | "true" | "false")}>
                 <option value="all">Any qualification</option>
                 <option value="true">Qualified only</option>
                 <option value="false">Needs qualification</option>
               </Select>
-              <Select value={hasWebsite} onChange={(event) => setHasWebsite(event.target.value as "all" | "true" | "false")}>
+              <Select aria-label="Filter leads by website state" value={hasWebsite} onChange={(event) => setHasWebsite(event.target.value as "all" | "true" | "false")}>
                 <option value="all">Any website state</option>
                 <option value="true">Has website</option>
                 <option value="false">Missing website</option>
               </Select>
-              <Select value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)}>
+              <Select aria-label="Filter leads by owner" value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)}>
                 <option value="all">Any owner</option>
                 {(usersQuery.data?.items ?? []).map((user) => (
                   <option key={user.public_id} value={user.public_id}>
@@ -225,6 +232,7 @@ export function LeadsPage() {
                 ))}
               </Select>
               <Input
+                aria-label="Minimum lead score"
                 type="number"
                 min="0"
                 max="100"
@@ -233,6 +241,7 @@ export function LeadsPage() {
                 onChange={(event) => setMinScore(event.target.value)}
               />
               <Input
+                aria-label="Maximum lead score"
                 type="number"
                 min="0"
                 max="100"
@@ -240,7 +249,7 @@ export function LeadsPage() {
                 value={maxScore}
                 onChange={(event) => setMaxScore(event.target.value)}
               />
-              <Select value={sort} onChange={(event) => setSort(event.target.value as LeadSortOption)}>
+              <Select aria-label="Sort leads" value={sort} onChange={(event) => setSort(event.target.value as LeadSortOption)}>
                 <option value="score_desc">Sort by score</option>
                 <option value="reviews_desc">Sort by reviews</option>
                 <option value="rating_desc">Sort by rating</option>
@@ -280,8 +289,21 @@ export function LeadsPage() {
                       {leads.map((lead) => (
                         <tr
                           key={lead.public_id}
-                          className={lead.public_id === selectedLeadId ? "bg-[color:var(--accent-soft)]/60" : "bg-white/70"}
+                          className={
+                            lead.public_id === selectedLeadId
+                              ? "cursor-pointer bg-[color:var(--accent-soft)]/60 outline-none focus-visible:bg-[color:var(--accent-soft)]/75"
+                              : "cursor-pointer bg-white/70 outline-none focus-visible:bg-[color:var(--surface-soft)]"
+                          }
                           onClick={() => setSelectedLeadId(lead.public_id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedLeadId(lead.public_id);
+                            }
+                          }}
+                          tabIndex={0}
+                          role="button"
+                          aria-pressed={lead.public_id === selectedLeadId}
                         >
                           <td className="px-5 py-4">
                             <Link className="font-semibold hover:text-[color:var(--accent)]" to={`/leads/${lead.public_id}`}>
@@ -372,6 +394,7 @@ export function LeadsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold">Assign owner</label>
                     <Select
+                      aria-label="Assign owner"
                       value={selectedLead.assigned_to_user_public_id ?? ""}
                       onChange={(event) =>
                         assignMutation.mutate({
@@ -427,7 +450,7 @@ export function LeadsPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold">Outreach tone</label>
-                    <Select value={outreachTone} onChange={(event) => setOutreachTone(event.target.value as OutreachTone)}>
+                    <Select aria-label="Outreach tone" value={outreachTone} onChange={(event) => setOutreachTone(event.target.value as OutreachTone)}>
                       <option value="consultative">Consultative</option>
                       <option value="friendly">Friendly</option>
                       <option value="formal">Formal</option>

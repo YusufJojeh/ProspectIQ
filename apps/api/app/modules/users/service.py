@@ -82,13 +82,6 @@ class UsersService:
             full_name=created.full_name,
             role=cast(UserRole, created.role),
         )
-
-
-def bootstrap_default_admin(db: Session) -> None:
-    # Deprecated: seeding is now handled via scripts/seed.py, not on API startup.
-    return None
-
-
 def ensure_default_roles(db: Session) -> None:
     expected_roles = {
         "admin": ("Administrator", "Full workspace administration."),

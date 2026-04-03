@@ -578,7 +578,7 @@ function createState(): MockState {
         public_id: "log_seed_1",
         actor_user_public_id: sessionUser.public_id,
         event_name: "search.job_created",
-        details: "Queued the seeded Istanbul dentist discovery run.",
+        details: "Queued the sample Istanbul dentist discovery run.",
         created_at: iso(8),
       },
     ],

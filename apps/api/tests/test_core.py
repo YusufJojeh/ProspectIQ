@@ -55,6 +55,21 @@ def test_settings_parse_explicit_web_origins(monkeypatch) -> None:
     clear_settings_cache()
 
 
+def test_settings_surface_runtime_warnings_for_placeholder_local_defaults(monkeypatch) -> None:
+    monkeypatch.setenv("JWT_SECRET", "<replace-me>")
+    monkeypatch.setenv("SERPAPI_API_KEY", "<replace-me>")
+    monkeypatch.setenv("DEFAULT_ADMIN_PASSWORD", "ChangeMe123!")
+    clear_settings_cache()
+
+    settings = get_settings()
+
+    assert any("JWT_SECRET" in warning for warning in settings.runtime_warnings)
+    assert any("SERPAPI_API_KEY" in warning for warning in settings.runtime_warnings)
+    assert any("DEFAULT_ADMIN_PASSWORD" in warning for warning in settings.runtime_warnings)
+
+    clear_settings_cache()
+
+
 def test_db_dependency_yields_session() -> None:
     dependency = get_db()
     session = next(dependency)

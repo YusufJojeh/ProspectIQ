@@ -54,7 +54,7 @@ export function LeadMap({ leads, selectedLeadId, onSelect, className }: LeadMapP
   const mappable = leads.filter(hasCoordinates);
 
   return (
-    <div className={cn("h-full", className)}>
+    <div className={cn("h-full", className)} role="region" aria-label="Lead map">
       <LeafletMapShell scrollWheelZoom={false}>
         <MapViewport leads={mappable} selectedLeadId={selectedLeadId} />
         {mappable.map((lead) => {

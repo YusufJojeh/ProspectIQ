@@ -4,6 +4,7 @@ import { RefreshCw, Sparkles } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,8 +148,14 @@ export function LeadDetailPage() {
     );
   }
 
-  if (!leadQuery.data) {
-    return <p className="text-sm text-[color:var(--muted)]">Loading lead details...</p>;
+  if (leadQuery.isPending || !leadQuery.data) {
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title="Loading lead detail"
+        description="Fetching the lead record, evidence, activity, and latest assistive outputs."
+      />
+    );
   }
 
   const lead = leadQuery.data;
@@ -224,6 +231,7 @@ export function LeadDetailPage() {
               <label className="text-sm font-semibold">Assignee</label>
               <Select
                 data-testid="lead-detail-assignee-select"
+                aria-label="Assign lead owner"
                 value={lead.assigned_to_user_public_id ?? ""}
                 onChange={(event) => assignMutation.mutate(event.target.value || null)}
               >
@@ -239,6 +247,7 @@ export function LeadDetailPage() {
               <label className="text-sm font-semibold">Next status</label>
               <Select
                 data-testid="lead-detail-status-select"
+                aria-label="Lead status"
                 value={statusDraft}
                 onChange={(event) => setStatusDraft(event.target.value as LeadStatus)}
               >
@@ -255,6 +264,7 @@ export function LeadDetailPage() {
             <div className="space-y-2">
               <label className="text-sm font-semibold">Status note</label>
               <Textarea
+                aria-label="Status note"
                 value={statusNote}
                 onChange={(event) => setStatusNote(event.target.value)}
                 placeholder="Optional note to store with this status change"
@@ -274,7 +284,13 @@ export function LeadDetailPage() {
             <CardDescription>Deterministic score output and contribution-level explanations.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {breakdownQuery.data ? (
+            {breakdownQuery.isError ? (
+              <QueryStateNotice
+                tone="error"
+                title="Score breakdown is unavailable"
+                description={breakdownQuery.error.message}
+              />
+            ) : breakdownQuery.data ? (
               <div className="space-y-3 text-sm leading-6">
                 <div className="rounded-2xl border border-[color:var(--border)] p-4">
                   <p className="font-semibold">Version</p>
@@ -305,7 +321,13 @@ export function LeadDetailPage() {
             <CardDescription>Evidence rows include fetch metadata, confidence, completeness, and the normalized fact payload.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {evidenceQuery.data?.items.length ? (
+            {evidenceQuery.isError ? (
+              <QueryStateNotice
+                tone="error"
+                title="Evidence rows are unavailable"
+                description={evidenceQuery.error.message}
+              />
+            ) : evidenceQuery.data?.items.length ? (
               <div className="space-y-3">
                 {evidenceQuery.data.items.map((item) => (
                   <div
@@ -350,6 +372,7 @@ export function LeadDetailPage() {
           <div className="space-y-3">
             <label className="text-sm font-semibold">Add note</label>
             <Textarea
+              aria-label="Internal note"
               value={noteDraft}
               onChange={(event) => setNoteDraft(event.target.value)}
               placeholder="Capture a qualification note, call outcome, or next-step context"
@@ -363,7 +386,13 @@ export function LeadDetailPage() {
             </Button>
           </div>
           <div className="space-y-3">
-            {activityQuery.data?.items.length ? (
+            {activityQuery.isError ? (
+              <QueryStateNotice
+                tone="error"
+                title="Lead activity is unavailable"
+                description={activityQuery.error.message}
+              />
+            ) : activityQuery.data?.items.length ? (
               activityQuery.data.items.map((item) => (
                 <div key={item.entry_id} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -410,7 +439,13 @@ export function LeadDetailPage() {
               <Sparkles className="me-2 h-4 w-4" />
               {analysisMutation.isPending ? "Generating..." : "Generate analysis"}
             </Button>
-            {latestAnalysis ? (
+            {latestAnalysisQuery.isError ? (
+              <QueryStateNotice
+                tone="error"
+                title="Assistive analysis is unavailable"
+                description={latestAnalysisQuery.error.message}
+              />
+            ) : latestAnalysis ? (
               <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
                 <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                   <span>{latestAnalysis.ai_provider}</span>
@@ -461,7 +496,7 @@ export function LeadDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-              <Select value={outreachTone} onChange={(event) => setOutreachTone(event.target.value as OutreachTone)}>
+              <Select aria-label="Outreach tone" value={outreachTone} onChange={(event) => setOutreachTone(event.target.value as OutreachTone)}>
                 <option value="consultative">Consultative</option>
                 <option value="friendly">Friendly</option>
                 <option value="formal">Formal</option>
@@ -474,7 +509,13 @@ export function LeadDetailPage() {
                 Regenerate
               </Button>
             </div>
-            {latestOutreach ? (
+            {latestOutreachQuery.isError ? (
+              <QueryStateNotice
+                tone="error"
+                title="Outreach draft is unavailable"
+                description={latestOutreachQuery.error.message}
+              />
+            ) : latestOutreach ? (
               <div className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
                 <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                   <span>{formatDate(latestOutreach.updated_at)}</span>

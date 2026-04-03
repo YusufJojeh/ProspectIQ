@@ -2,12 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-
-class LeadScoreContext(BaseModel):
-    total_score: float | None = None
-    band: str | None = None
-    qualified: bool | None = None
-    reasons: list[str] = Field(default_factory=list)
+from app.shared.dto.lead_score_context import LeadScoreContext
 
 
 class LocalBusinessFactsInput(BaseModel):
@@ -87,3 +82,16 @@ class LeadAnalysisSnapshotResponse(BaseModel):
 class LatestLeadAnalysisResponse(BaseModel):
     lead_id: str
     snapshot: LeadAnalysisSnapshotResponse | None = None
+
+
+__all__ = [
+    "LeadAnalysisInput",
+    "LeadAnalysisResult",
+    "LeadAnalysisSnapshotResponse",
+    "LeadScoreContext",
+    "LatestLeadAnalysisResponse",
+    "LocalBusinessFactsInput",
+    "PlaceEnrichmentSummary",
+    "ServiceRecommendationResponse",
+    "WebVisibilitySummary",
+]
