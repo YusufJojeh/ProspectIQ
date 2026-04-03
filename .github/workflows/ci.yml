@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend Quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/api
+    env:
+      APP_ENV: ci
+      DATABASE_URL: mysql+pymysql://prospectiq:prospectiq@127.0.0.1:3306/prospectiq
+      JWT_SECRET: ci-super-secret-jwt-key-at-least-32-bytes
+      SERPAPI_API_KEY: ci-serpapi-placeholder
+      AI_PROVIDER: stub
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Ruff
+        run: python -m ruff check app tests migrations --config pyproject.toml
+
+      - name: Mypy
+        run: python -m mypy app --config-file pyproject.toml
+
+      - name: Pytest
+        run: python -m pytest -q
+
+      - name: Alembic offline migration render
+        run: python -m alembic upgrade head --sql > /tmp/alembic.sql
+
+  frontend:
+    name: Frontend Quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/web
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright E2E
+        env:
+          CI: "true"
+        run: npm run test:e2e -- --workers=2
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report

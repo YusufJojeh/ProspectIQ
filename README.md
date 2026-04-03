@@ -76,7 +76,17 @@ py -3.12 -m mypy app --config-file pyproject.toml
 cd apps/web
 npm run lint
 npm run build
+npm run test:e2e -- --workers=1
 ```
+
+## CI
+
+GitHub Actions runs the same validation path from [ci.yml](C:/Users/Yusuf/OneDrive/Desktop/ProspectIQ/.github/workflows/ci.yml):
+
+- Backend: `ruff`, `mypy`, `pytest`, and `alembic upgrade head --sql`
+- Frontend: `eslint`, `vite build`, and Playwright E2E
+
+The frontend browser tests use the repo's mock API layer, so they do not require a live backend in CI. The backend suite uses isolated test databases and an offline Alembic render check instead of a live MariaDB service.
 
 ## Reference Docs
 
