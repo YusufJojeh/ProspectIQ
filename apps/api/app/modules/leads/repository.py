@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
+from app.modules.leads.schemas import LeadSortOption
 from app.modules.scoring.models import LeadScore
 from app.modules.users.models import User
 
@@ -23,6 +26,7 @@ class LeadsRepository:
                 LeadScore.lead_id.label("lead_id"),
                 LeadScore.total_score.label("total_score"),
                 LeadScore.band.label("band"),
+                LeadScore.qualified.label("qualified"),
             )
             .join(
                 latest_scored_at,
@@ -44,18 +48,32 @@ class LeadsRepository:
         q: str | None,
         city: str | None,
         band: str | None,
-    ) -> tuple[Any, Any]:
-        statement = select(Lead).select_from(Lead).where(Lead.workspace_id == workspace_id)
+        category: str | None,
+        min_score: float | None,
+        max_score: float | None,
+        qualified: bool | None,
+        owner_public_id: str | None,
+    ) -> tuple[Any, Any, Any]:
+        from app.modules.search_jobs.models import SearchJob
+
+        latest_scores = self._latest_scores_subquery()
+        statement = (
+            select(Lead)
+            .select_from(Lead)
+            .outerjoin(latest_scores, latest_scores.c.lead_id == Lead.id)
+            .where(Lead.workspace_id == workspace_id)
+        )
         count_statement = (
-            select(func.count(Lead.id)).select_from(Lead).where(Lead.workspace_id == workspace_id)
+            select(func.count(Lead.id))
+            .select_from(Lead)
+            .outerjoin(latest_scores, latest_scores.c.lead_id == Lead.id)
+            .where(Lead.workspace_id == workspace_id)
         )
 
         if status is not None:
             statement = statement.where(Lead.status == status)
             count_statement = count_statement.where(Lead.status == status)
         if search_job_public_id is not None:
-            from app.modules.search_jobs.models import SearchJob  # local import to avoid cycles
-
             statement = statement.join(SearchJob).where(SearchJob.public_id == search_job_public_id)
             count_statement = count_statement.join(SearchJob).where(
                 SearchJob.public_id == search_job_public_id
@@ -77,15 +95,30 @@ class LeadsRepository:
             city_filter = Lead.city.ilike(f"%{city.strip()}%")
             statement = statement.where(city_filter)
             count_statement = count_statement.where(city_filter)
+        if category:
+            category_filter = Lead.category.ilike(f"%{category.strip()}%")
+            statement = statement.where(category_filter)
+            count_statement = count_statement.where(category_filter)
         if band:
-            latest_scores = self._latest_scores_subquery()
-            statement = statement.outerjoin(
-                latest_scores, latest_scores.c.lead_id == Lead.id
-            ).where(latest_scores.c.band == band)
-            count_statement = count_statement.outerjoin(
-                latest_scores, latest_scores.c.lead_id == Lead.id
-            ).where(latest_scores.c.band == band)
-        return statement, count_statement
+            statement = statement.where(latest_scores.c.band == band)
+            count_statement = count_statement.where(latest_scores.c.band == band)
+        if min_score is not None:
+            statement = statement.where(latest_scores.c.total_score >= min_score)
+            count_statement = count_statement.where(latest_scores.c.total_score >= min_score)
+        if max_score is not None:
+            statement = statement.where(latest_scores.c.total_score <= max_score)
+            count_statement = count_statement.where(latest_scores.c.total_score <= max_score)
+        if qualified is not None:
+            statement = statement.where(latest_scores.c.qualified == qualified)
+            count_statement = count_statement.where(latest_scores.c.qualified == qualified)
+        if owner_public_id:
+            statement = statement.join(User, User.id == Lead.assigned_to_user_id).where(
+                User.public_id == owner_public_id
+            )
+            count_statement = count_statement.join(User, User.id == Lead.assigned_to_user_id).where(
+                User.public_id == owner_public_id
+            )
+        return statement, count_statement, latest_scores
 
     def list_paginated(
         self,
@@ -100,8 +133,14 @@ class LeadsRepository:
         q: str | None = None,
         city: str | None = None,
         band: str | None = None,
+        category: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+        qualified: bool | None = None,
+        owner_public_id: str | None = None,
+        sort: LeadSortOption = LeadSortOption.NEWEST,
     ) -> tuple[list[Lead], int]:
-        statement, count_statement = self._filtered_statements(
+        statement, count_statement, latest_scores = self._filtered_statements(
             workspace_id=workspace_id,
             status=status,
             search_job_public_id=search_job_public_id,
@@ -109,12 +148,14 @@ class LeadsRepository:
             q=q,
             city=city,
             band=band,
+            category=category,
+            min_score=min_score,
+            max_score=max_score,
+            qualified=qualified,
+            owner_public_id=owner_public_id,
         )
-        statement = (
-            statement.order_by(Lead.updated_at.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        statement = statement.order_by(*self._order_by(sort, latest_scores))
+        statement = statement.offset((page - 1) * page_size).limit(page_size)
         return list(db.scalars(statement)), int(db.scalar(count_statement) or 0)
 
     def list_all(
@@ -128,8 +169,15 @@ class LeadsRepository:
         q: str | None = None,
         city: str | None = None,
         band: str | None = None,
+        category: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+        qualified: bool | None = None,
+        owner_public_id: str | None = None,
+        lead_public_ids: list[str] | None = None,
+        sort: LeadSortOption = LeadSortOption.NEWEST,
     ) -> list[Lead]:
-        statement, _ = self._filtered_statements(
+        statement, _, latest_scores = self._filtered_statements(
             workspace_id=workspace_id,
             status=status,
             search_job_public_id=search_job_public_id,
@@ -137,8 +185,15 @@ class LeadsRepository:
             q=q,
             city=city,
             band=band,
+            category=category,
+            min_score=min_score,
+            max_score=max_score,
+            qualified=qualified,
+            owner_public_id=owner_public_id,
         )
-        return list(db.scalars(statement.order_by(Lead.updated_at.desc())))
+        if lead_public_ids:
+            statement = statement.where(Lead.public_id.in_(lead_public_ids))
+        return list(db.scalars(statement.order_by(*self._order_by(sort, latest_scores))))
 
     def get_by_public_id(self, db: Session, public_id: str) -> Lead | None:
         return db.scalar(select(Lead).where(Lead.public_id == public_id))
@@ -198,3 +253,23 @@ class LeadsRepository:
         )
         results = list(db.scalars(statement))
         return {item.lead_id: item for item in results}
+
+    def _order_by(self, sort: LeadSortOption, latest_scores: Any) -> tuple[Any, ...]:
+        if sort == LeadSortOption.SCORE_DESC:
+            return (
+                latest_scores.c.total_score.is_(None),
+                latest_scores.c.total_score.desc(),
+                Lead.updated_at.desc(),
+            )
+        if sort == LeadSortOption.REVIEWS_DESC:
+            return (
+                Lead.review_count.desc(),
+                Lead.updated_at.desc(),
+            )
+        if sort == LeadSortOption.RATING_DESC:
+            return (
+                Lead.rating.is_(None),
+                Lead.rating.desc(),
+                Lead.updated_at.desc(),
+            )
+        return (Lead.created_at.desc(), Lead.updated_at.desc())

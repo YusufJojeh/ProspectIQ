@@ -17,10 +17,12 @@ from app.modules.outreach.repository import OutreachRepository
 from app.modules.outreach.schemas import (
     LatestOutreachResponse,
     OutreachDraftResponse,
+    OutreachGenerateRequest,
     OutreachMessageResult,
     OutreachMessageUpdateRequest,
 )
 from app.modules.users.models import User
+from app.shared.enums.jobs import OutreachTone
 
 
 class OutreachGenerationService:
@@ -39,27 +41,39 @@ class OutreachGenerationService:
         snapshot: AIAnalysisSnapshot,
         analysis: LeadAnalysisResult,
         created_by_user_id: int,
+        tone: OutreachTone,
+        regenerate: bool = False,
     ) -> OutreachMessageResult:
-        existing = self.repository.get_by_snapshot_id(db, snapshot.id)
-        if existing is not None:
+        existing = self.repository.get_by_snapshot_id(db, snapshot.id, tone=tone.value)
+        if existing is not None and not regenerate:
             return OutreachMessageResult(
                 subject=existing.edited_subject or existing.subject,
                 message=existing.edited_message or existing.message,
+                tone=OutreachTone(existing.tone),
             )
 
+        subject, message = self._apply_tone(
+            tone=tone,
+            company_name=lead.company_name,
+            base_subject=analysis.outreach_subject,
+            base_message=analysis.outreach_message,
+        )
         saved = self.repository.add(
             db,
             OutreachMessage(
                 lead_id=lead.id,
                 ai_analysis_snapshot_id=snapshot.id,
-                subject=analysis.outreach_subject,
-                message=analysis.outreach_message,
+                subject=subject,
+                message=message,
+                tone=tone.value,
+                version_number=self.repository.get_next_version_number(db, lead.id),
                 created_by_user_id=created_by_user_id,
             ),
         )
         return OutreachMessageResult(
             subject=saved.subject,
             message=saved.message,
+            tone=OutreachTone(saved.tone),
         )
 
     def get_latest_for_lead(
@@ -85,6 +99,7 @@ class OutreachGenerationService:
         workspace_id: int,
         lead_public_id: str,
         current_user: User,
+        payload: OutreachGenerateRequest,
     ) -> OutreachDraftResponse:
         lead, snapshot, analysis = self.analysis_service.prepare_analysis_for_lead(
             db,
@@ -98,8 +113,10 @@ class OutreachGenerationService:
             snapshot=snapshot,
             analysis=analysis,
             created_by_user_id=current_user.id,
+            tone=payload.tone,
+            regenerate=payload.regenerate,
         )
-        message = self.repository.get_by_snapshot_id(db, snapshot.id)
+        message = self.repository.get_latest_by_lead(db, lead.id)
         if message is None:
             raise NotFoundError("Outreach draft was not found.")
         self.audit_logs.record(
@@ -107,7 +124,10 @@ class OutreachGenerationService:
             workspace_id=workspace_id,
             actor_user_id=current_user.id,
             event_name="lead.outreach_generated",
-            details=f"Generated an outreach draft for lead {lead.public_id}.",
+            details=(
+                f"Generated outreach draft v{message.version_number} "
+                f"({message.tone}) for lead {lead.public_id}."
+            ),
         )
         return self._to_response(db, lead_public_id=lead.public_id, message=message)
 
@@ -133,7 +153,10 @@ class OutreachGenerationService:
             workspace_id=workspace_id,
             actor_user_id=current_user.id,
             event_name="lead.outreach_updated",
-            details=f"Updated outreach draft {saved.public_id} for lead {lead.public_id}.",
+            details=(
+                f"Updated outreach draft {saved.public_id} "
+                f"(v{saved.version_number}, {saved.tone}) for lead {lead.public_id}."
+            ),
         )
         return self._to_response(db, lead_public_id=lead.public_id, message=saved)
 
@@ -179,9 +202,39 @@ class OutreachGenerationService:
             ai_analysis_snapshot_public_id=snapshot.public_id,
             subject=subject,
             message=body,
+            tone=OutreachTone(message.tone),
+            version_number=message.version_number,
             generated_subject=message.subject,
             generated_message=message.message,
             has_manual_edits=bool(message.edited_subject or message.edited_message),
             created_at=message.created_at,
             updated_at=message.updated_at,
         )
+
+    def _apply_tone(
+        self,
+        *,
+        tone: OutreachTone,
+        company_name: str,
+        base_subject: str,
+        base_message: str,
+    ) -> tuple[str, str]:
+        if tone == OutreachTone.FORMAL:
+            return (
+                f"{company_name}: evidence-based growth observations",
+                base_message
+                + "\n\nIf appropriate, we can share a concise audit and recommended next steps.",
+            )
+        if tone == OutreachTone.FRIENDLY:
+            return (
+                f"Quick idea for {company_name}",
+                base_message.replace("Hi", "Hello")
+                + "\n\nHappy to send a short version if that helps.",
+            )
+        if tone == OutreachTone.SHORT_PITCH:
+            first_line = base_message.splitlines()[0] if base_message.splitlines() else base_message
+            return (
+                f"{company_name}: quick visibility idea",
+                f"{first_line}\n\nWe found two evidence-backed opportunities worth discussing.",
+            )
+        return base_subject, base_message

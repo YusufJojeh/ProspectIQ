@@ -89,6 +89,8 @@ test("operator can work a lead through analysis, outreach, notes, status changes
 
   await page.getByRole("link", { name: /^admin$/i }).click();
   await expect(page.getByRole("heading", { name: /operational configuration/i })).toBeVisible();
+  await expect(page.getByText(/healthy/i)).toBeVisible();
+  await expect(page.getByText(/configured/i)).toBeVisible();
 
   await page.locator('input[name="enrich_top_n"]').fill("25");
   await page.getByRole("button", { name: /save provider settings/i }).click();
@@ -99,6 +101,14 @@ test("operator can work a lead through analysis, outreach, notes, status changes
   await expect(page.getByText("E2E scoring candidate")).toBeVisible();
   await page.getByRole("button", { name: /^activate$/i }).click();
 
+  await page.locator('input[name="name"]').fill("E2E prompt template");
+  await page
+    .locator('textarea[name="template_text"]')
+    .fill("Use only stored evidence and the deterministic score breakdown. Do not invent unsupported facts.");
+  await page.getByRole("button", { name: /create prompt template/i }).click();
+  await expect(page.getByText("E2E prompt template")).toBeVisible();
+
   await expect(page.getByText(/admin\.provider_settings_updated/i)).toBeVisible();
   await expect(page.getByText(/admin\.scoring_version_created/i)).toBeVisible();
+  await expect(page.getByText(/admin\.prompt_template_created/i)).toBeVisible();
 });

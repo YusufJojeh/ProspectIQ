@@ -23,11 +23,11 @@ from app.modules.provider_serpapi.schemas import (
     WebsiteDiscoveryResult,
 )
 from app.modules.provider_serpapi.service import SerpApiService
+from app.modules.scoring.fact_builder import EvidenceFactBuilder
 from app.modules.scoring.schemas import ScoringThresholds, ScoringWeights
 from app.modules.scoring.service import ScoringConfigService, ScoringEngine, persist_lead_score
 from app.modules.search_jobs.models import SearchJob
 from app.modules.search_jobs.repository import SearchJobRepository
-from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsitePreference
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,7 @@ class LeadDiscoveryOrchestrator:
         web_search_normalizer: WebSearchNormalizer | None = None,
         scoring_engine: ScoringEngine | None = None,
         scoring_config_service: ScoringConfigService | None = None,
+        fact_builder: EvidenceFactBuilder | None = None,
     ) -> None:
         self.session_factory = session_factory or get_session_factory()
         self.provider_service = provider_service
@@ -96,6 +97,7 @@ class LeadDiscoveryOrchestrator:
         self.web_search_normalizer = web_search_normalizer or WebSearchNormalizer()
         self.scoring_engine = scoring_engine or ScoringEngine()
         self.scoring_config_service = scoring_config_service or ScoringConfigService()
+        self.fact_builder = fact_builder or EvidenceFactBuilder()
 
     def run(self, job_public_id: str) -> None:
         with self.session_factory() as db:
@@ -220,27 +222,8 @@ class LeadDiscoveryOrchestrator:
         thresholds = ScoringThresholds.model_validate(version.thresholds_json)
 
         for lead in self._list_leads(db, lead_ids):
-            visibility_confidence, visibility_source = (
-                self.evidence_repository.get_latest_visibility(db, lead.id)
-            )
-            facts = NormalizedLeadFacts(
-                company_name=lead.company_name,
-                category=lead.category,
-                address=lead.address,
-                city=lead.city,
-                phone=lead.phone,
-                website_url=lead.website_url,
-                website_domain=lead.website_domain,
-                review_count=lead.review_count,
-                rating=lead.rating,
-                lat=lead.lat,
-                lng=lead.lng,
-                data_completeness=lead.data_completeness,
-                data_confidence=lead.data_confidence,
-                has_website=lead.has_website,
-                visibility_confidence=visibility_confidence,
-                visibility_source=visibility_source,
-            )
+            evidence = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
+            facts = self.fact_builder.build(lead, evidence)
             result = self.scoring_engine.evaluate(
                 facts,
                 weights=weights,

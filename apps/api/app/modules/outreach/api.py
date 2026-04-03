@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -6,6 +6,7 @@ from app.modules.auth.policies import get_current_user, get_current_workspace_id
 from app.modules.outreach.schemas import (
     LatestOutreachResponse,
     OutreachDraftResponse,
+    OutreachGenerateRequest,
     OutreachMessageUpdateRequest,
 )
 from app.modules.outreach.service import OutreachGenerationService
@@ -31,6 +32,7 @@ def get_latest_outreach(
 @router.post("/leads/{lead_id}/generate", response_model=OutreachDraftResponse)
 def generate_outreach(
     lead_id: str,
+    payload: OutreachGenerateRequest = Body(default_factory=OutreachGenerateRequest),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
@@ -40,6 +42,7 @@ def generate_outreach(
         workspace_id=workspace_id,
         lead_public_id=lead_id,
         current_user=current_user,
+        payload=payload,
     )
 
 

@@ -1,7 +1,7 @@
 """Initial SerpAPI-centered schema.
 
 Revision ID: 0001_initial
-Revises: 
+Revises:
 Create Date: 2026-04-02
 """
 
@@ -27,7 +27,9 @@ def upgrade() -> None:
         "users",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("full_name", sa.String(length=255), nullable=False),
         sa.Column("hashed_password", sa.String(length=255), nullable=False),
@@ -40,7 +42,13 @@ def upgrade() -> None:
     op.create_table(
         "provider_settings",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, unique=True),
+        sa.Column(
+            "workspace_id",
+            sa.Integer(),
+            sa.ForeignKey("workspaces.id"),
+            nullable=False,
+            unique=True,
+        ),
         sa.Column("hl", sa.String(length=16), nullable=False),
         sa.Column("gl", sa.String(length=16), nullable=False),
         sa.Column("google_domain", sa.String(length=64), nullable=False),
@@ -53,8 +61,16 @@ def upgrade() -> None:
         "search_jobs",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
-        sa.Column("requested_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
+        sa.Column(
+            "requested_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("business_type", sa.String(length=255), nullable=False),
         sa.Column("city", sa.String(length=255), nullable=False),
         sa.Column("region", sa.String(length=255), nullable=True),
@@ -76,9 +92,23 @@ def upgrade() -> None:
         "leads",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
-        sa.Column("search_job_id", sa.Integer(), sa.ForeignKey("search_jobs.id"), nullable=True, index=True),
-        sa.Column("assigned_to_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
+        sa.Column(
+            "search_job_id",
+            sa.Integer(),
+            sa.ForeignKey("search_jobs.id"),
+            nullable=True,
+            index=True,
+        ),
+        sa.Column(
+            "assigned_to_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=True,
+            index=True,
+        ),
         sa.Column("company_name", sa.String(length=255), nullable=False),
         sa.Column("category", sa.String(length=255), nullable=True),
         sa.Column("address", sa.String(length=512), nullable=True),
@@ -102,11 +132,19 @@ def upgrade() -> None:
         "provider_fetches",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
         sa.Column("provider", sa.String(length=32), nullable=False),
         sa.Column("engine", sa.String(length=32), nullable=False),
         sa.Column("mode", sa.String(length=32), nullable=False),
-        sa.Column("search_job_id", sa.Integer(), sa.ForeignKey("search_jobs.id"), nullable=True, index=True),
+        sa.Column(
+            "search_job_id",
+            sa.Integer(),
+            sa.ForeignKey("search_jobs.id"),
+            nullable=True,
+            index=True,
+        ),
         sa.Column("request_fingerprint", sa.String(length=64), nullable=False, index=True),
         sa.Column("request_params_json", sa.JSON(), nullable=False),
         sa.Column("serpapi_search_id", sa.String(length=64), nullable=True),
@@ -122,7 +160,13 @@ def upgrade() -> None:
     op.create_table(
         "provider_raw_payloads",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("provider_fetch_id", sa.Integer(), sa.ForeignKey("provider_fetches.id"), nullable=False, index=True),
+        sa.Column(
+            "provider_fetch_id",
+            sa.Integer(),
+            sa.ForeignKey("provider_fetches.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("payload_json", sa.JSON(), nullable=False),
         sa.Column("payload_sha256", sa.String(length=64), nullable=False, index=True),
         sa.Column("captured_at", sa.DateTime(), nullable=False),
@@ -131,9 +175,17 @@ def upgrade() -> None:
     op.create_table(
         "provider_normalized_facts",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
         sa.Column("lead_id", sa.Integer(), sa.ForeignKey("leads.id"), nullable=False, index=True),
-        sa.Column("provider_fetch_id", sa.Integer(), sa.ForeignKey("provider_fetches.id"), nullable=False, index=True),
+        sa.Column(
+            "provider_fetch_id",
+            sa.Integer(),
+            sa.ForeignKey("provider_fetches.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("source_type", sa.String(length=32), nullable=False),
         sa.Column("data_cid", sa.String(length=128), nullable=True, index=True),
         sa.Column("data_id", sa.String(length=128), nullable=True, index=True),
@@ -174,13 +226,18 @@ def upgrade() -> None:
     op.create_table(
         "lead_identities",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
         sa.Column("lead_id", sa.Integer(), sa.ForeignKey("leads.id"), nullable=False, index=True),
         sa.Column("identity_type", sa.String(length=32), nullable=False),
         sa.Column("identity_value", sa.String(length=255), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint(
-            "workspace_id", "identity_type", "identity_value", name="uq_lead_identities_workspace_key"
+            "workspace_id",
+            "identity_type",
+            "identity_value",
+            name="uq_lead_identities_workspace_key",
         ),
         sa.Index("ix_lead_identities_lookup", "workspace_id", "identity_type", "identity_value"),
     )
@@ -189,8 +246,16 @@ def upgrade() -> None:
         "scoring_config_versions",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
-        sa.Column("created_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
+        sa.Column(
+            "created_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("weights_json", sa.JSON(), nullable=False),
         sa.Column("thresholds_json", sa.JSON(), nullable=False),
         sa.Column("note", sa.String(length=255), nullable=True),
@@ -230,7 +295,13 @@ def upgrade() -> None:
     op.create_table(
         "score_breakdowns",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("lead_score_id", sa.Integer(), sa.ForeignKey("lead_scores.id"), nullable=False, index=True),
+        sa.Column(
+            "lead_score_id",
+            sa.Integer(),
+            sa.ForeignKey("lead_scores.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("key", sa.String(length=64), nullable=False),
         sa.Column("label", sa.String(length=255), nullable=False),
         sa.Column("weight", sa.Float(), nullable=False),
@@ -243,11 +314,19 @@ def upgrade() -> None:
         "prompt_templates",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("template_text", sa.Text(), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
-        sa.Column("created_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "created_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
 
@@ -256,12 +335,24 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
         sa.Column("lead_id", sa.Integer(), sa.ForeignKey("leads.id"), nullable=False, index=True),
-        sa.Column("prompt_template_id", sa.Integer(), sa.ForeignKey("prompt_templates.id"), nullable=False, index=True),
+        sa.Column(
+            "prompt_template_id",
+            sa.Integer(),
+            sa.ForeignKey("prompt_templates.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("ai_provider", sa.String(length=32), nullable=False),
         sa.Column("model_name", sa.String(length=128), nullable=False),
         sa.Column("input_hash", sa.String(length=64), nullable=False, index=True),
         sa.Column("output_json", sa.JSON(), nullable=False),
-        sa.Column("created_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "created_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
 
@@ -281,7 +372,13 @@ def upgrade() -> None:
         sa.Column("message", sa.Text(), nullable=False),
         sa.Column("edited_subject", sa.String(length=255), nullable=True),
         sa.Column("edited_message", sa.Text(), nullable=True),
-        sa.Column("created_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "created_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
@@ -292,7 +389,13 @@ def upgrade() -> None:
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
         sa.Column("lead_id", sa.Integer(), sa.ForeignKey("leads.id"), nullable=False, index=True),
         sa.Column("note", sa.Text(), nullable=False),
-        sa.Column("created_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "created_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
 
@@ -302,7 +405,13 @@ def upgrade() -> None:
         sa.Column("lead_id", sa.Integer(), sa.ForeignKey("leads.id"), nullable=False, index=True),
         sa.Column("from_status", sa.String(length=32), nullable=True),
         sa.Column("to_status", sa.String(length=32), nullable=False),
-        sa.Column("changed_by_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "changed_by_user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("changed_at", sa.DateTime(), nullable=False),
     )
 
@@ -310,8 +419,12 @@ def upgrade() -> None:
         "audit_logs",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
-        sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True),
-        sa.Column("actor_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True, index=True),
+        sa.Column(
+            "workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False, index=True
+        ),
+        sa.Column(
+            "actor_user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True, index=True
+        ),
         sa.Column("event_name", sa.String(length=128), nullable=False),
         sa.Column("details", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
@@ -340,4 +453,3 @@ def downgrade() -> None:
     op.drop_table("provider_settings")
     op.drop_table("users")
     op.drop_table("workspaces")
-

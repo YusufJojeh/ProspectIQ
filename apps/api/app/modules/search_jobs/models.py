@@ -29,9 +29,7 @@ class SearchRequest(Base):
     max_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     min_reviews: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_reviews: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    website_preference: Mapped[str] = mapped_column(
-        String(32), default=WebsitePreference.ANY.value
-    )
+    website_preference: Mapped[str] = mapped_column(String(32), default=WebsitePreference.ANY.value)
     keyword_filter: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
 
@@ -64,9 +62,7 @@ class SearchJob(Base):
     max_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     min_reviews: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_reviews: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    website_preference: Mapped[str] = mapped_column(
-        String(32), default=WebsitePreference.ANY.value
-    )
+    website_preference: Mapped[str] = mapped_column(String(32), default=WebsitePreference.ANY.value)
     keyword_filter: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     status: Mapped[str] = mapped_column(String(32), default=SearchJobStatus.QUEUED.value)

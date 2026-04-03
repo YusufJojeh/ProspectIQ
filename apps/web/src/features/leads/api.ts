@@ -9,7 +9,9 @@ import type {
   LeadResponse,
   LeadScoreBreakdownResponse,
   LeadScoreBand,
+  LeadSortOption,
   LeadStatus,
+  OutreachGenerateRequest,
 } from "@/types/api";
 
 type LeadListFilters = {
@@ -17,10 +19,17 @@ type LeadListFilters = {
   page_size?: number;
   q?: string;
   city?: string;
+  category?: string;
   status?: LeadStatus | "all";
   band?: LeadScoreBand | "all";
+  min_score?: number;
+  max_score?: number;
+  qualified?: boolean | "all";
+  owner_user_id?: string | "all";
   search_job_id?: string | "all";
   has_website?: boolean | "all";
+  sort?: LeadSortOption;
+  lead_ids?: string[];
 };
 
 function buildLeadQuery(filters: LeadListFilters = {}) {
@@ -29,11 +38,24 @@ function buildLeadQuery(filters: LeadListFilters = {}) {
   if (filters.page_size) params.set("page_size", String(filters.page_size));
   if (filters.q) params.set("q", filters.q);
   if (filters.city) params.set("city", filters.city);
+  if (filters.category) params.set("category", filters.category);
   if (filters.status && filters.status !== "all") params.set("status", filters.status);
   if (filters.band && filters.band !== "all") params.set("band", filters.band);
+  if (filters.min_score !== undefined) params.set("min_score", String(filters.min_score));
+  if (filters.max_score !== undefined) params.set("max_score", String(filters.max_score));
+  if (filters.qualified !== undefined && filters.qualified !== "all") {
+    params.set("qualified", String(filters.qualified));
+  }
+  if (filters.owner_user_id !== undefined && filters.owner_user_id !== "all") {
+    params.set("owner_user_id", filters.owner_user_id);
+  }
   if (filters.search_job_id && filters.search_job_id !== "all") params.set("search_job_id", filters.search_job_id);
   if (filters.has_website !== undefined && filters.has_website !== "all") {
     params.set("has_website", String(filters.has_website));
+  }
+  if (filters.sort) params.set("sort", filters.sort);
+  for (const leadId of filters.lead_ids ?? []) {
+    params.append("lead_ids", leadId);
   }
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -71,8 +93,12 @@ export function addLeadNote(leadId: string, note: string) {
   return request<LeadNoteResponse>(`/api/v1/leads/${leadId}/notes`, { method: "POST" }, { note });
 }
 
-export function generateLeadOutreach(leadId: string) {
-  return request<LeadOutreachResponse>(`/api/v1/leads/${leadId}/outreach/generate`, { method: "POST" });
+export function generateLeadOutreach(leadId: string, payload?: OutreachGenerateRequest) {
+  return request<LeadOutreachResponse>(
+    `/api/v1/leads/${leadId}/outreach/generate`,
+    { method: "POST" },
+    payload,
+  );
 }
 
 export function updateLeadStatus(leadId: string, status: LeadStatus, note?: string) {

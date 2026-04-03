@@ -127,7 +127,9 @@ def test_create_search_job_endpoint_persists_request_and_returns_status(monkeypa
     assert status_response.json()["public_id"] == payload["public_id"]
 
     with session_factory() as db:
-        search_request = db.scalar(select(SearchRequest).where(SearchRequest.keyword_filter == "implant"))
+        search_request = db.scalar(
+            select(SearchRequest).where(SearchRequest.keyword_filter == "implant")
+        )
         assert search_request is not None
         assert search_request.website_preference == "must_have"
         assert search_request.radius_km == 15

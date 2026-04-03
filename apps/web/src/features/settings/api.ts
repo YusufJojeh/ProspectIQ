@@ -2,6 +2,10 @@ import { request } from "@/lib/api-client";
 import type {
   ActiveScoringConfigResponse,
   AuditLogListResponse,
+  OperationalHealthResponse,
+  PromptTemplateCreateRequest,
+  PromptTemplateListResponse,
+  PromptTemplateResponse,
   ProviderSettingsResponse,
   ProviderSettingsUpdateRequest,
   ScoringConfigVersionResponse,
@@ -31,6 +35,24 @@ export function getProviderSettings() {
 
 export function updateProviderSettings(payload: ProviderSettingsUpdateRequest) {
   return request<ProviderSettingsResponse>("/api/v1/admin/provider-settings", { method: "PATCH" }, payload);
+}
+
+export function listPromptTemplates() {
+  return request<PromptTemplateListResponse>("/api/v1/admin/prompt-templates");
+}
+
+export function createPromptTemplate(payload: PromptTemplateCreateRequest) {
+  return request<PromptTemplateResponse>("/api/v1/admin/prompt-templates", { method: "POST" }, payload);
+}
+
+export function activatePromptTemplate(promptTemplateId: string) {
+  return request<PromptTemplateResponse>(`/api/v1/admin/prompt-templates/activate/${promptTemplateId}`, {
+    method: "POST",
+  });
+}
+
+export function getOperationalHealth() {
+  return request<OperationalHealthResponse>("/api/v1/admin/operations/health");
 }
 
 export function listAuditLogs() {

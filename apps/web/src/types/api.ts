@@ -1,5 +1,7 @@
 export type UserRole = "admin" | "agency_manager" | "sales_user";
 export type WebsitePreference = "any" | "must_have" | "must_be_missing";
+export type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
+export type LeadSortOption = "newest" | "score_desc" | "reviews_desc" | "rating_desc";
 
 export type SearchJobStatus =
   | "queued"
@@ -108,6 +110,7 @@ export interface LeadResponse {
   assigned_to_user_public_id: string | null;
   latest_score: number | null;
   latest_band: LeadScoreBand | null;
+  latest_qualified: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -207,6 +210,7 @@ export interface LeadAnalysisResponse {
 export interface OutreachMessageResult {
   subject: string;
   message: string;
+  tone: OutreachTone;
 }
 
 export interface OutreachDraftResponse {
@@ -215,6 +219,8 @@ export interface OutreachDraftResponse {
   ai_analysis_snapshot_public_id: string;
   subject: string;
   message: string;
+  tone: OutreachTone;
+  version_number: number;
   generated_subject: string;
   generated_message: string;
   has_manual_edits: boolean;
@@ -225,6 +231,11 @@ export interface OutreachDraftResponse {
 export interface LatestOutreachResponse {
   lead_id: string;
   message: OutreachDraftResponse | null;
+}
+
+export interface OutreachGenerateRequest {
+  tone?: OutreachTone;
+  regenerate?: boolean;
 }
 
 export interface OutreachMessageUpdateRequest {
@@ -315,6 +326,55 @@ export interface ProviderSettingsUpdateRequest {
   gl?: string;
   google_domain?: string;
   enrich_top_n?: number;
+}
+
+export interface PromptTemplateResponse {
+  public_id: string;
+  name: string;
+  template_text: string;
+  is_active: boolean;
+  created_at: string;
+  created_by_user_public_id: string;
+}
+
+export interface PromptTemplateListResponse {
+  items: PromptTemplateResponse[];
+}
+
+export interface PromptTemplateCreateRequest {
+  name: string;
+  template_text: string;
+  activate?: boolean;
+}
+
+export interface RecentFailedJobResponse {
+  public_id: string;
+  business_type: string;
+  city: string;
+  status: SearchJobStatus;
+  queued_at: string;
+  finished_at: string | null;
+  provider_error_count: number;
+}
+
+export interface RecentProviderFailureResponse {
+  public_id: string;
+  engine: string;
+  mode: string;
+  status: string;
+  http_status: number | null;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface OperationalHealthResponse {
+  database_ok: boolean;
+  serpapi_configured: boolean;
+  failed_jobs_last_7_days: number;
+  provider_failures_last_7_days: number;
+  recent_failed_jobs: RecentFailedJobResponse[];
+  recent_provider_failures: RecentProviderFailureResponse[];
 }
 
 export interface UserOption {

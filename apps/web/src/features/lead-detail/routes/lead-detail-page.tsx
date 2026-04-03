@@ -26,7 +26,7 @@ import { generateLeadOutreach, getLatestOutreach, updateOutreachDraft } from "@/
 import { listUsers } from "@/features/users/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { bandTone, formatDate, formatPercent, formatScore, statusTone, titleCaseLabel } from "@/lib/presenters";
-import type { LeadStatus } from "@/types/api";
+import type { LeadStatus, OutreachTone } from "@/types/api";
 
 export function LeadDetailPage() {
   const { leadId = "" } = useParams();
@@ -36,6 +36,7 @@ export function LeadDetailPage() {
   const [noteDraft, setNoteDraft] = useState("");
   const [outreachSubjectDraft, setOutreachSubjectDraft] = useState("");
   const [outreachMessageDraft, setOutreachMessageDraft] = useState("");
+  const [outreachTone, setOutreachTone] = useState<OutreachTone>("consultative");
 
   const leadQuery = useQuery({
     queryKey: ["lead", leadId],
@@ -84,6 +85,7 @@ export function LeadDetailPage() {
     const message = latestOutreachQuery.data?.message;
     setOutreachSubjectDraft(message?.subject ?? "");
     setOutreachMessageDraft(message?.message ?? "");
+    setOutreachTone(message?.tone ?? "consultative");
   }, [latestOutreachQuery.data?.message]);
 
   const refreshQueries = () => {
@@ -113,7 +115,7 @@ export function LeadDetailPage() {
     onSuccess: refreshQueries,
   });
   const outreachMutation = useMutation({
-    mutationFn: () => generateLeadOutreach(leadId),
+    mutationFn: (regenerate: boolean) => generateLeadOutreach(leadId, { tone: outreachTone, regenerate }),
     onSuccess: refreshQueries,
   });
   const refreshMutation = useMutation({
@@ -186,6 +188,9 @@ export function LeadDetailPage() {
                 {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
               </Badge>
               <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
+              <Badge tone={lead.latest_qualified ? "warning" : "neutral"}>
+                {lead.latest_qualified ? "Qualified" : "Needs review"}
+              </Badge>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <FactCard label="City" value={lead.city ?? "Unknown"} />
@@ -194,6 +199,8 @@ export function LeadDetailPage() {
               <FactCard label="Rating" value={lead.rating ? String(lead.rating) : "N/A"} />
               <FactCard label="Completeness" value={formatPercent(lead.data_completeness)} />
               <FactCard label="Confidence" value={formatPercent(lead.data_confidence)} />
+              <FactCard label="Qualified" value={lead.latest_qualified ? "Yes" : "No"} />
+              <FactCard label="Lead score" value={formatScore(lead.latest_score)} />
             </div>
           </CardContent>
         </Card>
@@ -409,6 +416,7 @@ export function LeadDetailPage() {
                   <span>{latestAnalysis.ai_provider}</span>
                   <span>{latestAnalysis.model_name}</span>
                   <span>{formatDate(latestAnalysis.created_at)}</span>
+                  <span>Confidence {Math.round(latestAnalysis.analysis.confidence * 100)}%</span>
                 </div>
                 <p className="text-sm leading-6 text-[color:var(--muted)]">{latestAnalysis.analysis.summary}</p>
                 <div>
@@ -452,13 +460,26 @@ export function LeadDetailPage() {
             <CardDescription>Subject and message draft produced from the same stored facts and score context.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button variant="secondary" onClick={() => outreachMutation.mutate()} disabled={outreachMutation.isPending}>
-              {outreachMutation.isPending ? "Drafting..." : "Generate outreach draft"}
-            </Button>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+              <Select value={outreachTone} onChange={(event) => setOutreachTone(event.target.value as OutreachTone)}>
+                <option value="consultative">Consultative</option>
+                <option value="friendly">Friendly</option>
+                <option value="formal">Formal</option>
+                <option value="short_pitch">Short pitch</option>
+              </Select>
+              <Button variant="secondary" onClick={() => outreachMutation.mutate(false)} disabled={outreachMutation.isPending}>
+                {outreachMutation.isPending ? "Drafting..." : "Generate with tone"}
+              </Button>
+              <Button variant="secondary" onClick={() => outreachMutation.mutate(true)} disabled={outreachMutation.isPending}>
+                Regenerate
+              </Button>
+            </div>
             {latestOutreach ? (
               <div className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
                 <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                   <span>{formatDate(latestOutreach.updated_at)}</span>
+                  <span>{titleCaseLabel(latestOutreach.tone)}</span>
+                  <span>Version {latestOutreach.version_number}</span>
                   <span>{latestOutreach.has_manual_edits ? "Edited draft" : "Generated draft"}</span>
                 </div>
                 <div className="space-y-2">

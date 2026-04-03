@@ -1,7 +1,8 @@
 from functools import lru_cache
+from typing import Annotated
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -12,6 +13,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "<replace-me>"
     jwt_expire_minutes: int = 120
     web_origin: str = "http://localhost:5173"
+    web_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
     sql_echo: bool = False
     log_level: str = "INFO"
     enable_db_healthcheck: bool = True
@@ -51,6 +53,37 @@ class Settings(BaseSettings):
         if not stripped:
             raise ValueError("WEB_ORIGIN must not be empty.")
         return stripped.rstrip("/")
+
+    @field_validator("web_origins", mode="before")
+    @classmethod
+    def validate_web_origins(cls, value: object) -> list[str]:
+        if value in (None, ""):
+            return []
+        if isinstance(value, str):
+            return [item.strip().rstrip("/") for item in value.split(",") if item.strip()]
+        if isinstance(value, list):
+            return [str(item).strip().rstrip("/") for item in value if str(item).strip()]
+        raise ValueError("WEB_ORIGINS must be a comma-separated string or list.")
+
+    @property
+    def allowed_web_origins(self) -> list[str]:
+        origins = list(self.web_origins) if self.web_origins else [self.web_origin]
+        if self.is_development:
+            expanded: list[str] = []
+            for origin in origins:
+                expanded.append(origin)
+                if "localhost" in origin:
+                    expanded.append(origin.replace("localhost", "127.0.0.1"))
+                elif "127.0.0.1" in origin:
+                    expanded.append(origin.replace("127.0.0.1", "localhost"))
+            seen: set[str] = set()
+            deduped: list[str] = []
+            for origin in expanded:
+                if origin not in seen:
+                    seen.add(origin)
+                    deduped.append(origin)
+            return deduped
+        return origins
 
     @property
     def is_development(self) -> bool:

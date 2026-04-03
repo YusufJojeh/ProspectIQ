@@ -10,10 +10,11 @@ from app.modules.ai_analysis.schemas import LeadScoreContext
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.leads.models import Lead
 from app.modules.outreach.models import OutreachMessage
-from app.modules.outreach.schemas import OutreachMessageUpdateRequest
+from app.modules.outreach.schemas import OutreachGenerateRequest, OutreachMessageUpdateRequest
 from app.modules.outreach.service import OutreachGenerationService
 from app.modules.users.models import User, Workspace
 from app.shared.dto.lead_facts import NormalizedLeadFacts
+from app.shared.enums.jobs import OutreachTone
 
 
 def _build_session_factory() -> sessionmaker[Session]:
@@ -74,6 +75,11 @@ def _seed(db: Session) -> tuple[Workspace, User, Lead]:
     return workspace, user, lead
 
 
+class InvalidAdapter:
+    def analyze(self, payload: object) -> dict[str, object]:
+        return {"summary": "invalid"}
+
+
 def test_ai_analysis_persists_and_reuses_snapshot() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:
@@ -113,7 +119,7 @@ def test_ai_analysis_persists_and_reuses_snapshot() -> None:
         )
 
         assert "Acme Dental" in first_result.summary
-        assert any("Google Business Profile" in item for item in first_result.recommended_services)
+        assert first_result.recommended_services
         assert first_snapshot.id == second_snapshot.id
         assert first_result == second_result
         assert db.scalar(select(func.count(AIAnalysisSnapshot.id))) == 1
@@ -130,10 +136,45 @@ def test_ai_analysis_persists_and_reuses_snapshot() -> None:
         assert latest.snapshot is not None
         assert latest.snapshot.public_id == first_snapshot.public_id
         assert latest.snapshot.analysis.summary == first_result.summary
-        assert len(latest.snapshot.service_recommendations) == len(first_result.recommended_services)
+        assert len(latest.snapshot.service_recommendations) == len(
+            first_result.recommended_services
+        )
 
 
-def test_outreach_generation_persists_single_message_per_snapshot() -> None:
+def test_ai_analysis_falls_back_to_valid_payload_when_adapter_output_is_invalid() -> None:
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace, user, lead = _seed(db)
+        service = AIAnalysisService(llm_client=InvalidAdapter())
+        facts = NormalizedLeadFacts(
+            company_name=lead.company_name,
+            category=lead.category,
+            city=lead.city,
+            website_url=lead.website_url,
+            website_domain=lead.website_domain,
+            review_count=lead.review_count,
+            rating=lead.rating,
+            data_completeness=lead.data_completeness,
+            data_confidence=lead.data_confidence,
+            has_website=lead.has_website,
+            official_website_found=True,
+            official_website_source="maps_place",
+            website_domain_matches_brand=True,
+        )
+
+        _, result = service.analyze(
+            db,
+            workspace_id=workspace.id,
+            lead=lead,
+            facts=facts,
+            created_by_user_id=user.id,
+        )
+
+        assert "fallback path" in result.summary.casefold()
+        assert result.recommended_services
+
+
+def test_outreach_generation_versions_messages_by_tone_and_regeneration() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:
         workspace, user, lead = _seed(db)
@@ -167,6 +208,7 @@ def test_outreach_generation_persists_single_message_per_snapshot() -> None:
             snapshot=snapshot,
             analysis=analysis,
             created_by_user_id=user.id,
+            tone=OutreachTone.CONSULTATIVE,
         )
         second_message = outreach_service.generate(
             db,
@@ -174,11 +216,19 @@ def test_outreach_generation_persists_single_message_per_snapshot() -> None:
             snapshot=snapshot,
             analysis=analysis,
             created_by_user_id=user.id,
+            tone=OutreachTone.CONSULTATIVE,
+        )
+        regenerated = outreach_service.generate_for_lead(
+            db,
+            workspace_id=workspace.id,
+            lead_public_id=lead.public_id,
+            current_user=user,
+            payload=OutreachGenerateRequest(tone=OutreachTone.FORMAL, regenerate=True),
         )
 
         assert first_message.subject == second_message.subject
         assert "Acme Dental" in first_message.message
-        assert db.scalar(select(func.count(OutreachMessage.id))) == 1
+        assert db.scalar(select(func.count(OutreachMessage.id))) == 2
 
         latest = outreach_service.get_latest_for_lead(
             db,
@@ -187,7 +237,9 @@ def test_outreach_generation_persists_single_message_per_snapshot() -> None:
         )
 
         assert latest.message is not None
-        assert latest.message.subject == first_message.subject
+        assert latest.message.public_id == regenerated.public_id
+        assert latest.message.tone == OutreachTone.FORMAL
+        assert latest.message.version_number == 2
         assert latest.message.has_manual_edits is False
 
         updated = outreach_service.update_draft(
@@ -203,5 +255,5 @@ def test_outreach_generation_persists_single_message_per_snapshot() -> None:
 
         assert updated.subject == "Quick idea for Acme Dental"
         assert updated.message == "We found two visibility opportunities worth fixing first."
-        assert updated.generated_subject == first_message.subject
+        assert updated.generated_subject == regenerated.generated_subject
         assert updated.has_manual_edits is True

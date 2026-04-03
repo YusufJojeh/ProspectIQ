@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -13,6 +13,7 @@ class OutreachMessage(Base):
     __tablename__ = "outreach_messages"
     __table_args__ = (
         Index("ix_outreach_messages_lead_created_at", "lead_id", "created_at"),
+        Index("ix_outreach_messages_lead_version", "lead_id", "version_number"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -25,6 +26,8 @@ class OutreachMessage(Base):
     )
     subject: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text())
+    tone: Mapped[str] = mapped_column(String(32), default="consultative")
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
     edited_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     edited_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)

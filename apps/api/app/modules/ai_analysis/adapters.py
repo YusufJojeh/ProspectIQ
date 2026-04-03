@@ -1,102 +1,109 @@
-from app.modules.ai_analysis.schemas import LeadScoreContext
-from app.shared.dto.lead_facts import NormalizedLeadFacts
+from __future__ import annotations
+
+from typing import Protocol
+
+from app.modules.ai_analysis.schemas import LeadAnalysisInput
+
+
+class LLMClient(Protocol):
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]: ...
 
 
 class DeterministicLLMAdapter:
-    def analyze(
-        self,
-        facts: NormalizedLeadFacts,
-        *,
-        score_context: LeadScoreContext | None = None,
-    ) -> dict[str, object]:
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        business = payload.local_business
+        place = payload.place_enrichment
+        visibility = payload.web_visibility
+        score = payload.deterministic_score
+
         summary_parts = [
-            f"{facts.company_name} is listed in {facts.city or 'the current target market'}."
+            f"{business.company_name} is listed in {business.city or 'the target market'}.",
+            f"Public evidence shows {business.review_count} Google reviews"
+            + (f" with a {business.rating:.1f} rating." if business.rating is not None else "."),
         ]
-        if facts.category:
-            summary_parts.append(f"The primary category captured is {facts.category}.")
-        if facts.rating is not None:
+        if place.official_website_found and business.website_domain:
             summary_parts.append(
-                f"It currently shows {facts.review_count} Google reviews with a {facts.rating:.1f} average rating."
+                f"An official website is present at {business.website_domain} via {place.official_website_source or 'stored evidence'}."
             )
         else:
-            summary_parts.append(f"It currently shows {facts.review_count} Google reviews.")
-        if facts.has_website and facts.website_domain:
-            summary_parts.append(f"A website is present at {facts.website_domain}.")
-        else:
-            summary_parts.append("No verified website was found in the stored evidence.")
+            summary_parts.append("No official website was confirmed in the normalized evidence.")
         summary_parts.append(
-            f"Dataset completeness is {self._percent(facts.data_completeness)} and confidence is {self._percent(facts.data_confidence)}."
+            f"Data completeness is {self._percent(business.data_completeness)} and evidence confidence is {self._percent(business.data_confidence)}."
         )
-        if score_context and score_context.total_score is not None and score_context.band:
+        if score and score.total_score is not None:
             summary_parts.append(
-                f"The latest deterministic lead score is {score_context.total_score:.0f}/100 in the {score_context.band.replace('_', ' ')} band."
+                f"The latest deterministic score is {score.total_score:.0f}/100 in the {score.band or 'unknown'} band."
             )
 
         weaknesses: list[str] = []
         opportunities: list[str] = []
-        services: list[str] = []
 
-        if not facts.has_website:
-            weaknesses.append("No verified website is attached to the lead record.")
+        if not place.official_website_found:
+            weaknesses.append("No official website was verified from maps or web-search evidence.")
             opportunities.append(
-                "A focused website or landing page would give local search and paid traffic a clear conversion destination."
+                "A website or campaign landing page would give search traffic a clear conversion destination."
             )
-            services.append("Website build and conversion landing pages")
-        if facts.visibility_confidence is None or facts.visibility_confidence < 0.55:
-            weaknesses.append("Search visibility evidence is weak or missing.")
-            opportunities.append(
-                "Local SEO and Google Business Profile work could improve discoverability."
-            )
-            services.append("Local SEO and Google Business Profile optimization")
-        if facts.review_count < 15:
+        elif not place.website_domain_matches_brand:
             weaknesses.append(
-                f"Review volume is currently {facts.review_count}, which limits visible trust signals."
+                "The detected website domain does not strongly match the business brand."
             )
-            opportunities.append("A review-generation workflow could strengthen reputation proof.")
-            services.append("Review generation and reputation management")
-        if facts.rating is not None and facts.rating < 4.3:
+            opportunities.append(
+                "Brand/domain alignment and trust presentation should be tightened before scaling outreach."
+            )
+
+        if business.review_count < 15:
             weaknesses.append(
-                f"Average rating is {facts.rating:.1f}, leaving room for stronger review sentiment."
+                f"Review volume is only {business.review_count}, which weakens visible local trust."
             )
             opportunities.append(
-                "Reputation cleanup and follow-up systems could improve the average rating."
+                "A review-generation workflow could strengthen local proof quickly."
             )
-            services.append("Reputation recovery and follow-up automation")
-        if facts.has_website:
-            opportunities.append(
-                "The existing website can be tightened around lead capture, calls to action, and tracking."
-            )
-            services.append("Conversion optimization and analytics instrumentation")
-        if facts.data_completeness < 0.7:
+
+        discoverability = visibility.official_site_discoverability or 0.0
+        if discoverability < 0.5:
             weaknesses.append(
-                f"Data completeness is only {self._percent(facts.data_completeness)}, so enrichment should continue before heavy outreach."
+                "Official-site discoverability is weak relative to directories and local listings."
             )
-        if facts.rating is not None and facts.rating >= 4.5 and facts.review_count >= 20:
             opportunities.append(
-                "Strong customer sentiment can be reused as social proof in acquisition campaigns."
+                "Local SEO and branded-search cleanup could improve official-site visibility."
             )
-            services.append("Case-study and testimonial repackaging")
+
+        if business.data_completeness < 0.7 or not business.hours_present:
+            weaknesses.append(
+                "The digital footprint is incomplete across the stored local-business evidence."
+            )
+            opportunities.append(
+                "Profile enrichment and listing cleanup would improve conversion readiness."
+            )
+
+        if business.rating is not None and business.rating >= 4.5 and business.review_count >= 20:
+            opportunities.append(
+                "Strong sentiment can be reused as testimonial and case-study proof in campaigns."
+            )
 
         if not weaknesses:
             weaknesses.append(
-                "The stored facts do not show a major operational gap, so outreach should emphasize growth upside."
+                "The stored evidence shows no major structural gap, so messaging should focus on growth upside."
             )
         if not opportunities:
             opportunities.append(
-                "Run a short audit of local acquisition channels before proposing a larger engagement."
+                "A short evidence-led audit would clarify the next most valuable service to pitch."
             )
-        recommended_services = self._dedupe(services)[:3]
-        if not recommended_services:
-            recommended_services = ["Local lead capture audit"]
 
-        outreach_subject = self._build_subject(facts)
-        outreach_message = self._build_message(
-            facts,
-            opportunities=opportunities,
-            recommended_services=recommended_services,
-        )
+        recommended_services = self._recommend_services(payload, weaknesses, opportunities)
+        outreach_subject = self._build_subject(payload, recommended_services)
+        outreach_message = self._build_message(payload, opportunities, recommended_services)
         confidence = round(
-            min(0.95, max(0.35, (facts.data_confidence * 0.65) + (facts.data_completeness * 0.35))),
+            min(
+                0.95,
+                max(
+                    0.35,
+                    (business.data_confidence * 0.45)
+                    + (business.data_completeness * 0.2)
+                    + ((payload.web_visibility.official_site_discoverability or 0.0) * 0.15)
+                    + (payload.place_enrichment.local_presence_signal * 0.2),
+                ),
+            ),
             2,
         )
 
@@ -110,46 +117,109 @@ class DeterministicLLMAdapter:
             "confidence": confidence,
         }
 
-    def _build_subject(self, facts: NormalizedLeadFacts) -> str:
-        if not facts.has_website:
-            return f"Quick idea to strengthen {facts.company_name}'s web presence"
-        return f"Idea to improve {facts.company_name}'s local lead capture"
+    def _recommend_services(
+        self,
+        payload: LeadAnalysisInput,
+        weaknesses: list[str],
+        opportunities: list[str],
+    ) -> list[str]:
+        catalog = payload.allowed_service_catalog
+        ranked: list[str] = []
+
+        def add_if_present(service_name: str) -> None:
+            if service_name in catalog and service_name not in ranked:
+                ranked.append(service_name)
+
+        weakness_blob = " ".join(weaknesses).casefold()
+        opportunity_blob = " ".join(opportunities).casefold()
+
+        if "website" in weakness_blob or "landing page" in opportunity_blob:
+            add_if_present("Website Refresh")
+            add_if_present("Conversion Landing Page Build")
+        if "review" in weakness_blob or "review" in opportunity_blob:
+            add_if_present("Review Generation and Reputation Management")
+        if "seo" in opportunity_blob or "visibility" in weakness_blob:
+            add_if_present("Local SEO Sprint")
+            add_if_present("Google Business Profile Optimization")
+        if "tracking" in opportunity_blob or "conversion" in opportunity_blob:
+            add_if_present("Call Tracking and Analytics Setup")
+        if not ranked and catalog:
+            ranked.extend(list(catalog[:3]))
+        return ranked[:3]
+
+    def _build_subject(self, payload: LeadAnalysisInput, recommended_services: list[str]) -> str:
+        business = payload.local_business
+        if not payload.place_enrichment.official_website_found:
+            return f"Quick idea to strengthen {business.company_name}'s online presence"
+        if recommended_services:
+            return f"{business.company_name}: one evidence-backed growth idea"
+        return f"Short local visibility note for {business.company_name}"
 
     def _build_message(
         self,
-        facts: NormalizedLeadFacts,
-        *,
+        payload: LeadAnalysisInput,
         opportunities: list[str],
         recommended_services: list[str],
     ) -> str:
-        rating_text = (
-            f"{facts.review_count} Google reviews at {facts.rating:.1f} stars"
-            if facts.rating is not None
-            else f"{facts.review_count} Google reviews"
-        )
-        website_text = (
-            f"I also found a website at {facts.website_domain}."
-            if facts.has_website and facts.website_domain
-            else "I did not find a verified website in the public evidence."
-        )
-        service_text = ", ".join(recommended_services[:2])
+        business = payload.local_business
+        place = payload.place_enrichment
+        service_text = ", ".join(recommended_services[:2]) or "a short local acquisition audit"
         opportunity_text = opportunities[0]
-        return (
-            f"Hi {facts.company_name} team,\n\n"
-            f"I reviewed your current public presence in {facts.city or 'your market'} and found {rating_text}. "
-            f"{website_text}\n\n"
-            f"The clearest opportunity from the stored evidence is: {opportunity_text} "
-            f"If helpful, my agency can share a short plan focused on {service_text}."
+        website_text = (
+            f"We found an official site at {business.website_domain}."
+            if place.official_website_found and business.website_domain
+            else "We did not verify an official website from the stored public evidence."
         )
-
-    def _dedupe(self, values: list[str]) -> list[str]:
-        deduped: list[str] = []
-        for value in values:
-            if value not in deduped:
-                deduped.append(value)
-        return deduped
+        return (
+            f"Hi {business.company_name} team,\n\n"
+            f"I reviewed the public evidence we captured for your business in {business.city or 'your market'}. "
+            f"It currently shows {business.review_count} Google reviews"
+            + (f" at {business.rating:.1f} stars. " if business.rating is not None else ". ")
+            + f"{website_text}\n\n"
+            f"The clearest opportunity from the normalized evidence is: {opportunity_text} "
+            f"If useful, I can share a short plan focused on {service_text}."
+        )
 
     def _percent(self, value: float | None) -> str:
         if value is None:
             return "unknown"
         return f"{round(value * 100)}%"
+
+
+class FallbackAnalysisBuilder:
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        business = payload.local_business
+        gaps: list[str] = []
+        if not payload.place_enrichment.official_website_found:
+            gaps.append("No official website was confirmed.")
+        if business.review_count < 15:
+            gaps.append(f"Review count is only {business.review_count}.")
+        if (payload.web_visibility.official_site_discoverability or 0.0) < 0.5:
+            gaps.append("Official-site discoverability is weak.")
+        if not gaps:
+            gaps.append(
+                "The stored evidence suggests the business is reasonably complete but still worth auditing."
+            )
+
+        recommended_services = list(payload.allowed_service_catalog[:2]) or [
+            "Local SEO Sprint",
+            "Google Business Profile Optimization",
+        ]
+        return {
+            "summary": (
+                f"{business.company_name} was analyzed from stored SerpAPI-derived facts only. "
+                f"The fallback path was used because the primary AI adapter did not return a valid payload."
+            ),
+            "weaknesses": gaps[:4],
+            "opportunities": [
+                "Run a short evidence-led audit before proposing a broader engagement."
+            ],
+            "recommended_services": recommended_services[:3],
+            "outreach_subject": f"Evidence-backed growth ideas for {business.company_name}",
+            "outreach_message": (
+                f"Hi {business.company_name} team,\n\n"
+                "We reviewed your public search presence and identified a few evidence-backed opportunities. "
+                "If useful, we can share a concise audit and proposed next steps."
+            ),
+            "confidence": max(0.35, round(business.data_confidence, 2)),
+        }

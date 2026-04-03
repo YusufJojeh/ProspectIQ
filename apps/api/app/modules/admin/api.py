@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.admin.schemas import (
     ActiveScoringConfigResponse,
+    OperationalHealthResponse,
+    PromptTemplateCreateRequest,
+    PromptTemplateListResponse,
+    PromptTemplateResponse,
     ProviderSettingsResponse,
     ProviderSettingsUpdateRequest,
     ScoringConfigVersionCreateRequest,
@@ -88,3 +92,53 @@ def update_provider_settings(
         payload=payload,
         actor=current_user,
     )
+
+
+@router.get("/prompt-templates", response_model=PromptTemplateListResponse)
+def list_prompt_templates(
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    _: User = Depends(require_role("admin")),
+) -> PromptTemplateListResponse:
+    return AdminService().list_prompt_templates(db, workspace_id=workspace_id)
+
+
+@router.post("/prompt-templates", response_model=PromptTemplateResponse)
+def create_prompt_template(
+    payload: PromptTemplateCreateRequest,
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    current_user: User = Depends(require_role("admin")),
+) -> PromptTemplateResponse:
+    return AdminService().create_prompt_template(
+        db,
+        workspace_id=workspace_id,
+        payload=payload,
+        actor=current_user,
+    )
+
+
+@router.post(
+    "/prompt-templates/activate/{prompt_template_id}", response_model=PromptTemplateResponse
+)
+def activate_prompt_template(
+    prompt_template_id: str,
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    current_user: User = Depends(require_role("admin")),
+) -> PromptTemplateResponse:
+    return AdminService().activate_prompt_template(
+        db,
+        workspace_id=workspace_id,
+        prompt_template_public_id=prompt_template_id,
+        actor=current_user,
+    )
+
+
+@router.get("/operations/health", response_model=OperationalHealthResponse)
+def get_operational_health(
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    _: User = Depends(require_role("admin")),
+) -> OperationalHealthResponse:
+    return AdminService().get_operational_health(db, workspace_id=workspace_id)

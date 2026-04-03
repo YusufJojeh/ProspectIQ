@@ -148,6 +148,16 @@ class ProviderEvidenceRepository:
         )
         return db.scalar(statement)
 
+    def list_normalized_facts_for_lead(
+        self, db: Session, lead_id: int
+    ) -> list[ProviderNormalizedFact]:
+        statement = (
+            select(ProviderNormalizedFact)
+            .where(ProviderNormalizedFact.lead_id == lead_id)
+            .order_by(ProviderNormalizedFact.created_at.desc(), ProviderNormalizedFact.id.desc())
+        )
+        return list(db.scalars(statement))
+
     def get_latest_visibility(self, db: Session, lead_id: int) -> tuple[float | None, str | None]:
         statement = (
             select(ProviderNormalizedFact)

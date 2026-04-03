@@ -38,9 +38,7 @@ class PromptTemplate(Base):
 
 class AIAnalysisSnapshot(Base):
     __tablename__ = "ai_analysis_snapshots"
-    __table_args__ = (
-        Index("ix_ai_analysis_snapshots_lead_created_at", "lead_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_ai_analysis_snapshots_lead_created_at", "lead_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(

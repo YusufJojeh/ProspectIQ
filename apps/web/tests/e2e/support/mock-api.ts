@@ -13,6 +13,7 @@ type LeadStatus =
   | "archived";
 type LeadScoreBand = "high" | "medium" | "low" | "not_qualified";
 type WebsitePreference = "any" | "must_have" | "must_be_missing";
+type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
 
 type AuthenticatedUser = {
   public_id: string;
@@ -65,6 +66,7 @@ type LeadRecord = {
   assigned_to_user_public_id: string | null;
   latest_score: number | null;
   latest_band: LeadScoreBand | null;
+  latest_qualified: boolean | null;
   created_at: string;
   updated_at: string;
   search_job_public_id: string | null;
@@ -148,11 +150,22 @@ type OutreachDraft = {
   ai_analysis_snapshot_public_id: string;
   subject: string;
   message: string;
+  tone: OutreachTone;
+  version_number: number;
   generated_subject: string;
   generated_message: string;
   has_manual_edits: boolean;
   created_at: string;
   updated_at: string;
+};
+
+type PromptTemplate = {
+  public_id: string;
+  name: string;
+  template_text: string;
+  is_active: boolean;
+  created_at: string;
+  created_by_user_public_id: string;
 };
 
 type ScoringConfigVersion = {
@@ -214,6 +227,7 @@ type MockState = {
     google_domain: string;
     enrich_top_n: number;
   };
+  promptTemplates: PromptTemplate[];
   scoringVersions: ScoringConfigVersion[];
   activeScoringVersionId: string;
   auditLogs: AuditLogEntry[];
@@ -223,6 +237,7 @@ type MockState = {
     analyses: number;
     recommendations: number;
     outreach: number;
+    promptTemplates: number;
     scoringVersions: number;
     audit: number;
     timestamps: number;
@@ -306,6 +321,16 @@ function createState(): MockState {
     created_by_user_public_id: sessionUser.public_id,
   };
 
+  const promptTemplate: PromptTemplate = {
+    public_id: "pt_active_1",
+    name: "Default Lead Analysis",
+    template_text:
+      "Use only the supplied evidence, score breakdown, and service catalog. Do not invent unsupported facts.",
+    is_active: true,
+    created_at: iso(1),
+    created_by_user_public_id: sessionUser.public_id,
+  };
+
   const searchJobs: SearchJobResponse[] = [
     {
       public_id: "job_seed_1",
@@ -352,6 +377,7 @@ function createState(): MockState {
       assigned_to_user_public_id: null,
       latest_score: 82.5,
       latest_band: "high",
+      latest_qualified: true,
       created_at: iso(4),
       updated_at: iso(7),
       search_job_public_id: "job_seed_1",
@@ -376,6 +402,7 @@ function createState(): MockState {
       assigned_to_user_public_id: "usr_manager_1",
       latest_score: 61.5,
       latest_band: "medium",
+      latest_qualified: true,
       created_at: iso(5),
       updated_at: iso(7),
       search_job_public_id: "job_seed_1",
@@ -543,6 +570,7 @@ function createState(): MockState {
       google_domain: "google.com",
       enrich_top_n: 20,
     },
+    promptTemplates: [promptTemplate],
     scoringVersions: [scoringVersion],
     activeScoringVersionId: scoringVersion.public_id,
     auditLogs: [
@@ -560,6 +588,7 @@ function createState(): MockState {
       analyses: 0,
       recommendations: 0,
       outreach: 0,
+      promptTemplates: 1,
       scoringVersions: 1,
       audit: 1,
       timestamps: 8,
@@ -642,23 +671,60 @@ function ensureAnalysis(state: MockState, leadId: string) {
   return analysis;
 }
 
-function ensureOutreach(state: MockState, leadId: string) {
+function buildOutreachCopy(
+  leadName: string,
+  tone: OutreachTone,
+): { subject: string; message: string } {
+  if (tone === "formal") {
+    return {
+      subject: `Visibility assessment for ${leadName}`,
+      message: `Hello,\n\nWe reviewed ${leadName}'s local search presence and identified several evidence-backed improvements that could strengthen qualified lead acquisition.\n\nIf useful, we can share a concise assessment.`,
+    };
+  }
+  if (tone === "friendly") {
+    return {
+      subject: `A quick growth idea for ${leadName}`,
+      message: `Hi ${leadName},\n\nWe took a quick look at your local search footprint and found a few practical improvements that could help more nearby customers find you.\n\nHappy to send over the short version.`,
+    };
+  }
+  if (tone === "short_pitch") {
+    return {
+      subject: `${leadName}: two quick visibility wins`,
+      message: `Hi ${leadName}, we found two evidence-backed local visibility fixes that could improve inbound lead flow. Want the short audit?`,
+    };
+  }
+  return {
+    subject: `Quick visibility idea for ${leadName}`,
+    message: `Hi ${leadName},\n\nWe reviewed your current local search footprint and found two evidence-backed opportunities that could improve qualified lead flow in the near term.\n\nWould you like a short audit summary?`,
+  };
+}
+
+function ensureOutreach(
+  state: MockState,
+  leadId: string,
+  options?: { tone?: OutreachTone; regenerate?: boolean },
+) {
+  const requestedTone = options?.tone ?? "consultative";
   const existing = state.outreachByLeadId[leadId];
-  if (existing) {
+  if (existing && !options?.regenerate && existing.tone === requestedTone) {
     return existing;
   }
 
   const analysis = ensureAnalysis(state, leadId);
+  const lead = getLeadOrThrow(state, leadId);
+  const { subject, message } = buildOutreachCopy(lead.company_name, requestedTone);
   state.counters.outreach += 1;
   const createdAt = nextTimestamp(state);
   const draft: OutreachDraft = {
     public_id: `om_mock_${state.counters.outreach}`,
     lead_id: leadId,
     ai_analysis_snapshot_public_id: analysis.public_id,
-    subject: analysis.analysis.outreach_subject,
-    message: analysis.analysis.outreach_message,
-    generated_subject: analysis.analysis.outreach_subject,
-    generated_message: analysis.analysis.outreach_message,
+    subject,
+    message,
+    tone: requestedTone,
+    version_number: (existing?.version_number ?? 0) + 1,
+    generated_subject: subject,
+    generated_message: message,
     has_manual_edits: false,
     created_at: createdAt,
     updated_at: createdAt,
@@ -672,40 +738,77 @@ function ensureOutreach(state: MockState, leadId: string) {
 function filterLeads(state: MockState, url: URL) {
   const q = url.searchParams.get("q")?.toLowerCase() ?? null;
   const city = url.searchParams.get("city")?.toLowerCase() ?? null;
+  const category = url.searchParams.get("category")?.toLowerCase() ?? null;
   const status = url.searchParams.get("status");
   const band = url.searchParams.get("band");
+  const minScore = url.searchParams.get("min_score");
+  const maxScore = url.searchParams.get("max_score");
+  const qualified = url.searchParams.get("qualified");
+  const ownerUserId = url.searchParams.get("owner_user_id");
   const searchJobId = url.searchParams.get("search_job_id");
   const hasWebsite = url.searchParams.get("has_website");
+  const sort = url.searchParams.get("sort") ?? "newest";
 
-  return state.leads.filter((lead) => {
-    if (q) {
-      const haystack = [lead.company_name, lead.city ?? "", lead.website_domain ?? "", lead.address ?? ""]
-        .join(" ")
-        .toLowerCase();
-      if (!haystack.includes(q)) {
+  return [...state.leads]
+    .filter((lead) => {
+      if (q) {
+        const haystack = [lead.company_name, lead.city ?? "", lead.website_domain ?? "", lead.address ?? ""]
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) {
+          return false;
+        }
+      }
+      if (city && !(lead.city ?? "").toLowerCase().includes(city)) {
         return false;
       }
-    }
-    if (city && (lead.city ?? "").toLowerCase() !== city) {
-      return false;
-    }
-    if (status && lead.status !== status) {
-      return false;
-    }
-    if (band && lead.latest_band !== band) {
-      return false;
-    }
-    if (searchJobId && searchJobId !== "all" && lead.search_job_public_id !== searchJobId) {
-      return false;
-    }
-    if (hasWebsite === "true" && !lead.has_website) {
-      return false;
-    }
-    if (hasWebsite === "false" && lead.has_website) {
-      return false;
-    }
-    return true;
-  });
+      if (category && !(lead.category ?? "").toLowerCase().includes(category)) {
+        return false;
+      }
+      if (status && lead.status !== status) {
+        return false;
+      }
+      if (band && lead.latest_band !== band) {
+        return false;
+      }
+      if (minScore !== null && (lead.latest_score ?? 0) < Number(minScore)) {
+        return false;
+      }
+      if (maxScore !== null && (lead.latest_score ?? 0) > Number(maxScore)) {
+        return false;
+      }
+      if (qualified === "true" && !lead.latest_qualified) {
+        return false;
+      }
+      if (qualified === "false" && lead.latest_qualified !== false) {
+        return false;
+      }
+      if (ownerUserId && ownerUserId !== "all" && lead.assigned_to_user_public_id !== ownerUserId) {
+        return false;
+      }
+      if (searchJobId && searchJobId !== "all" && lead.search_job_public_id !== searchJobId) {
+        return false;
+      }
+      if (hasWebsite === "true" && !lead.has_website) {
+        return false;
+      }
+      if (hasWebsite === "false" && lead.has_website) {
+        return false;
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      if (sort === "score_desc") {
+        return (right.latest_score ?? -1) - (left.latest_score ?? -1);
+      }
+      if (sort === "reviews_desc") {
+        return right.review_count - left.review_count;
+      }
+      if (sort === "rating_desc") {
+        return (right.rating ?? -1) - (left.rating ?? -1);
+      }
+      return Date.parse(right.created_at) - Date.parse(left.created_at);
+    });
 }
 
 async function handleApiRoute(route: Route, state: MockState) {
@@ -800,9 +903,10 @@ async function handleApiRoute(route: Route, state: MockState) {
   }
 
   if (path === "/api/v1/exports/leads.csv" && method === "GET") {
+    const filteredLeads = filterLeads(state, url);
     const rows = [
       "company_name,city,status,latest_score,website_domain",
-      ...state.leads.map((lead) =>
+      ...filteredLeads.map((lead) =>
         [
           lead.company_name,
           lead.city ?? "",
@@ -829,6 +933,83 @@ async function handleApiRoute(route: Route, state: MockState) {
     };
     addAudit(state, "admin.provider_settings_updated", "Updated provider defaults.");
     await fulfillJson(route, state.providerSettings);
+    return;
+  }
+
+  if (path === "/api/v1/admin/prompt-templates" && method === "GET") {
+    await fulfillJson(route, { items: state.promptTemplates });
+    return;
+  }
+
+  if (path === "/api/v1/admin/prompt-templates" && method === "POST") {
+    const payload = readJsonBody(route);
+    state.counters.promptTemplates += 1;
+    const activate = Boolean(payload.activate ?? true);
+    if (activate) {
+      state.promptTemplates = state.promptTemplates.map((item) => ({ ...item, is_active: false }));
+    }
+    const template: PromptTemplate = {
+      public_id: `pt_mock_${state.counters.promptTemplates}`,
+      name: String(payload.name ?? "Untitled template"),
+      template_text: String(payload.template_text ?? ""),
+      is_active: activate,
+      created_at: nextTimestamp(state),
+      created_by_user_public_id: state.sessionUser.public_id,
+    };
+    state.promptTemplates.unshift(template);
+    addAudit(state, "admin.prompt_template_created", `Created prompt template ${template.public_id}.`);
+    await fulfillJson(route, template);
+    return;
+  }
+
+  const activatePromptTemplateMatch = path.match(/^\/api\/v1\/admin\/prompt-templates\/activate\/([^/]+)$/);
+  if (activatePromptTemplateMatch && method === "POST") {
+    const promptTemplateId = activatePromptTemplateMatch[1];
+    state.promptTemplates = state.promptTemplates.map((item) => ({
+      ...item,
+      is_active: item.public_id === promptTemplateId,
+    }));
+    const activeTemplate = state.promptTemplates.find((item) => item.public_id === promptTemplateId);
+    addAudit(state, "admin.prompt_template_activated", `Activated prompt template ${promptTemplateId}.`);
+    await fulfillJson(route, activeTemplate);
+    return;
+  }
+
+  if (path === "/api/v1/admin/operations/health" && method === "GET") {
+    await fulfillJson(route, {
+      database_ok: true,
+      serpapi_configured: true,
+      failed_jobs_last_7_days: state.searchJobs.filter((job) => job.status === "failed").length,
+      provider_failures_last_7_days: state.searchJobs.reduce(
+        (count, job) => count + (job.provider_error_count > 0 ? 1 : 0),
+        0,
+      ),
+      recent_failed_jobs: state.searchJobs
+        .filter((job) => job.status === "failed")
+        .slice(0, 5)
+        .map((job) => ({
+          public_id: job.public_id,
+          business_type: job.business_type,
+          city: job.city,
+          status: job.status,
+          queued_at: job.queued_at,
+          finished_at: job.finished_at,
+          provider_error_count: job.provider_error_count,
+        })),
+      recent_provider_failures: state.searchJobs
+        .filter((job) => job.provider_error_count > 0)
+        .slice(0, 5)
+        .map((job) => ({
+          public_id: `pf_failure_${job.public_id}`,
+          engine: "google_maps_search",
+          mode: "sync",
+          status: "error",
+          http_status: 429,
+          error_message: `Provider failures recorded for ${job.business_type} / ${job.city}.`,
+          started_at: job.started_at ?? job.queued_at,
+          finished_at: job.finished_at,
+        })),
+    });
     return;
   }
 
@@ -912,7 +1093,11 @@ async function handleApiRoute(route: Route, state: MockState) {
   const outreachGenerateMatch = path.match(/^\/api\/v1\/outreach\/leads\/([^/]+)\/generate$/);
   if (outreachGenerateMatch && method === "POST") {
     const leadId = outreachGenerateMatch[1];
-    await fulfillJson(route, ensureOutreach(state, leadId));
+    const payload = readJsonBody(route);
+    await fulfillJson(route, ensureOutreach(state, leadId, {
+      tone: payload.tone as OutreachTone | undefined,
+      regenerate: Boolean(payload.regenerate),
+    }));
     return;
   }
 
@@ -984,12 +1169,17 @@ async function handleApiRoute(route: Route, state: MockState) {
   const leadOutreachMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/outreach\/generate$/);
   if (leadOutreachMatch && method === "POST") {
     const leadId = leadOutreachMatch[1];
-    const draft = ensureOutreach(state, leadId);
+    const payload = readJsonBody(route);
+    const draft = ensureOutreach(state, leadId, {
+      tone: payload.tone as OutreachTone | undefined,
+      regenerate: Boolean(payload.regenerate),
+    });
     await fulfillJson(route, {
       lead_id: leadId,
       message: {
         subject: draft.subject,
         message: draft.message,
+        tone: draft.tone,
       },
     });
     return;

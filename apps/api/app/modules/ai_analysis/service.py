@@ -7,34 +7,51 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import FeatureNotReadyError, NotFoundError
-from app.modules.ai_analysis.adapters import DeterministicLLMAdapter
+from app.modules.ai_analysis.adapters import (
+    DeterministicLLMAdapter,
+    FallbackAnalysisBuilder,
+    LLMClient,
+)
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, ServiceRecommendation
 from app.modules.ai_analysis.prompt_builder import PromptBuilder
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import (
     LatestLeadAnalysisResponse,
+    LeadAnalysisInput,
     LeadAnalysisResult,
     LeadAnalysisSnapshotResponse,
     LeadScoreContext,
     ServiceRecommendationResponse,
 )
+from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
 from app.modules.ai_analysis.validator import LLMOutputValidator
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
+from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
+from app.modules.scoring.fact_builder import EvidenceFactBuilder
 from app.modules.scoring.repository import ScoringRepository
 from app.modules.users.models import User
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 
 
 class AIAnalysisService:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        llm_client: LLMClient | None = None,
+        fallback_client: LLMClient | None = None,
+    ) -> None:
         self.repository = AIAnalysisRepository()
         self.prompt_builder = PromptBuilder()
         self.validator = LLMOutputValidator()
         self.leads_repository = LeadsRepository()
+        self.evidence_repository = ProviderEvidenceRepository()
+        self.fact_builder = EvidenceFactBuilder()
         self.scoring_repository = ScoringRepository()
         self.audit_logs = AuditLogService()
+        self.llm_client = llm_client
+        self.fallback_client = fallback_client or FallbackAnalysisBuilder()
 
     def analyze(
         self,
@@ -51,7 +68,12 @@ class AIAnalysisService:
         if template is None:
             raise NotFoundError("Active prompt template was not found for this workspace.")
 
-        prompt = self.prompt_builder.build(facts, score_context=score_context)
+        input_payload = self.prompt_builder.build_input_payload(
+            facts,
+            score_context=score_context,
+            allowed_service_catalog=list(ALLOWED_SERVICE_CATALOG),
+        )
+        prompt = self.prompt_builder.build_prompt(input_payload)
         input_hash = self._input_hash(
             prompt=prompt,
             facts=facts,
@@ -67,8 +89,7 @@ class AIAnalysisService:
         if existing is not None:
             return existing, LeadAnalysisResult.model_validate(existing.output_json)
 
-        payload = adapter.analyze(facts, score_context=score_context)
-        result = self.validator.validate(payload)
+        result = self._run_analysis(adapter=adapter, input_payload=input_payload)
         snapshot = self.repository.add_snapshot(
             db,
             AIAnalysisSnapshot(
@@ -157,7 +178,7 @@ class AIAnalysisService:
         created_by_user_id: int,
     ) -> tuple[Lead, AIAnalysisSnapshot, LeadAnalysisResult]:
         lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
-        facts = self._facts_from_lead(lead)
+        facts = self._facts_from_lead(db, lead)
         score_context = self._score_context(db, lead.id)
         snapshot, result = self.analyze(
             db,
@@ -169,13 +190,28 @@ class AIAnalysisService:
         )
         return lead, snapshot, result
 
-    def _resolve_runtime(self) -> tuple[DeterministicLLMAdapter, str, str]:
+    def _resolve_runtime(self) -> tuple[LLMClient, str, str]:
+        if self.llm_client is not None:
+            return self.llm_client, "custom", "custom-client"
         settings = get_settings()
         if settings.ai_provider != "stub":
             raise FeatureNotReadyError(
                 f"Unsupported ai_provider '{settings.ai_provider}'. Only 'stub' is enabled in this build."
             )
         return DeterministicLLMAdapter(), "stub", "deterministic-rules-v1"
+
+    def _run_analysis(
+        self,
+        *,
+        adapter: LLMClient,
+        input_payload: LeadAnalysisInput,
+    ) -> LeadAnalysisResult:
+        try:
+            payload = adapter.analyze(input_payload)
+            return self.validator.validate(payload)
+        except Exception:
+            fallback_payload = self.fallback_client.analyze(input_payload)
+            return self.validator.validate(fallback_payload)
 
     def _input_hash(
         self,
@@ -206,23 +242,9 @@ class AIAnalysisService:
             raise NotFoundError("Lead was not found.")
         return lead
 
-    def _facts_from_lead(self, lead: Lead) -> NormalizedLeadFacts:
-        return NormalizedLeadFacts(
-            company_name=lead.company_name,
-            category=lead.category,
-            address=lead.address,
-            city=lead.city,
-            phone=lead.phone,
-            website_url=lead.website_url,
-            website_domain=lead.website_domain,
-            review_count=lead.review_count,
-            rating=lead.rating,
-            lat=lead.lat,
-            lng=lead.lng,
-            data_completeness=lead.data_completeness,
-            data_confidence=lead.data_confidence,
-            has_website=lead.has_website,
-        )
+    def _facts_from_lead(self, db: Session, lead: Lead) -> NormalizedLeadFacts:
+        evidence = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
+        return self.fact_builder.build(lead, evidence)
 
     def _score_context(self, db: Session, lead_id: int) -> LeadScoreContext | None:
         try:

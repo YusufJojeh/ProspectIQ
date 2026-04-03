@@ -6,16 +6,21 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  activatePromptTemplate,
   activateScoringVersion,
+  createPromptTemplate,
   createScoringVersion,
   getActiveScoringConfig,
+  getOperationalHealth,
   getProviderSettings,
   listAuditLogs,
+  listPromptTemplates,
   listScoringVersions,
   updateProviderSettings,
 } from "@/features/settings/api";
@@ -42,8 +47,15 @@ const scoringSchema = z.object({
   note: z.string().max(255).optional(),
 });
 
+const promptTemplateSchema = z.object({
+  name: z.string().min(1).max(255),
+  template_text: z.string().min(1).max(16000),
+  activate: z.boolean().default(true),
+});
+
 type ProviderValues = z.infer<typeof providerSchema>;
 type ScoringValues = z.infer<typeof scoringSchema>;
+type PromptTemplateValues = z.infer<typeof promptTemplateSchema>;
 
 export function SettingsPage() {
   useDocumentTitle("Admin");
@@ -59,6 +71,14 @@ export function SettingsPage() {
   const providerQuery = useQuery({
     queryKey: ["admin", "provider-settings"],
     queryFn: getProviderSettings,
+  });
+  const promptTemplatesQuery = useQuery({
+    queryKey: ["admin", "prompt-templates"],
+    queryFn: listPromptTemplates,
+  });
+  const healthQuery = useQuery({
+    queryKey: ["admin", "operations", "health"],
+    queryFn: getOperationalHealth,
   });
   const auditQuery = useQuery({
     queryKey: ["admin", "audit-logs"],
@@ -87,6 +107,14 @@ export function SettingsPage() {
       low_min: 35,
       confidence_min: 0.45,
       note: "",
+    },
+  });
+  const promptTemplateForm = useForm<PromptTemplateValues>({
+    resolver: zodResolver(promptTemplateSchema),
+    defaultValues: {
+      name: "",
+      template_text: "",
+      activate: true,
     },
   });
 
@@ -123,8 +151,30 @@ export function SettingsPage() {
     mutationFn: activateScoringVersion,
     onSuccess: refreshAdminQueries,
   });
+  const createPromptTemplateMutation = useMutation({
+    mutationFn: createPromptTemplate,
+    onSuccess: () => {
+      refreshAdminQueries();
+      promptTemplateForm.reset({
+        name: "",
+        template_text: "",
+        activate: true,
+      });
+    },
+  });
+  const activatePromptTemplateMutation = useMutation({
+    mutationFn: activatePromptTemplate,
+    onSuccess: refreshAdminQueries,
+  });
 
-  if (scoringQuery.isError || providerQuery.isError || versionsQuery.isError || auditQuery.isError) {
+  if (
+    scoringQuery.isError ||
+    providerQuery.isError ||
+    versionsQuery.isError ||
+    promptTemplatesQuery.isError ||
+    healthQuery.isError ||
+    auditQuery.isError
+  ) {
     return (
       <EmptyState
         title="Admin configuration is unavailable"
@@ -138,10 +188,91 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="Admin"
         title="Operational configuration"
-        description="Adjust provider defaults, manage deterministic scoring versions, and review the latest audit events."
+        description="Adjust provider defaults, manage deterministic scoring and prompts, and review system health with recent audit events."
       />
 
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Operational health</CardTitle>
+            <CardDescription>Recent failure visibility and current runtime readiness for provider-backed jobs.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <StatusMetric
+                label="Database"
+                ok={healthQuery.data?.database_ok ?? false}
+                okLabel="Healthy"
+                badLabel="Unavailable"
+              />
+              <StatusMetric
+                label="SerpAPI"
+                ok={healthQuery.data?.serpapi_configured ?? false}
+                okLabel="Configured"
+                badLabel="Missing key"
+              />
+              <MetricCard
+                label="Failed jobs / 7d"
+                value={String(healthQuery.data?.failed_jobs_last_7_days ?? 0)}
+              />
+              <MetricCard
+                label="Provider failures / 7d"
+                value={String(healthQuery.data?.provider_failures_last_7_days ?? 0)}
+              />
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">Recent failed jobs</p>
+              {(healthQuery.data?.recent_failed_jobs ?? []).length === 0 ? (
+                <p className="text-sm text-[color:var(--muted)]">No failed jobs in the last seven days.</p>
+              ) : (
+                healthQuery.data?.recent_failed_jobs.map((job) => (
+                  <div key={job.public_id} className="rounded-2xl border border-[color:var(--border)] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">
+                          {job.business_type} / {job.city}
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted)]">
+                          {job.provider_error_count} provider errors
+                        </p>
+                      </div>
+                      <div className="text-right text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                        <p>{job.status}</p>
+                        <p className="mt-1">{formatDate(job.finished_at ?? job.queued_at)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">Recent provider failures</p>
+              {(healthQuery.data?.recent_provider_failures ?? []).length === 0 ? (
+                <p className="text-sm text-[color:var(--muted)]">No provider failures recorded in the last seven days.</p>
+              ) : (
+                healthQuery.data?.recent_provider_failures.map((failure) => (
+                  <div key={failure.public_id} className="rounded-2xl border border-[color:var(--border)] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">
+                          {failure.engine} / {failure.mode}
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted)]">
+                          {failure.error_message ?? "Provider request failed without a stored message"}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                        <p>{failure.status}</p>
+                        <p className="mt-1">{formatDate(failure.finished_at ?? failure.started_at)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Provider defaults</CardTitle>
@@ -169,7 +300,9 @@ export function SettingsPage() {
             </form>
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
           <CardHeader>
             <CardTitle>Scoring configuration</CardTitle>
@@ -268,6 +401,63 @@ export function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Prompt templates</CardTitle>
+            <CardDescription>Version prompt text cleanly and activate the template used for future AI snapshots.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <form
+              className="space-y-4"
+              onSubmit={promptTemplateForm.handleSubmit((values) => createPromptTemplateMutation.mutate(values))}
+            >
+              <Field label="Template name">
+                <Input {...promptTemplateForm.register("name")} />
+              </Field>
+              <Field label="Template text">
+                <Textarea className="min-h-[180px]" {...promptTemplateForm.register("template_text")} />
+              </Field>
+              <label className="flex items-center gap-3 text-sm font-medium">
+                <input type="checkbox" className="h-4 w-4 rounded border-[color:var(--border)]" {...promptTemplateForm.register("activate")} />
+                Activate immediately
+              </label>
+              <Button type="submit" disabled={createPromptTemplateMutation.isPending}>
+                {createPromptTemplateMutation.isPending ? "Creating..." : "Create prompt template"}
+              </Button>
+            </form>
+
+            <div className="space-y-3">
+              {(promptTemplatesQuery.data?.items ?? []).map((template) => (
+                <div key={template.public_id} className="rounded-2xl border border-[color:var(--border)] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{template.name}</p>
+                        <Badge tone={template.is_active ? "warning" : "neutral"}>
+                          {template.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                        {template.public_id} / {formatDate(template.created_at)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      disabled={activatePromptTemplateMutation.isPending || template.is_active}
+                      onClick={() => activatePromptTemplateMutation.mutate(template.public_id)}
+                    >
+                      {template.is_active ? "Active" : "Activate"}
+                    </Button>
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3 text-xs leading-6 text-slate-700">
+                    {template.template_text}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -299,6 +489,36 @@ export function SettingsPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">{label}</p>
+      <p className="mt-2 text-xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function StatusMetric({
+  label,
+  ok,
+  okLabel,
+  badLabel,
+}: {
+  label: string;
+  ok: boolean;
+  okLabel: string;
+  badLabel: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">{label}</p>
+      <div className="mt-3">
+        <Badge tone={ok ? "warning" : "neutral"}>{ok ? okLabel : badLabel}</Badge>
+      </div>
     </div>
   );
 }

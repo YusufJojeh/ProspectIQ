@@ -49,9 +49,7 @@ class Lead(Base):
 
 class LeadNote(Base):
     __tablename__ = "lead_notes"
-    __table_args__ = (
-        Index("ix_lead_notes_lead_created_at", "lead_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_lead_notes_lead_created_at", "lead_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -65,9 +63,7 @@ class LeadNote(Base):
 
 class LeadStatusHistory(Base):
     __tablename__ = "lead_status_history"
-    __table_args__ = (
-        Index("ix_lead_status_history_lead_changed_at", "lead_id", "changed_at"),
-    )
+    __table_args__ = (Index("ix_lead_status_history_lead_changed_at", "lead_id", "changed_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)

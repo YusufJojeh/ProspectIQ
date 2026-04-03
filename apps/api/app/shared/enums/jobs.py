@@ -38,3 +38,10 @@ class ProviderFetchStatus(StrEnum):
     ERROR = "error"
     TIMEOUT = "timeout"
     RATE_LIMITED = "rate_limited"
+
+
+class OutreachTone(StrEnum):
+    FORMAL = "formal"
+    FRIENDLY = "friendly"
+    CONSULTATIVE = "consultative"
+    SHORT_PITCH = "short_pitch"

@@ -28,6 +28,33 @@ def test_settings_load_from_environment(monkeypatch) -> None:
     clear_settings_cache()
 
 
+def test_settings_expand_allowed_web_origins_in_development(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("WEB_ORIGIN", "http://localhost:5173")
+    monkeypatch.delenv("WEB_ORIGINS", raising=False)
+    clear_settings_cache()
+
+    settings = get_settings()
+
+    assert settings.allowed_web_origins == [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+    clear_settings_cache()
+
+
+def test_settings_parse_explicit_web_origins(monkeypatch) -> None:
+    monkeypatch.setenv("WEB_ORIGINS", "http://localhost:3000, http://127.0.0.1:4173/")
+    clear_settings_cache()
+
+    settings = get_settings()
+
+    assert settings.web_origins == ["http://localhost:3000", "http://127.0.0.1:4173"]
+
+    clear_settings_cache()
+
+
 def test_db_dependency_yields_session() -> None:
     dependency = get_db()
     session = next(dependency)

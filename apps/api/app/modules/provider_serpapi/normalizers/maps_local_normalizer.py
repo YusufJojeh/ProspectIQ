@@ -40,7 +40,9 @@ class MapsLocalNormalizer:
             reviews_value = item_dict.get("reviews")
             reviews: int = reviews_value if isinstance(reviews_value, int) else 0
             gps_value = item_dict.get("gps_coordinates")
-            gps: dict[str, Any] = cast(dict[str, Any], gps_value) if isinstance(gps_value, dict) else {}
+            gps: dict[str, Any] = (
+                cast(dict[str, Any], gps_value) if isinstance(gps_value, dict) else {}
+            )
             latitude_value = gps.get("latitude")
             longitude_value = gps.get("longitude")
             lat: float | None = (

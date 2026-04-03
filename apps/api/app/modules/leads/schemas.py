@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
@@ -7,6 +8,13 @@ from app.modules.ai_analysis.schemas import LeadAnalysisResult
 from app.modules.outreach.schemas import OutreachMessageResult
 from app.shared.enums.jobs import LeadScoreBand, LeadStatus
 from app.shared.pagination.schemas import PaginationMeta
+
+
+class LeadSortOption(StrEnum):
+    NEWEST = "newest"
+    SCORE_DESC = "score_desc"
+    REVIEWS_DESC = "reviews_desc"
+    RATING_DESC = "rating_desc"
 
 
 class LeadResponse(BaseModel):
@@ -29,6 +37,7 @@ class LeadResponse(BaseModel):
     assigned_to_user_public_id: str | None
     latest_score: float | None
     latest_band: LeadScoreBand | None
+    latest_qualified: bool | None
     created_at: datetime
     updated_at: datetime
 

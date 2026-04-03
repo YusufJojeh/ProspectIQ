@@ -19,6 +19,36 @@ class AIAnalysisRepository:
         )
         return db.scalar(statement)
 
+    def list_prompt_templates(
+        self, db: Session, workspace_id: int, *, limit: int = 50
+    ) -> list[PromptTemplate]:
+        statement = (
+            select(PromptTemplate)
+            .where(PromptTemplate.workspace_id == workspace_id)
+            .order_by(PromptTemplate.created_at.desc(), PromptTemplate.id.desc())
+            .limit(limit)
+        )
+        return list(db.scalars(statement))
+
+    def add_prompt_template(self, db: Session, template: PromptTemplate) -> PromptTemplate:
+        db.add(template)
+        db.commit()
+        db.refresh(template)
+        return template
+
+    def activate_prompt_template(
+        self, db: Session, *, workspace_id: int, template: PromptTemplate
+    ) -> PromptTemplate:
+        active_templates = db.scalars(
+            select(PromptTemplate).where(PromptTemplate.workspace_id == workspace_id)
+        )
+        for item in active_templates:
+            item.is_active = item.id == template.id
+            db.add(item)
+        db.commit()
+        db.refresh(template)
+        return template
+
     def get_snapshot_by_input_hash(
         self,
         db: Session,

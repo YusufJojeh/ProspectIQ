@@ -34,9 +34,7 @@ class Workspace(Base):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (
-        UniqueConstraint("workspace_id", "email", name="uq_users_workspace_email"),
-    )
+    __table_args__ = (UniqueConstraint("workspace_id", "email", name="uq_users_workspace_email"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(

@@ -24,33 +24,54 @@ import { listSearchJobs } from "@/features/searches/api";
 import { listUsers } from "@/features/users/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { bandTone, formatScore, statusTone, titleCaseLabel } from "@/lib/presenters";
-import type { LeadAnalysisResult, LeadScoreBand, LeadStatus, OutreachMessageResult } from "@/types/api";
+import type {
+  LeadAnalysisResult,
+  LeadScoreBand,
+  LeadSortOption,
+  LeadStatus,
+  OutreachMessageResult,
+  OutreachTone,
+} from "@/types/api";
 
 export function LeadsPage() {
   useDocumentTitle("Leads");
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
+  const [category, setCategory] = useState("");
   const [status, setStatus] = useState<LeadStatus | "all">("all");
   const [band, setBand] = useState<LeadScoreBand | "all">("all");
+  const [minScore, setMinScore] = useState("");
+  const [maxScore, setMaxScore] = useState("");
+  const [qualified, setQualified] = useState<"all" | "true" | "false">("all");
+  const [ownerUserId, setOwnerUserId] = useState<"all" | string>("all");
   const [hasWebsite, setHasWebsite] = useState<"all" | "true" | "false">("all");
   const [searchJobId, setSearchJobId] = useState<"all" | string>("all");
+  const [sort, setSort] = useState<LeadSortOption>("score_desc");
+  const [outreachTone, setOutreachTone] = useState<OutreachTone>("consultative");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [analysisPreview, setAnalysisPreview] = useState<LeadAnalysisResult | null>(null);
   const [outreachPreview, setOutreachPreview] = useState<OutreachMessageResult | null>(null);
 
+  const leadFilters = {
+    page_size: 50,
+    q: q || undefined,
+    city: city || undefined,
+    category: category || undefined,
+    status,
+    band,
+    min_score: parseOptionalNumber(minScore),
+    max_score: parseOptionalNumber(maxScore),
+    qualified: qualified === "all" ? "all" : qualified === "true",
+    owner_user_id: ownerUserId,
+    search_job_id: searchJobId,
+    has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
+    sort,
+  } as const;
+
   const leadsQuery = useQuery({
-    queryKey: ["leads", "table", { q, city, status, band, hasWebsite, searchJobId }],
-    queryFn: () =>
-      listLeads({
-        page_size: 50,
-        q: q || undefined,
-        city: city || undefined,
-        status,
-        band,
-        search_job_id: searchJobId,
-        has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
-      }),
+    queryKey: ["leads", "table", leadFilters],
+    queryFn: () => listLeads(leadFilters),
   });
   const jobsQuery = useQuery({
     queryKey: ["search-jobs", "filters"],
@@ -102,7 +123,7 @@ export function LeadsPage() {
     onSuccess: (payload) => setAnalysisPreview(payload.analysis),
   });
   const outreachMutation = useMutation({
-    mutationFn: (leadId: string) => generateLeadOutreach(leadId),
+    mutationFn: (leadId: string) => generateLeadOutreach(leadId, { tone: outreachTone }),
     onSuccess: (payload) => setOutreachPreview(payload.message),
   });
   const refreshMutation = useMutation({
@@ -140,16 +161,7 @@ export function LeadsPage() {
         action={
           <Button
             variant="secondary"
-            onClick={() =>
-              void downloadLeadsExport({
-                q: q || undefined,
-                city: city || undefined,
-                status,
-                band,
-                search_job_id: searchJobId,
-                has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
-              })
-            }
+            onClick={() => void downloadLeadsExport(leadFilters)}
           >
             <Download className="me-2 h-4 w-4" />
             Export CSV
@@ -164,9 +176,10 @@ export function LeadsPage() {
               <CardTitle>Filters</CardTitle>
               <CardDescription>Table, map, and export all use the same backend query filters.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <Input placeholder="Search company, city, domain" value={q} onChange={(event) => setQ(event.target.value)} />
               <Input placeholder="Filter by city" value={city} onChange={(event) => setCity(event.target.value)} />
+              <Input placeholder="Filter by category" value={category} onChange={(event) => setCategory(event.target.value)} />
               <Select value={searchJobId} onChange={(event) => setSearchJobId(event.target.value)}>
                 <option value="all">All search jobs</option>
                 {(jobsQuery.data?.items ?? []).map((job) => (
@@ -193,10 +206,45 @@ export function LeadsPage() {
                 <option value="low">Low</option>
                 <option value="not_qualified">Not qualified</option>
               </Select>
+              <Select value={qualified} onChange={(event) => setQualified(event.target.value as "all" | "true" | "false")}>
+                <option value="all">Any qualification</option>
+                <option value="true">Qualified only</option>
+                <option value="false">Needs qualification</option>
+              </Select>
               <Select value={hasWebsite} onChange={(event) => setHasWebsite(event.target.value as "all" | "true" | "false")}>
                 <option value="all">Any website state</option>
                 <option value="true">Has website</option>
                 <option value="false">Missing website</option>
+              </Select>
+              <Select value={ownerUserId} onChange={(event) => setOwnerUserId(event.target.value)}>
+                <option value="all">Any owner</option>
+                {(usersQuery.data?.items ?? []).map((user) => (
+                  <option key={user.public_id} value={user.public_id}>
+                    {user.full_name}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                placeholder="Min score"
+                value={minScore}
+                onChange={(event) => setMinScore(event.target.value)}
+              />
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                placeholder="Max score"
+                value={maxScore}
+                onChange={(event) => setMaxScore(event.target.value)}
+              />
+              <Select value={sort} onChange={(event) => setSort(event.target.value as LeadSortOption)}>
+                <option value="score_desc">Sort by score</option>
+                <option value="reviews_desc">Sort by reviews</option>
+                <option value="rating_desc">Sort by rating</option>
+                <option value="newest">Sort by newest</option>
               </Select>
             </CardContent>
           </Card>
@@ -223,6 +271,7 @@ export function LeadsPage() {
                         <th className="px-5 py-3 font-semibold">City</th>
                         <th className="px-5 py-3 font-semibold">Band</th>
                         <th className="px-5 py-3 font-semibold">Score</th>
+                        <th className="px-5 py-3 font-semibold">Qualified</th>
                         <th className="px-5 py-3 font-semibold">Status</th>
                         <th className="px-5 py-3 font-semibold">Website</th>
                       </tr>
@@ -246,6 +295,11 @@ export function LeadsPage() {
                             </Badge>
                           </td>
                           <td className="px-5 py-4">{formatScore(lead.latest_score)}</td>
+                          <td className="px-5 py-4">
+                            <Badge tone={lead.latest_qualified ? "warning" : "neutral"}>
+                              {lead.latest_qualified ? "Qualified" : "Review"}
+                            </Badge>
+                          </td>
                           <td className="px-5 py-4">
                             <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
                           </td>
@@ -300,6 +354,9 @@ export function LeadsPage() {
                       {selectedLead.latest_band ? titleCaseLabel(selectedLead.latest_band) : "Unscored"}
                     </Badge>
                     <Badge tone={statusTone(selectedLead.status)}>{titleCaseLabel(selectedLead.status)}</Badge>
+                    <Badge tone={selectedLead.latest_qualified ? "warning" : "neutral"}>
+                      {selectedLead.latest_qualified ? "Qualified" : "Needs review"}
+                    </Badge>
                     <Badge tone="neutral">{formatScore(selectedLead.latest_score)}</Badge>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -368,6 +425,15 @@ export function LeadsPage() {
                       Draft outreach
                     </Button>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Outreach tone</label>
+                    <Select value={outreachTone} onChange={(event) => setOutreachTone(event.target.value as OutreachTone)}>
+                      <option value="consultative">Consultative</option>
+                      <option value="friendly">Friendly</option>
+                      <option value="formal">Formal</option>
+                      <option value="short_pitch">Short pitch</option>
+                    </Select>
+                  </div>
                   {analysisPreview ? (
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
                       <p className="font-semibold">Analysis summary</p>
@@ -376,7 +442,10 @@ export function LeadsPage() {
                   ) : null}
                   {outreachPreview ? (
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
-                      <p className="font-semibold">{outreachPreview.subject}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{outreachPreview.subject}</p>
+                        <Badge tone="accent">{titleCaseLabel(outreachPreview.tone)}</Badge>
+                      </div>
                       <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[color:var(--muted)]">
                         {outreachPreview.message}
                       </p>
@@ -396,4 +465,12 @@ export function LeadsPage() {
       </div>
     </div>
   );
+}
+
+function parseOptionalNumber(value: string) {
+  if (value.trim().length === 0) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

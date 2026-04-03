@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -20,9 +22,13 @@ from app.modules.leads.schemas import (
     LeadOutreachResponse,
     LeadResponse,
     LeadScoreBreakdownResponse,
+    LeadSortOption,
     LeadStatusUpdateRequest,
 )
+from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.outreach.service import OutreachGenerationService
+from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
+from app.modules.scoring.fact_builder import EvidenceFactBuilder
 from app.modules.scoring.models import LeadScore
 from app.modules.scoring.repository import ScoringRepository
 from app.modules.users.models import User
@@ -39,6 +45,8 @@ class LeadsService:
         self.outreach_service = OutreachGenerationService()
         self.audit_logs = AuditLogService()
         self.scoring_repository = ScoringRepository()
+        self.evidence_repository = ProviderEvidenceRepository()
+        self.fact_builder = EvidenceFactBuilder()
 
     def list_leads(
         self,
@@ -53,6 +61,12 @@ class LeadsService:
         q: str | None = None,
         city: str | None = None,
         band: str | None = None,
+        category: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+        qualified: bool | None = None,
+        owner_user_id: str | None = None,
+        sort: LeadSortOption = LeadSortOption.NEWEST,
     ) -> LeadListResponse:
         items, total = self.repository.list_paginated(
             db,
@@ -65,6 +79,12 @@ class LeadsService:
             q=q,
             city=city,
             band=band,
+            category=category,
+            min_score=min_score,
+            max_score=max_score,
+            qualified=qualified,
+            owner_public_id=owner_user_id,
+            sort=sort,
         )
         latest_scores = self.repository.get_latest_scores(db, [item.id for item in items])
         assignees = self._get_assignee_public_ids(db, items)
@@ -161,7 +181,7 @@ class LeadsService:
         lead = self._get_or_raise(db, lead_id)
         if lead.workspace_id != workspace_id:
             raise NotFoundError("Lead was not found.")
-        facts = self._facts_from_lead(lead)
+        facts = self._facts_from_lead(db, lead)
         score_context = self._score_context(db, lead.id)
         _, result = self.analysis_service.analyze(
             db,
@@ -221,12 +241,13 @@ class LeadsService:
         workspace_id: int,
         lead_id: str,
         *,
+        payload: OutreachGenerateRequest,
         current_user: User,
     ) -> LeadOutreachResponse:
         lead = self._get_or_raise(db, lead_id)
         if lead.workspace_id != workspace_id:
             raise NotFoundError("Lead was not found.")
-        facts = self._facts_from_lead(lead)
+        facts = self._facts_from_lead(db, lead)
         score_context = self._score_context(db, lead.id)
         snapshot, analysis = self.analysis_service.analyze(
             db,
@@ -242,13 +263,15 @@ class LeadsService:
             snapshot=snapshot,
             analysis=analysis,
             created_by_user_id=current_user.id,
+            tone=payload.tone,
+            regenerate=payload.regenerate,
         )
         self.audit_logs.record(
             db,
             workspace_id=workspace_id,
             actor_user_id=current_user.id,
             event_name="lead.outreach_generated",
-            details=f"Generated an outreach draft for lead {lead.public_id}.",
+            details=f"Generated a {payload.tone.value} outreach draft for lead {lead.public_id}.",
         )
         return LeadOutreachResponse(lead_id=lead.public_id, message=message)
 
@@ -311,8 +334,7 @@ class LeadsService:
         if payload.assignee_user_public_id is None:
             lead.assigned_to_user_id = None
         else:
-            from app.modules.users.models import User  # noqa: F401
-            from app.modules.users.repository import UsersRepository  # local import
+            from app.modules.users.repository import UsersRepository
 
             repo = UsersRepository()
             assignee = repo.get_by_public_id(db, workspace_id, payload.assignee_user_public_id)
@@ -337,23 +359,19 @@ class LeadsService:
         return self._to_response(saved, latest, assignee_public_id)
 
     def evidence(self, db: Session, workspace_id: int, lead_id: str) -> LeadEvidenceResponse:
-        from app.modules.scoring.repository import ScoringRepository
-
         lead = self._get_or_raise(db, lead_id)
         if lead.workspace_id != workspace_id:
             raise NotFoundError("Lead was not found.")
-        items = ScoringRepository().list_evidence_items(db, lead.id)
+        items = self.scoring_repository.list_evidence_items(db, lead.id)
         return LeadEvidenceResponse(lead_id=lead.public_id, items=items)
 
     def score_breakdown(
         self, db: Session, workspace_id: int, lead_id: str
     ) -> LeadScoreBreakdownResponse:
-        from app.modules.scoring.repository import ScoringRepository
-
         lead = self._get_or_raise(db, lead_id)
         if lead.workspace_id != workspace_id:
             raise NotFoundError("Lead was not found.")
-        return ScoringRepository().get_latest_score_breakdown(db, lead.id)
+        return self.scoring_repository.get_latest_score_breakdown(db, lead.id)
 
     def _get_or_raise(self, db: Session, lead_id: str) -> Lead:
         lead = self.repository.get_by_public_id(db, lead_id)
@@ -387,14 +405,13 @@ class LeadsService:
             assigned_to_user_public_id=assignee_public_id,
             latest_score=float(latest_score.total_score) if latest_score else None,
             latest_band=LeadScoreBand(latest_score.band) if latest_score else None,
+            latest_qualified=bool(latest_score.qualified) if latest_score else None,
             created_at=lead.created_at,
             updated_at=lead.updated_at,
         )
 
     def _get_assignee_public_ids(self, db: Session, leads: list[Lead]) -> dict[int, str]:
         from sqlalchemy import select
-
-        from app.modules.users.models import User
 
         ids = {lead.assigned_to_user_id for lead in leads if lead.assigned_to_user_id is not None}
         if not ids:
@@ -418,23 +435,9 @@ class LeadsService:
             return None
         return assignees.get(assigned_to_user_id)
 
-    def _facts_from_lead(self, lead: Lead) -> NormalizedLeadFacts:
-        return NormalizedLeadFacts(
-            company_name=lead.company_name,
-            category=lead.category,
-            address=lead.address,
-            city=lead.city,
-            phone=lead.phone,
-            website_url=lead.website_url,
-            website_domain=lead.website_domain,
-            review_count=lead.review_count,
-            rating=lead.rating,
-            lat=lead.lat,
-            lng=lead.lng,
-            data_completeness=lead.data_completeness,
-            data_confidence=lead.data_confidence,
-            has_website=lead.has_website,
-        )
+    def _facts_from_lead(self, db: Session, lead: Lead) -> NormalizedLeadFacts:
+        evidence = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
+        return self.fact_builder.build(lead, evidence)
 
     def _score_context(self, db: Session, lead_id: int) -> LeadScoreContext | None:
         try:
