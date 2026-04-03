@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Download, RefreshCw, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { appPaths } from "@/app/paths";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
@@ -272,64 +273,119 @@ export function LeadsPage() {
                   />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-[color:var(--border)] text-left text-sm">
-                    <thead className="bg-[color:var(--surface-soft)] text-[color:var(--muted)]">
-                      <tr>
-                        <th className="px-5 py-3 font-semibold">Company</th>
-                        <th className="px-5 py-3 font-semibold">City</th>
-                        <th className="px-5 py-3 font-semibold">Band</th>
-                        <th className="px-5 py-3 font-semibold">Score</th>
-                        <th className="px-5 py-3 font-semibold">Qualified</th>
-                        <th className="px-5 py-3 font-semibold">Status</th>
-                        <th className="px-5 py-3 font-semibold">Website</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[color:var(--border)]">
-                      {leads.map((lead) => (
-                        <tr
-                          key={lead.public_id}
-                          className={
-                            lead.public_id === selectedLeadId
-                              ? "cursor-pointer bg-[color:var(--accent-soft)]/60 outline-none focus-visible:bg-[color:var(--accent-soft)]/75"
-                              : "cursor-pointer bg-white/70 outline-none focus-visible:bg-[color:var(--surface-soft)]"
-                          }
-                          onClick={() => setSelectedLeadId(lead.public_id)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setSelectedLeadId(lead.public_id);
-                            }
-                          }}
-                          tabIndex={0}
-                          role="button"
-                          aria-pressed={lead.public_id === selectedLeadId}
-                        >
-                          <td className="px-5 py-4">
-                            <Link className="font-semibold hover:text-[color:var(--accent)]" to={`/leads/${lead.public_id}`}>
+                <div className="space-y-3 p-4">
+                  <div className="space-y-3 md:hidden">
+                    {leads.map((lead) => (
+                      <button
+                        key={lead.public_id}
+                        className={
+                          lead.public_id === selectedLeadId
+                            ? "w-full rounded-[1.4rem] border border-[color:var(--accent)]/35 bg-[color:var(--accent-soft)]/60 p-4 text-left shadow-[0_18px_34px_-28px_rgba(15,118,110,0.55)]"
+                            : "w-full rounded-[1.4rem] border border-[color:var(--border)] bg-white/72 p-4 text-left"
+                        }
+                        onClick={() => setSelectedLeadId(lead.public_id)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <Link
+                              className="text-base font-bold hover:text-[color:var(--accent)]"
+                              to={appPaths.leadDetail(lead.public_id)}
+                            >
                               {lead.company_name}
                             </Link>
-                          </td>
-                          <td className="px-5 py-4 text-[color:var(--muted)]">{lead.city ?? "Unknown"}</td>
-                          <td className="px-5 py-4">
-                            <Badge tone={bandTone(lead.latest_band)}>
-                              {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
-                            </Badge>
-                          </td>
-                          <td className="px-5 py-4">{formatScore(lead.latest_score)}</td>
-                          <td className="px-5 py-4">
-                            <Badge tone={lead.latest_qualified ? "warning" : "neutral"}>
-                              {lead.latest_qualified ? "Qualified" : "Review"}
-                            </Badge>
-                          </td>
-                          <td className="px-5 py-4">
-                            <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
-                          </td>
-                          <td className="px-5 py-4 text-[color:var(--muted)]">{lead.website_domain ?? "Missing"}</td>
+                            <p className="mt-1 text-sm text-[color:var(--muted)]">{lead.city ?? "Unknown"}</p>
+                          </div>
+                          <Badge tone={bandTone(lead.latest_band)}>
+                            {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
+                          <Badge tone={lead.latest_qualified ? "warning" : "neutral"}>
+                            {lead.latest_qualified ? "Qualified" : "Review"}
+                          </Badge>
+                          <Badge tone="neutral">{formatScore(lead.latest_score)}</Badge>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">Website</p>
+                            <p className="mt-1 text-sm font-semibold">{lead.website_domain ?? "Missing"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">Reviews</p>
+                            <p className="mt-1 text-sm font-semibold">{lead.review_count}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="min-w-full divide-y divide-[color:var(--border)] text-left text-sm">
+                      <thead className="bg-[color:var(--surface-soft)] text-[color:var(--muted)]">
+                        <tr>
+                          <th className="px-5 py-3 font-semibold">Company</th>
+                          <th className="px-5 py-3 font-semibold">City</th>
+                          <th className="px-5 py-3 font-semibold">Band</th>
+                          <th className="px-5 py-3 font-semibold">Score</th>
+                          <th className="px-5 py-3 font-semibold">Qualified</th>
+                          <th className="px-5 py-3 font-semibold">Status</th>
+                          <th className="px-5 py-3 font-semibold">Website</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-[color:var(--border)]">
+                        {leads.map((lead) => (
+                          <tr
+                            key={lead.public_id}
+                            className={
+                              lead.public_id === selectedLeadId
+                                ? "cursor-pointer bg-[color:var(--accent-soft)]/60 outline-none focus-visible:bg-[color:var(--accent-soft)]/75"
+                                : "cursor-pointer bg-white/70 outline-none focus-visible:bg-[color:var(--surface-soft)]"
+                            }
+                            onClick={() => setSelectedLeadId(lead.public_id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setSelectedLeadId(lead.public_id);
+                              }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-pressed={lead.public_id === selectedLeadId}
+                          >
+                            <td className="px-5 py-4">
+                              <Link
+                                className="font-semibold hover:text-[color:var(--accent)]"
+                                to={appPaths.leadDetail(lead.public_id)}
+                              >
+                                {lead.company_name}
+                              </Link>
+                            </td>
+                            <td className="px-5 py-4 text-[color:var(--muted)]">{lead.city ?? "Unknown"}</td>
+                            <td className="px-5 py-4">
+                              <Badge tone={bandTone(lead.latest_band)}>
+                                {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4">{formatScore(lead.latest_score)}</td>
+                            <td className="px-5 py-4">
+                              <Badge tone={lead.latest_qualified ? "warning" : "neutral"}>
+                                {lead.latest_qualified ? "Qualified" : "Review"}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4">
+                              <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
+                            </td>
+                            <td className="px-5 py-4 text-[color:var(--muted)]">
+                              {lead.website_domain ?? "Missing"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -475,7 +531,7 @@ export function LeadsPage() {
                     </div>
                   ) : null}
                   <Button asChild className="w-full justify-center">
-                    <Link to={`/leads/${selectedLead.public_id}`}>
+                    <Link to={appPaths.leadDetail(selectedLead.public_id)}>
                       Open lead detail
                       <ArrowRight className="ms-2 h-4 w-4" />
                     </Link>

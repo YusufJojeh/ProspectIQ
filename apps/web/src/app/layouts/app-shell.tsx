@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Compass, DatabaseZap, LogOut, Search, Settings2 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { appPaths } from "@/app/paths";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getMe } from "@/features/auth/api";
@@ -9,29 +10,29 @@ import { useAuthSession } from "@/features/auth/session";
 import { productInitials, productName } from "@/lib/brand";
 
 const navigation = [
-  { to: "/", label: "Overview", icon: Compass, end: true },
-  { to: "/searches", label: "Search Jobs", icon: Search },
-  { to: "/leads", label: "Lead Workspace", icon: DatabaseZap },
-  { to: "/settings", label: "Admin", icon: Settings2 },
+  { to: appPaths.dashboard, label: "Overview", icon: Compass, end: true },
+  { to: appPaths.searches, label: "Search Jobs", icon: Search },
+  { to: appPaths.leads, label: "Lead Workspace", icon: DatabaseZap },
+  { to: appPaths.settings, label: "Admin", icon: Settings2 },
 ];
 
 const pageMeta = {
-  "/": {
+  [appPaths.dashboard]: {
     eyebrow: "Overview",
     title: "Agency lead desk",
     description: "Evidence-first workspace for discovery runs, qualification, and outreach drafting.",
   },
-  "/searches": {
+  [appPaths.searches]: {
     eyebrow: "Search Jobs",
     title: "Discovery runs",
     description: "Queue local prospecting jobs and monitor provider-backed discovery throughput.",
   },
-  "/leads": {
+  [appPaths.leads]: {
     eyebrow: "Lead Workspace",
     title: "Qualification pipeline",
     description: "Filter, inspect, map, score, assign, and draft outreach from stored evidence.",
   },
-  "/settings": {
+  [appPaths.settings]: {
     eyebrow: "Admin",
     title: "Operational controls",
     description: "Tune provider defaults, manage scoring versions, and review audit history.",
@@ -55,8 +56,8 @@ export function AppShell({ children }: AppShellProps) {
   });
   const activePage =
     Object.entries(pageMeta).find(([path]) =>
-      path === "/" ? location.pathname === "/" : location.pathname.startsWith(path),
-    )?.[1] ?? pageMeta["/"];
+      path === appPaths.dashboard ? location.pathname === appPaths.dashboard : location.pathname.startsWith(path),
+    )?.[1] ?? pageMeta[appPaths.dashboard];
 
   return (
     <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
@@ -124,7 +125,7 @@ export function AppShell({ children }: AppShellProps) {
               variant="secondary"
               onClick={() => {
                 logout();
-                navigate("/login", { replace: true });
+                navigate(appPaths.login, { replace: true });
               }}
             >
               <LogOut className="h-4 w-4" />

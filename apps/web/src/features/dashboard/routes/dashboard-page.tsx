@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Globe2, MapPinned } from "lucide-react";
 import { Link } from "react-router-dom";
+import { appPaths } from "@/app/paths";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
@@ -70,7 +71,7 @@ export function DashboardPage() {
         description="Monitor the current lead pool, recent provider runs, and the quality signals that shape qualification decisions."
         action={
           <Button asChild>
-            <Link to="/searches">
+            <Link to={appPaths.searches}>
               Launch search
               <ArrowRight className="ms-2 h-4 w-4" />
             </Link>

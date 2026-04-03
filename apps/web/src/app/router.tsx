@@ -1,9 +1,11 @@
-import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
+import { Navigate, Outlet, RouterProvider, createBrowserRouter, useParams } from "react-router-dom";
 import { AppProviders } from "@/app/providers";
 import { AppShell } from "@/app/layouts/app-shell";
+import { appPaths } from "@/app/paths";
 import { useAuthSession } from "@/features/auth/session";
 import { LoginPage } from "@/features/auth/routes/login-page";
 import { DashboardPage } from "@/features/dashboard/routes/dashboard-page";
+import { HomePage } from "@/features/home/routes/home-page";
 import { LeadDetailPage } from "@/features/lead-detail/routes/lead-detail-page";
 import { LeadsPage } from "@/features/leads/routes/leads-page";
 import { SearchesPage } from "@/features/searches/routes/searches-page";
@@ -13,7 +15,7 @@ function LoginRoute() {
   const { isAuthenticated } = useAuthSession();
 
   if (isAuthenticated) {
-    return <Navigate replace to="/" />;
+    return <Navigate replace to={appPaths.dashboard} />;
   }
 
   return <LoginPage />;
@@ -23,7 +25,7 @@ function ProtectedShell() {
   const { isAuthenticated } = useAuthSession();
 
   if (!isAuthenticated) {
-    return <Navigate replace to="/login" />;
+    return <Navigate replace to={appPaths.login} />;
   }
 
   return (
@@ -33,13 +35,27 @@ function ProtectedShell() {
   );
 }
 
+function LegacyLeadDetailRedirect() {
+  const { leadId } = useParams();
+
+  if (!leadId) {
+    return <Navigate replace to={appPaths.leads} />;
+  }
+
+  return <Navigate replace to={appPaths.leadDetail(leadId)} />;
+}
+
 const router = createBrowserRouter([
   {
-    path: "/login",
+    path: appPaths.home,
+    element: <HomePage />,
+  },
+  {
+    path: appPaths.login,
     element: <LoginRoute />,
   },
   {
-    path: "/",
+    path: appPaths.dashboard,
     element: <ProtectedShell />,
     children: [
       { index: true, element: <DashboardPage /> },
@@ -48,6 +64,22 @@ const router = createBrowserRouter([
       { path: "leads/:leadId", element: <LeadDetailPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
+  },
+  {
+    path: "/searches",
+    element: <Navigate replace to={appPaths.searches} />,
+  },
+  {
+    path: "/leads",
+    element: <Navigate replace to={appPaths.leads} />,
+  },
+  {
+    path: "/leads/:leadId",
+    element: <LegacyLeadDetailRedirect />,
+  },
+  {
+    path: "/settings",
+    element: <Navigate replace to={appPaths.settings} />,
   },
 ]);
 

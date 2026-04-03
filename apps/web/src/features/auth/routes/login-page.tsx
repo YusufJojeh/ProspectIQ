@@ -2,8 +2,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
+import { appPaths } from "@/app/paths";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,7 @@ export function LoginPage() {
 
   const mutation = useMutation({
     mutationFn: login,
-    onSuccess: () => navigate("/"),
+    onSuccess: () => navigate(appPaths.dashboard),
   });
 
   return (
@@ -42,7 +43,17 @@ export function LoginPage() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(15,118,110,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(180,83,9,0.1),transparent_22%)]" />
       <div className="relative grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--panel)] shadow-[0_35px_70px_-45px_rgba(15,23,42,0.35)] lg:grid-cols-[0.92fr_1.08fr]">
         <div className="border-b border-[color:var(--border)] bg-[color:var(--panel-strong)] p-6 lg:border-b-0 lg:border-e lg:p-10">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">{productName}</p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="font-mono text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">
+              {productName}
+            </p>
+            <Link
+              className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)] transition hover:text-[color:var(--text)]"
+              to={appPaths.home}
+            >
+              Public home
+            </Link>
+          </div>
           <CardTitle className="mt-4 text-3xl leading-tight">
             Sign in to the agency lead qualification workspace
           </CardTitle>
