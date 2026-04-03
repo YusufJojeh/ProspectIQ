@@ -116,13 +116,14 @@ GitHub Actions runs the same validation path from [ci.yml](C:/Users/Yusuf/OneDri
 - Backend: `ruff`, `mypy`, `pytest`, and `alembic upgrade head --sql`
 - Frontend: `eslint`, `vitest`, `vite build`, and Playwright E2E
 - Containers: API and web Docker image builds
+- Deployment stack smoke: local image build plus `infra/docker-compose.deploy.yml` boot, seed, health, and login verification
 
 ## CD
 
 GitHub Actions now includes two delivery workflows:
 
 - `release-images.yml`: builds and publishes API and web images to GHCR on `main`, tags, or manual dispatch
-- `deploy.yml`: deploys a chosen image tag to a remote Docker host over SSH using `infra/docker-compose.deploy.yml`
+- `deploy.yml`: deploys a chosen image tag to a remote Docker host over SSH using `infra/docker-compose.deploy.yml`, then verifies stack health and login bootstrap with `infra/scripts/verify_deploy_stack.sh`
 
 Required GitHub Actions deploy secrets:
 
@@ -135,6 +136,7 @@ Required GitHub Actions deploy secrets:
 - `GHCR_DEPLOY_TOKEN`
 
 The frontend browser tests use the repo's mock API layer, so they do not require a live backend in CI. The backend suite uses isolated test databases and an offline Alembic render check instead of a live MariaDB service.
+The deployment smoke job uses locally built images and a temporary deployment env so the image-based stack is validated before release.
 
 ## Reference Docs
 

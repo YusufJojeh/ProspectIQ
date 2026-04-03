@@ -38,8 +38,9 @@ LeadScope AI is a clean modular monolith with working backend, frontend, databas
 
 ## Deferred Issues
 
-- deployment packaging is still incomplete
-  - there are no production Dockerfiles for `apps/api` or `apps/web`
+- live deployment still depends on real secrets and a reachable target host
+  - the repo now includes production Dockerfiles, GHCR publishing, deployment compose, and a deployment-stack smoke path in CI
+  - the remaining deployment risk is operational handoff, not missing packaging
 - frontend unit-test coverage is still thinner than backend coverage
   - Playwright covers the main workflow and Vitest now covers a minimal shared-state component, but isolated component-level coverage is still limited
 - the frontend build still emits a Vite chunk-size warning
@@ -55,4 +56,4 @@ LeadScope AI is a clean modular monolith with working backend, frontend, databas
 
 Acceptable with warnings.
 
-The application is strong enough for local delivery, grading, and guided demos. The main remaining risks are deployment packaging, a thinner frontend unit-test baseline, and production secret/runtime hardening beyond the current local-first defaults.
+The application is strong enough for local delivery, grading, guided demos, and image-based deployment. The main remaining risks are operational secret/runtime hardening on the target host, a thinner frontend unit-test baseline, and the existing frontend bundle-size warning.

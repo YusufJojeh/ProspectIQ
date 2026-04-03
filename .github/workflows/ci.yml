@@ -90,6 +90,54 @@ jobs:
           provenance: false
           sbom: false
 
+  deploy-smoke:
+    name: Deployment Stack Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Build API image
+        run: docker build -t leadscope-ci-api:${{ github.sha }} ./apps/api
+
+      - name: Build web image
+        run: docker build --build-arg VITE_API_BASE_URL= -t leadscope-ci-web:${{ github.sha }} ./apps/web
+
+      - name: Prepare deployment env
+        shell: bash
+        run: |
+          cp infra/deploy.env.example /tmp/leadscope-deploy.env
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("/tmp/leadscope-deploy.env")
+          replacements = {
+              "API_IMAGE=ghcr.io/yusufjojeh/prospectiq-api:latest": "API_IMAGE=leadscope-ci-api:${{ github.sha }}",
+              "WEB_IMAGE=ghcr.io/yusufjojeh/prospectiq-web:latest": "WEB_IMAGE=leadscope-ci-web:${{ github.sha }}",
+              "WEB_PORT=80": "WEB_PORT=8080",
+              "WEB_ORIGIN=https://leadscope.example.com": "WEB_ORIGIN=http://127.0.0.1:8080",
+              "WEB_ORIGINS=https://leadscope.example.com": "WEB_ORIGINS=http://127.0.0.1:8080",
+              "DEFAULT_ADMIN_EMAIL=admin@example.com": "DEFAULT_ADMIN_EMAIL=admin@leadscope.test",
+              "DEFAULT_ADMIN_PASSWORD=replace-admin-password": "DEFAULT_ADMIN_PASSWORD=ChangeMe123!",
+              "JWT_SECRET=replace-with-a-long-random-secret": "JWT_SECRET=ci-super-secret-jwt-key-at-least-32-bytes",
+              "SERPAPI_API_KEY=replace-with-serpapi-key": "SERPAPI_API_KEY=ci-serpapi-placeholder",
+          }
+          content = path.read_text()
+          for old, new in replacements.items():
+              content = content.replace(old, new)
+          path.write_text(content)
+          PY
+
+      - name: Start deployment stack
+        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml up -d
+
+      - name: Verify deployment stack
+        run: sh infra/scripts/verify_deploy_stack.sh /tmp/leadscope-deploy.env infra/docker-compose.deploy.yml
+
+      - name: Tear down deployment stack
+        if: always()
+        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml down -v
+
   frontend:
     name: Frontend Quality
     runs-on: ubuntu-latest

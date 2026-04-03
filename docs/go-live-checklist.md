@@ -59,8 +59,10 @@
 ## Delivery Pipeline
 
 - confirm `CI` passes on the target branch
+- confirm the deployment-stack smoke job passes
 - confirm `Release Images` publishes fresh `prospectiq-api` and `prospectiq-web` images to GHCR
 - confirm the `Deploy` workflow has the required secrets and a reachable Docker host
+- confirm the deploy workflow can run `infra/scripts/verify_deploy_stack.sh` successfully on the target host
 - verify rollback by redeploying a prior image tag through the manual deploy workflow
 
 ## Demo Separation
@@ -71,6 +73,6 @@
 
 ## Known Warnings
 
-- no production Dockerfiles yet for API or web
 - frontend build chunk-size warning still exists
 - backend tests intentionally use a short development JWT secret
+- a real remote deployment still requires GitHub environment secrets and host-level Docker access
