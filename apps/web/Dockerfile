@@ -17,6 +17,10 @@ FROM nginx:1.27
 ENV API_UPSTREAM=http://api:8000 \
     VITE_API_BASE_URL=
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
 COPY docker/runtime-config.template.js /usr/share/nginx/html/runtime-config.template.js
