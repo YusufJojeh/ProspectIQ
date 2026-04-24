@@ -11,6 +11,8 @@ import type {
   ScoringConfigVersionResponse,
   ScoringConfigVersionCreateRequest,
   ScoringConfigVersionListResponse,
+  WorkspaceSettingsResponse,
+  WorkspaceSettingsUpdateRequest,
 } from "@/types/api";
 
 export function getActiveScoringConfig() {
@@ -57,4 +59,12 @@ export function getOperationalHealth() {
 
 export function listAuditLogs() {
   return request<AuditLogListResponse>("/api/v1/audit-logs");
+}
+
+export function getWorkspaceSettings() {
+  return request<WorkspaceSettingsResponse>("/api/v1/workspace-settings");
+}
+
+export function updateWorkspaceSettings(payload: WorkspaceSettingsUpdateRequest) {
+  return request<WorkspaceSettingsResponse>("/api/v1/workspace-settings", { method: "PATCH" }, payload);
 }

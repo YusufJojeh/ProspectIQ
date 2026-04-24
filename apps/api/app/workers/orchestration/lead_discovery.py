@@ -6,8 +6,11 @@ from typing import Any, Protocol, TypeVar
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import get_settings
 from app.core.database import get_session_factory
+from app.core.errors import ServiceUnavailableError
 from app.modules.leads.models import Lead
+from app.modules.provider_serpapi.demo_service import DemoSerpApiService
 from app.modules.provider_serpapi.models import (
     ProviderFetch,
     ProviderNormalizedFact,
@@ -151,7 +154,6 @@ class LeadDiscoveryOrchestrator:
 
         job.leads_upserted = len(lead_ids)
         self.search_job_repository.save(db, job)
-        self._score_leads(db, job, list(lead_ids))
         return list(lead_ids)
 
     def _enrich_top_candidates(self, db: Session, job: SearchJob, lead_ids: list[int]) -> None:
@@ -511,7 +513,15 @@ class LeadDiscoveryOrchestrator:
 
     def _get_provider_service(self) -> ProviderServiceProtocol:
         if self.provider_service is None:
-            self.provider_service = SerpApiService()
+            settings = get_settings()
+            if settings.discovery_runtime == "serpapi":
+                self.provider_service = SerpApiService()
+            elif settings.discovery_runtime == "demo":
+                self.provider_service = DemoSerpApiService()
+            else:
+                raise ServiceUnavailableError(
+                    "Lead discovery is unavailable because SerpAPI is not configured and demo fallbacks are disabled."
+                )
         return self.provider_service
 
     def _prefer(

@@ -6,3 +6,10 @@ class InvalidCredentialsError(UnauthorizedError):
 
     def __init__(self) -> None:
         super().__init__("Invalid email or password.")
+
+
+class InactiveUserError(UnauthorizedError):
+    code = "inactive_user"
+
+    def __init__(self) -> None:
+        super().__init__("This account is inactive. Contact your workspace administrator.")

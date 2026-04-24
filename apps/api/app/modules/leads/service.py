@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import NotFoundError
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.audit_logs.service import AuditLogService
+from app.modules.billing.service import BillingService
 from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
 from app.modules.leads.repository import LeadsRepository
 from app.modules.leads.schemas import (
@@ -41,6 +42,7 @@ class LeadsService:
         self.analysis_service = AIAnalysisService()
         self.outreach_service = OutreachGenerationService()
         self.audit_logs = AuditLogService()
+        self.billing = BillingService()
         self.scoring_repository = ScoringRepository()
         self.lead_intelligence = LeadIntelligenceService()
 
@@ -62,6 +64,7 @@ class LeadsService:
         max_score: float | None = None,
         qualified: bool | None = None,
         owner_user_id: str | None = None,
+        lead_public_ids: list[str] | None = None,
         sort: LeadSortOption = LeadSortOption.NEWEST,
     ) -> LeadListResponse:
         items, total = self.repository.list_paginated(
@@ -80,6 +83,7 @@ class LeadsService:
             max_score=max_score,
             qualified=qualified,
             owner_public_id=owner_user_id,
+            lead_public_ids=lead_public_ids,
             sort=sort,
         )
         latest_scores = self.repository.get_latest_scores(db, [item.id for item in items])
@@ -97,17 +101,13 @@ class LeadsService:
         )
 
     def get_lead(self, db: Session, workspace_id: int, lead_id: str) -> LeadResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         latest = self.repository.get_latest_scores(db, [lead.id]).get(lead.id)
         assignee_public_id = self._lookup_assignee_public_id(db, lead)
         return self._to_response(lead, latest, assignee_public_id)
 
     def list_activity(self, db: Session, workspace_id: int, lead_id: str) -> LeadActivityResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
 
         items: list[LeadActivityEntry] = []
         for history, actor_public_id, actor_full_name in self.repository.list_status_history(
@@ -147,9 +147,7 @@ class LeadsService:
         *,
         current_user: User,
     ) -> LeadResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         refreshed = LeadRefreshOrchestrator().refresh(
             db,
             lead=lead,
@@ -174,9 +172,13 @@ class LeadsService:
         *,
         current_user: User,
     ) -> LeadAnalysisResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        self.billing.enforce_usage(
+            db,
+            workspace_id=workspace_id,
+            metric_key="ai_scoring_runs_per_month",
+            actor_user_id=current_user.id,
+        )
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         context = self.lead_intelligence.build(db, lead=lead)
         _, result = self.analysis_service.analyze(
             db,
@@ -193,6 +195,7 @@ class LeadsService:
             event_name="lead.analyzed",
             details=f"Generated an assistive analysis for lead {lead.public_id}.",
         )
+        self.billing.record_usage(db, workspace_id=workspace_id, metric_key="ai_scoring_runs_per_month")
         return LeadAnalysisResponse(lead_id=lead.public_id, analysis=result)
 
     def create_note(
@@ -204,9 +207,7 @@ class LeadsService:
         *,
         current_user: User,
     ) -> LeadNoteResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         note = self.repository.add_note(
             db,
             LeadNote(
@@ -239,9 +240,13 @@ class LeadsService:
         payload: OutreachGenerateRequest,
         current_user: User,
     ) -> LeadOutreachResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        self.billing.enforce_usage(
+            db,
+            workspace_id=workspace_id,
+            metric_key="outreach_generations_per_month",
+            actor_user_id=current_user.id,
+        )
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         context = self.lead_intelligence.build(db, lead=lead)
         snapshot, analysis = self.analysis_service.analyze(
             db,
@@ -267,6 +272,11 @@ class LeadsService:
             event_name="lead.outreach_generated",
             details=f"Generated a {payload.tone.value} outreach draft for lead {lead.public_id}.",
         )
+        self.billing.record_usage(
+            db,
+            workspace_id=workspace_id,
+            metric_key="outreach_generations_per_month",
+        )
         return LeadOutreachResponse(lead_id=lead.public_id, message=message)
 
     def update_status(
@@ -278,9 +288,7 @@ class LeadsService:
         *,
         current_user: User,
     ) -> LeadResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         previous_status = lead.status
         lead.status = payload.status.value
         lead.updated_at = datetime.now(tz=UTC)
@@ -322,9 +330,7 @@ class LeadsService:
         *,
         current_user: User,
     ) -> LeadResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         if payload.assignee_user_public_id is None:
             lead.assigned_to_user_id = None
         else:
@@ -353,22 +359,22 @@ class LeadsService:
         return self._to_response(saved, latest, assignee_public_id)
 
     def evidence(self, db: Session, workspace_id: int, lead_id: str) -> LeadEvidenceResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         items = self.scoring_repository.list_evidence_items(db, lead.id)
         return LeadEvidenceResponse(lead_id=lead.public_id, items=items)
 
     def score_breakdown(
         self, db: Session, workspace_id: int, lead_id: str
     ) -> LeadScoreBreakdownResponse:
-        lead = self._get_or_raise(db, lead_id)
-        if lead.workspace_id != workspace_id:
-            raise NotFoundError("Lead was not found.")
+        lead = self._get_or_raise(db, workspace_id, lead_id)
         return self.scoring_repository.get_latest_score_breakdown(db, lead.id)
 
-    def _get_or_raise(self, db: Session, lead_id: str) -> Lead:
-        lead = self.repository.get_by_public_id(db, lead_id)
+    def _get_or_raise(self, db: Session, workspace_id: int, lead_id: str) -> Lead:
+        lead = self.repository.get_by_public_id_for_workspace(
+            db,
+            workspace_id=workspace_id,
+            public_id=lead_id,
+        )
         if lead is None:
             raise NotFoundError("Lead was not found.")
         return lead

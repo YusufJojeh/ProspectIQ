@@ -30,4 +30,17 @@ describe("QueryStateNotice", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByText("The API returned an error.")).toBeInTheDocument();
   });
+
+  it("renders a status role for success states", () => {
+    render(
+      <QueryStateNotice
+        tone="success"
+        title="Export completed"
+        description="The CSV download has started."
+      />,
+    );
+
+    expect(screen.getAllByRole("status").at(-1)).toBeInTheDocument();
+    expect(screen.getByText("Export completed")).toBeInTheDocument();
+  });
 });

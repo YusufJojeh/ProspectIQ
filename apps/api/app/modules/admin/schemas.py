@@ -70,6 +70,11 @@ class RecentProviderFailureResponse(BaseModel):
 class OperationalHealthResponse(BaseModel):
     database_ok: bool
     serpapi_configured: bool
+    serpapi_runtime_mode: str
+    discovery_runtime: str
+    analysis_runtime: str
+    demo_fallbacks_enabled: bool
+    runtime_warnings: list[str]
     failed_jobs_last_7_days: int
     provider_failures_last_7_days: int
     recent_failed_jobs: list[RecentFailedJobResponse]

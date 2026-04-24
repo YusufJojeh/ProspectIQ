@@ -53,6 +53,7 @@ class LeadsRepository:
         max_score: float | None,
         qualified: bool | None,
         owner_public_id: str | None,
+        lead_public_ids: list[str] | None = None,
     ) -> tuple[Any, Any, Any]:
         from app.modules.search_jobs.models import SearchJob
 
@@ -118,6 +119,9 @@ class LeadsRepository:
             count_statement = count_statement.join(User, User.id == Lead.assigned_to_user_id).where(
                 User.public_id == owner_public_id
             )
+        if lead_public_ids:
+            statement = statement.where(Lead.public_id.in_(lead_public_ids))
+            count_statement = count_statement.where(Lead.public_id.in_(lead_public_ids))
         return statement, count_statement, latest_scores
 
     def list_paginated(
@@ -138,6 +142,7 @@ class LeadsRepository:
         max_score: float | None = None,
         qualified: bool | None = None,
         owner_public_id: str | None = None,
+        lead_public_ids: list[str] | None = None,
         sort: LeadSortOption = LeadSortOption.NEWEST,
     ) -> tuple[list[Lead], int]:
         statement, count_statement, latest_scores = self._filtered_statements(
@@ -153,6 +158,7 @@ class LeadsRepository:
             max_score=max_score,
             qualified=qualified,
             owner_public_id=owner_public_id,
+            lead_public_ids=lead_public_ids,
         )
         statement = statement.order_by(*self._order_by(sort, latest_scores))
         statement = statement.offset((page - 1) * page_size).limit(page_size)
@@ -190,9 +196,8 @@ class LeadsRepository:
             max_score=max_score,
             qualified=qualified,
             owner_public_id=owner_public_id,
+            lead_public_ids=lead_public_ids,
         )
-        if lead_public_ids:
-            statement = statement.where(Lead.public_id.in_(lead_public_ids))
         return list(db.scalars(statement.order_by(*self._order_by(sort, latest_scores))))
 
     def get_by_public_id(self, db: Session, public_id: str) -> Lead | None:

@@ -1,10 +1,21 @@
 export const appPaths = {
   home: "/",
   login: "/login",
+  signUp: "/sign-up",
+  forgotPassword: "/forgot-password",
   dashboard: "/app",
   searches: "/app/searches",
   leads: "/app/leads",
+  aiAnalysis: "/app/ai-analysis",
+  outreach: "/app/outreach",
+  admin: "/app/admin",
+  auditLogs: "/app/audit-logs",
+  exports: "/app/exports",
   settings: "/app/settings",
+  team: "/app/team",
+  billing: "/app/billing",
+  invoices: "/app/invoices",
+  usage: "/app/usage",
   leadDetail: (leadId: string) => `/app/leads/${leadId}`,
+  searchJobDetail: (jobId: string) => `/app/searches/jobs/${jobId}`,
 } as const;
-

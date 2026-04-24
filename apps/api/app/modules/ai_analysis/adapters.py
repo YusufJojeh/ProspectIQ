@@ -1,12 +1,66 @@
 from __future__ import annotations
 
+import json
 from typing import Protocol
+
+import httpx
 
 from app.modules.ai_analysis.schemas import LeadAnalysisInput
 
 
 class LLMClient(Protocol):
     def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]: ...
+
+
+def _coerce_json_object(raw_content: str) -> dict[str, object]:
+    stripped = raw_content.strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError:
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("LLM response did not contain a JSON object.") from None
+        parsed = json.loads(stripped[start : end + 1])
+    if not isinstance(parsed, dict):
+        raise ValueError("LLM response JSON was not an object.")
+    return parsed
+
+
+def _build_llm_prompt(payload: LeadAnalysisInput) -> str:
+    score = payload.deterministic_score
+    score_block = (
+        {
+            "total_score": score.total_score,
+            "band": score.band,
+            "qualified": score.qualified,
+            "reasons": score.reasons,
+        }
+        if score
+        else None
+    )
+    return "\n".join(
+        [
+            payload.prompt_instructions
+            or "Use only the supplied evidence. Do not invent facts or claims.",
+            "Return a single JSON object with keys:",
+            "summary, weaknesses, opportunities, recommended_services, outreach_subject, outreach_message, confidence",
+            "weaknesses/opportunities/recommended_services must be arrays of strings.",
+            "confidence must be between 0 and 1.",
+            "Input:",
+            json.dumps(
+                {
+                    "local_business": payload.local_business.model_dump(mode="json"),
+                    "place_enrichment": payload.place_enrichment.model_dump(mode="json"),
+                    "web_visibility": payload.web_visibility.model_dump(mode="json"),
+                    "deterministic_score": score_block,
+                    "allowed_service_catalog": payload.allowed_service_catalog,
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            ),
+        ]
+    )
 
 
 class DeterministicLLMAdapter:
@@ -184,6 +238,92 @@ class DeterministicLLMAdapter:
         if value is None:
             return "unknown"
         return f"{round(value * 100)}%"
+
+
+class OpenAILLMAdapter:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        base_url: str = "https://api.openai.com/v1",
+    ) -> None:
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self._client = httpx.Client(
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __del__(self) -> None:
+        self._client.close()
+
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        prompt = _build_llm_prompt(payload)
+        response = self._client.post(
+            f"{self.base_url}/chat/completions",
+            json={
+                "model": self.model,
+                "temperature": 0.2,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are an evidence-first lead-analysis assistant. Return only JSON.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            },
+        )
+        response.raise_for_status()
+        payload_json = response.json()
+        content = (
+            payload_json.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+        )
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("OpenAI response did not include message content.")
+        return _coerce_json_object(content)
+
+
+class OllamaLLMAdapter:
+    def __init__(self, *, base_url: str, model: str) -> None:
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self._client = httpx.Client(
+            timeout=httpx.Timeout(45.0, connect=10.0),
+            headers={"Content-Type": "application/json"},
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __del__(self) -> None:
+        self._client.close()
+
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        response = self._client.post(
+            f"{self.base_url}/api/generate",
+            json={
+                "model": self.model,
+                "prompt": _build_llm_prompt(payload),
+                "stream": False,
+                "format": "json",
+            },
+        )
+        response.raise_for_status()
+        payload_json = response.json()
+        content = payload_json.get("response", "")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("Ollama response did not include generated text.")
+        return _coerce_json_object(content)
 
 
 class FallbackAnalysisBuilder:

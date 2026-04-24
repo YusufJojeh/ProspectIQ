@@ -37,6 +37,7 @@ class SearchJobCreateRequest(BaseModel):
 
 class SearchJobResponse(BaseModel):
     public_id: str
+    discovery_runtime: str
     business_type: str
     city: str
     region: str | None

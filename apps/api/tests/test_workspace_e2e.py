@@ -14,6 +14,7 @@ from app.core.database import Base, get_db
 from app.core.security import hash_password
 from app.main import app
 from app.modules.ai_analysis.models import PromptTemplate
+from app.modules.billing.service import BillingService
 from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.models import (
     ProviderFetch,
@@ -63,9 +64,10 @@ def _seed_workspace(session_factory: sessionmaker[Session]) -> _SeededWorkspace:
     with session_factory() as db:
         db.add_all(
             [
+                Role(key="account_owner", label="Account Owner"),
                 Role(key="admin", label="Administrator"),
-                Role(key="agency_manager", label="Agency Manager"),
-                Role(key="sales_user", label="Sales User"),
+                Role(key="manager", label="Manager"),
+                Role(key="member", label="Member"),
             ]
         )
         db.commit()
@@ -86,20 +88,28 @@ def _seed_workspace(session_factory: sessionmaker[Session]) -> _SeededWorkspace:
             workspace_id=workspace.id,
             email="manager@example.com",
             full_name="Manager User",
-            hashed_password=hash_password("ManagerPass123"),
-            role="agency_manager",
+            hashed_password=hash_password("ManagerPass123!"),
+            role="manager",
         )
         sales = User(
             workspace_id=workspace.id,
             email="sales@example.com",
             full_name="Sales User",
-            hashed_password=hash_password("SalesPass123"),
-            role="sales_user",
+            hashed_password=hash_password("SalesPass123!"),
+            role="member",
         )
         db.add_all([admin, manager, sales])
         db.commit()
         db.refresh(admin)
         db.refresh(manager)
+        workspace.owner_user_id = admin.id
+        db.add(workspace)
+        db.commit()
+
+        BillingService().ensure_seed_data(db)
+        BillingService().bootstrap_workspace_subscription(
+            db, workspace=workspace, actor_user_id=admin.id
+        )
 
         provider_settings = ProviderSettings(
             workspace_id=workspace.id,
@@ -320,7 +330,6 @@ def _login(client: TestClient, seed: _SeededWorkspace) -> str:
     response = client.post(
         "/api/v1/auth/login",
         json={
-            "workspace": seed.workspace_public_id,
             "email": seed.admin_email,
             "password": seed.admin_password,
         },

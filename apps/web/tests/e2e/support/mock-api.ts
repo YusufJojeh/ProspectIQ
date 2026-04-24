@@ -1,6 +1,20 @@
 import type { Page, Route } from "@playwright/test";
 
-type UserRole = "admin" | "agency_manager" | "sales_user";
+export const MOCK_IDS = {
+  primaryLeadId: "lead_acme_1",
+  secondaryLeadId: "lead_north_1",
+  seedJobId: "job_seed_1",
+  workspaceId: "ws_default",
+  adminEmail: "admin@prospectiq.dev",
+  adminPassword: "ChangeMe123!",
+  memberEmail: "sales@prospectiq.dev",
+  memberPassword: "MemberPass123!",
+  inactiveEmail: "inactive@prospectiq.dev",
+  inactivePassword: "InactivePass123!",
+} as const;
+
+type UserRole = "account_owner" | "admin" | "manager" | "member";
+type UserStatus = "active" | "inactive" | "pending";
 type SearchJobStatus = "queued" | "running" | "completed" | "partially_completed" | "failed";
 type LeadStatus =
   | "new"
@@ -18,13 +32,18 @@ type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
 type AuthenticatedUser = {
   public_id: string;
   workspace_public_id: string;
+  workspace_name: string;
+  workspace_slug: string;
   email: string;
   full_name: string;
   role: UserRole;
+  status: UserStatus;
+  permissions: string[];
 };
 
 type SearchJobResponse = {
   public_id: string;
+  discovery_runtime: string;
   business_type: string;
   city: string;
   region: string | null;
@@ -196,13 +215,17 @@ type AuditLogEntry = {
   created_at: string;
 };
 
-type MockState = {
+export type MockState = {
   sessionUser: AuthenticatedUser;
   users: Array<{
     public_id: string;
     email: string;
     full_name: string;
     role: UserRole;
+    status: UserStatus;
+    job_title?: string | null;
+    last_login_at?: string | null;
+    created_at?: string;
   }>;
   searchJobs: SearchJobResponse[];
   leads: LeadRecord[];
@@ -231,6 +254,34 @@ type MockState = {
   scoringVersions: ScoringConfigVersion[];
   activeScoringVersionId: string;
   auditLogs: AuditLogEntry[];
+  billing: {
+    plans: Array<{
+      code: string;
+      name: string;
+      monthly_price: number;
+      yearly_price: number;
+      limits: Record<string, number>;
+      is_active: boolean;
+    }>;
+    subscription: {
+      public_id: string;
+      plan_code: string;
+      plan_name: string;
+      status: "trialing" | "active" | "past_due" | "canceled" | "expired";
+      billing_cycle: "monthly" | "yearly";
+      started_at: string;
+      trial_ends_at: string | null;
+      renews_at: string | null;
+      simulated_payment_method: string;
+    };
+    usage: Array<{
+      metric_key: string;
+      current_value: number;
+      limit_value: number;
+      period_start: string;
+      period_end: string;
+    }>;
+  };
   counters: {
     searchJobs: number;
     notes: number;
@@ -259,6 +310,33 @@ function iso(stepMinutes: number) {
 function nextTimestamp(state: MockState) {
   state.counters.timestamps += 1;
   return iso(state.counters.timestamps);
+}
+
+function permissionsForRole(role: UserRole) {
+  if (role === "account_owner") {
+    return [
+      "workspace:read",
+      "workspace:update",
+      "team:read",
+      "team:manage",
+      "billing:read",
+      "billing:manage",
+      "usage:read",
+    ];
+  }
+  if (role === "admin") {
+    return [
+      "workspace:read",
+      "team:read",
+      "team:manage",
+      "billing:read",
+      "usage:read",
+    ];
+  }
+  if (role === "manager") {
+    return ["workspace:read", "team:read", "usage:read"];
+  }
+  return ["workspace:read"];
 }
 
 function serializeLead(lead: LeadRecord) {
@@ -296,9 +374,13 @@ function createState(): MockState {
   const sessionUser: AuthenticatedUser = {
     public_id: "usr_admin_1",
     workspace_public_id: "ws_default",
+    workspace_name: "Northbeam Agency",
+    workspace_slug: "northbeam-agency",
     email: "admin@prospectiq.dev",
     full_name: "Admin User",
-    role: "admin",
+    role: "account_owner",
+    status: "active",
+    permissions: permissionsForRole("account_owner"),
   };
 
   const scoringVersion: ScoringConfigVersion = {
@@ -334,6 +416,7 @@ function createState(): MockState {
   const searchJobs: SearchJobResponse[] = [
     {
       public_id: "job_seed_1",
+      discovery_runtime: "serpapi",
       business_type: "Dentist",
       city: "Istanbul",
       region: "Kadikoy",
@@ -417,18 +500,24 @@ function createState(): MockState {
         email: sessionUser.email,
         full_name: sessionUser.full_name,
         role: sessionUser.role,
+        status: "active",
+        created_at: iso(1),
       },
       {
         public_id: "usr_manager_1",
         email: "manager@prospectiq.dev",
         full_name: "Manager User",
-        role: "agency_manager",
+        role: "admin",
+        status: "active",
+        created_at: iso(2),
       },
       {
         public_id: "usr_sales_1",
         email: "sales@prospectiq.dev",
         full_name: "Sales User",
-        role: "sales_user",
+        role: "member",
+        status: "active",
+        created_at: iso(3),
       },
     ],
     searchJobs,
@@ -582,6 +671,65 @@ function createState(): MockState {
         created_at: iso(8),
       },
     ],
+    billing: {
+      plans: [
+        {
+          code: "starter",
+          name: "Starter",
+          monthly_price: 49,
+          yearly_price: 490,
+          limits: {
+            searches_per_month: 50,
+            exports_per_month: 25,
+            ai_scoring_runs_per_month: 100,
+            outreach_generations_per_month: 150,
+            max_team_users: 5,
+          },
+          is_active: true,
+        },
+        {
+          code: "growth",
+          name: "Growth",
+          monthly_price: 149,
+          yearly_price: 1490,
+          limits: {
+            searches_per_month: 250,
+            exports_per_month: 100,
+            ai_scoring_runs_per_month: 500,
+            outreach_generations_per_month: 700,
+            max_team_users: 10,
+          },
+          is_active: true,
+        },
+      ],
+      subscription: {
+        public_id: "sub_mock_1",
+        plan_code: "starter",
+        plan_name: "Starter",
+        status: "trialing",
+        billing_cycle: "monthly",
+        started_at: iso(1),
+        trial_ends_at: iso(1440),
+        renews_at: iso(1440),
+        simulated_payment_method: "Simulated card ending in 4242",
+      },
+      usage: [
+        {
+          metric_key: "searches_per_month",
+          current_value: 1,
+          limit_value: 50,
+          period_start: iso(0),
+          period_end: iso(43200),
+        },
+        {
+          metric_key: "max_team_users",
+          current_value: 3,
+          limit_value: 5,
+          period_start: iso(0),
+          period_end: iso(43200),
+        },
+      ],
+    },
     counters: {
       searchJobs: 1,
       notes: 0,
@@ -748,9 +896,13 @@ function filterLeads(state: MockState, url: URL) {
   const searchJobId = url.searchParams.get("search_job_id");
   const hasWebsite = url.searchParams.get("has_website");
   const sort = url.searchParams.get("sort") ?? "newest";
+  const leadIds = url.searchParams.getAll("lead_ids");
 
   return [...state.leads]
     .filter((lead) => {
+      if (leadIds.length > 0 && !leadIds.includes(lead.public_id)) {
+        return false;
+      }
       if (q) {
         const haystack = [lead.company_name, lead.city ?? "", lead.website_domain ?? "", lead.address ?? ""]
           .join(" ")
@@ -827,6 +979,68 @@ async function handleApiRoute(route: Route, state: MockState) {
   }
 
   if (path === "/api/v1/auth/login" && method === "POST") {
+    const payload = readJsonBody(route);
+    const email = String(payload.email ?? "").trim().toLowerCase();
+    const password = String(payload.password ?? "");
+    const credentialMap: Record<
+      string,
+      {
+        password: string;
+        public_id: string;
+        full_name: string;
+        role: UserRole;
+        status: UserStatus;
+      }
+    > = {
+      [MOCK_IDS.adminEmail]: {
+        password: MOCK_IDS.adminPassword,
+        public_id: "usr_admin_1",
+        full_name: "Admin User",
+        role: "account_owner",
+        status: "active",
+      },
+      [MOCK_IDS.memberEmail]: {
+        password: MOCK_IDS.memberPassword,
+        public_id: "usr_sales_1",
+        full_name: "Sales User",
+        role: "member",
+        status: "active",
+      },
+      [MOCK_IDS.inactiveEmail]: {
+        password: MOCK_IDS.inactivePassword,
+        public_id: "usr_inactive_1",
+        full_name: "Inactive User",
+        role: "member",
+        status: "inactive",
+      },
+    };
+    const record = credentialMap[email];
+    if (!record || record.password !== password) {
+      await fulfillJson(route, { error: { code: "invalid_credentials", detail: "Invalid email or password." } }, 401);
+      return;
+    }
+    if (record.status !== "active") {
+      await fulfillJson(
+        route,
+        {
+          error: {
+            code: "inactive_user",
+            detail: "Your account is inactive. Contact your workspace administrator.",
+          },
+        },
+        403,
+      );
+      return;
+    }
+    state.sessionUser = {
+      ...state.sessionUser,
+      public_id: record.public_id,
+      email: email,
+      full_name: record.full_name,
+      role: record.role,
+      status: record.status,
+      permissions: permissionsForRole(record.role),
+    };
     await fulfillJson(route, {
       access_token: "mock-access-token",
       token_type: "bearer",
@@ -836,13 +1050,108 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  if (path === "/api/v1/me" && method === "GET") {
+  if (path === "/api/v1/auth/signup" && method === "POST") {
+    const payload = readJsonBody(route);
+    state.sessionUser = {
+      ...state.sessionUser,
+      public_id: "usr_signup_1",
+      full_name: String(payload.full_name ?? "New Owner"),
+      email: String(payload.email ?? "owner@prospectiq.dev"),
+      workspace_name: String(payload.workspace_name ?? "New Workspace"),
+      workspace_slug: String(payload.workspace_name ?? "new-workspace").toLowerCase().replace(/\s+/g, "-"),
+      role: "account_owner",
+      status: "active",
+      permissions: permissionsForRole("account_owner"),
+    };
+    await fulfillJson(route, {
+      access_token: "mock-access-token",
+      token_type: "bearer",
+      expires_in: 3600,
+      user: state.sessionUser,
+    });
+    return;
+  }
+
+  if ((path === "/api/v1/me" || path === "/api/v1/auth/me") && method === "GET") {
     await fulfillJson(route, state.sessionUser);
     return;
   }
 
   if (path === "/api/v1/users" && method === "GET") {
     await fulfillJson(route, { items: state.users });
+    return;
+  }
+
+  if (path === "/api/v1/users" && method === "POST") {
+    const payload = readJsonBody(route);
+    const newUser = {
+      public_id: `usr_mock_${state.users.length + 1}`,
+      email: String(payload.email ?? "new@prospectiq.dev"),
+      full_name: String(payload.full_name ?? "New User"),
+      role: (payload.role as UserRole | undefined) ?? "member",
+      status: "active" as UserStatus,
+      created_at: nextTimestamp(state),
+    };
+    state.users.push(newUser);
+    const teamUsage = state.billing.usage.find((item) => item.metric_key === "max_team_users");
+    if (teamUsage) {
+      teamUsage.current_value = state.users.length;
+    }
+    addAudit(state, "user.created", `Created user ${newUser.public_id} (${newUser.role}).`);
+    await fulfillJson(route, newUser, 201);
+    return;
+  }
+
+  const updateUserMatch = path.match(/^\/api\/v1\/users\/([^/]+)$/);
+  if (updateUserMatch && method === "PATCH") {
+    const payload = readJsonBody(route);
+    const userId = updateUserMatch[1];
+    const target = state.users.find((item) => item.public_id === userId);
+    if (!target) {
+      await fulfillJson(route, { error: { detail: "User not found." } }, 404);
+      return;
+    }
+    if (typeof payload.status === "string") {
+      target.status = payload.status as UserStatus;
+    }
+    if (typeof payload.role === "string") {
+      target.role = payload.role as UserRole;
+    }
+    addAudit(state, "user.updated", `Updated user ${userId}.`);
+    await fulfillJson(route, {
+      ...target,
+      workspace_public_id: state.sessionUser.workspace_public_id,
+      updated_at: nextTimestamp(state),
+    });
+    return;
+  }
+
+  const resetPasswordMatch = path.match(/^\/api\/v1\/users\/([^/]+)\/reset-password$/);
+  if (resetPasswordMatch && method === "POST") {
+    const userId = resetPasswordMatch[1];
+    const target = state.users.find((item) => item.public_id === userId);
+    if (!target) {
+      await fulfillJson(route, { error: { detail: "User not found." } }, 404);
+      return;
+    }
+    addAudit(state, "user.password_reset", `Reset password for ${userId}.`);
+    await fulfillJson(route, {
+      ...target,
+      workspace_public_id: state.sessionUser.workspace_public_id,
+      updated_at: nextTimestamp(state),
+    });
+    return;
+  }
+
+  const searchJobByIdMatch = path.match(/^\/api\/v1\/search-jobs\/([^/]+)$/);
+  if (searchJobByIdMatch && method === "GET") {
+    const jobId = searchJobByIdMatch[1];
+    const job = state.searchJobs.find((item) => item.public_id === jobId);
+    if (!job) {
+      await fulfillJson(route, { error: { code: "not_found", detail: "Search job was not found." } }, 404);
+      return;
+    }
+    await fulfillJson(route, job);
     return;
   }
 
@@ -857,6 +1166,7 @@ async function handleApiRoute(route: Route, state: MockState) {
     const now = nextTimestamp(state);
     const job: SearchJobResponse = {
       public_id: `job_mock_${state.counters.searchJobs}`,
+      discovery_runtime: "serpapi",
       business_type: String(payload.business_type ?? "Unknown"),
       city: String(payload.city ?? "Unknown"),
       region: (payload.region as string | undefined) ?? null,
@@ -891,12 +1201,15 @@ async function handleApiRoute(route: Route, state: MockState) {
     const filtered = filterLeads(state, url).map(serializeLead);
     const pageSize = Number(url.searchParams.get("page_size") ?? 20);
     const page = Number(url.searchParams.get("page") ?? 1);
+    const total = filtered.length;
+    const start = Math.max(0, (page - 1) * pageSize);
+    const items = filtered.slice(start, start + pageSize);
     await fulfillJson(route, {
-      items: filtered,
+      items,
       pagination: {
         page,
         page_size: pageSize,
-        total: filtered.length,
+        total,
       },
     });
     return;
@@ -922,6 +1235,146 @@ async function handleApiRoute(route: Route, state: MockState) {
 
   if (path === "/api/v1/admin/provider-settings" && method === "GET") {
     await fulfillJson(route, state.providerSettings);
+    return;
+  }
+
+  if (path === "/api/v1/workspace-settings" && method === "GET") {
+    await fulfillJson(route, {
+      workspace: {
+        public_id: state.sessionUser.workspace_public_id,
+        name: state.sessionUser.workspace_name,
+        slug: state.sessionUser.workspace_slug,
+        status: "active",
+      },
+      owner_user_public_id: state.sessionUser.public_id,
+      settings: {
+        locale: "en-US",
+        theme: "dark",
+      },
+    });
+    return;
+  }
+
+  if (path === "/api/v1/workspace-settings" && method === "PATCH") {
+    const payload = readJsonBody(route);
+    if (typeof payload.name === "string") {
+      state.sessionUser.workspace_name = payload.name;
+    }
+    if (typeof payload.slug === "string") {
+      state.sessionUser.workspace_slug = payload.slug;
+    }
+    addAudit(state, "workspace.updated", "Updated workspace settings.");
+    await fulfillJson(route, {
+      workspace: {
+        public_id: state.sessionUser.workspace_public_id,
+        name: state.sessionUser.workspace_name,
+        slug: state.sessionUser.workspace_slug,
+        status: "active",
+      },
+      owner_user_public_id: state.sessionUser.public_id,
+      settings: {
+        locale: "en-US",
+        theme: "dark",
+      },
+    });
+    return;
+  }
+
+  if (path === "/api/v1/billing/plans" && method === "GET") {
+    await fulfillJson(route, { items: state.billing.plans });
+    return;
+  }
+
+  if (path === "/api/v1/billing/subscription" && method === "GET") {
+    await fulfillJson(route, state.billing.subscription);
+    return;
+  }
+
+  if (path === "/api/v1/billing/invoices" && method === "GET") {
+    await fulfillJson(route, {
+      items: [
+        {
+          public_id: "inv_mock_1",
+          amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
+          currency: "USD",
+          status: state.billing.subscription.status === "past_due" ? "past_due" : "open",
+          issued_at: iso(10),
+          due_at: iso(1440),
+          paid_at: null,
+          items: [
+            {
+              description: `${state.billing.subscription.plan_name} simulated subscription`,
+              amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
+              quantity: 1,
+            },
+          ],
+          payment_attempts: [],
+        },
+      ],
+    });
+    return;
+  }
+
+  if (path === "/api/v1/billing/usage" && method === "GET") {
+    await fulfillJson(route, { items: state.billing.usage });
+    return;
+  }
+
+  if (path === "/api/v1/billing/subscription/change" && method === "POST") {
+    const payload = readJsonBody(route);
+    const plan = state.billing.plans.find((item) => item.code === payload.plan_code) ?? state.billing.plans[0];
+    state.billing.subscription.plan_code = plan.code;
+    state.billing.subscription.plan_name = plan.name;
+    state.billing.subscription.billing_cycle = (payload.billing_cycle as "monthly" | "yearly" | undefined) ?? "monthly";
+    addAudit(state, "billing.subscription_changed", `Changed plan to ${plan.code}.`);
+    await fulfillJson(route, state.billing.subscription);
+    return;
+  }
+
+  if (path === "/api/v1/billing/subscription/cancel" && method === "POST") {
+    state.billing.subscription.status = "canceled";
+    addAudit(state, "billing.subscription_canceled", "Canceled subscription.");
+    await fulfillJson(route, state.billing.subscription);
+    return;
+  }
+
+  if (path === "/api/v1/billing/subscription/renew" && method === "POST") {
+    state.billing.subscription.status = "active";
+    addAudit(state, "billing.subscription_renewed", "Renewed subscription.");
+    await fulfillJson(route, state.billing.subscription);
+    return;
+  }
+
+  if (path === "/api/v1/billing/invoices/mark-paid" && method === "POST") {
+    addAudit(state, "billing.invoice_paid", "Marked invoice paid.");
+    await fulfillJson(route, {
+      public_id: "inv_mock_1",
+      amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
+      currency: "USD",
+      status: "paid",
+      issued_at: iso(10),
+      due_at: iso(1440),
+      paid_at: nextTimestamp(state),
+      items: [],
+      payment_attempts: [],
+    });
+    return;
+  }
+
+  if (path === "/api/v1/billing/invoices/simulate-failure" && method === "POST") {
+    state.billing.subscription.status = "past_due";
+    addAudit(state, "billing.payment_failed", "Simulated payment failure.");
+    await fulfillJson(route, {
+      public_id: "inv_mock_1",
+      amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
+      currency: "USD",
+      status: "past_due",
+      issued_at: iso(10),
+      due_at: iso(1440),
+      paid_at: null,
+      items: [],
+      payment_attempts: [],
+    });
     return;
   }
 
@@ -979,6 +1432,11 @@ async function handleApiRoute(route: Route, state: MockState) {
     await fulfillJson(route, {
       database_ok: true,
       serpapi_configured: true,
+      serpapi_runtime_mode: "auto",
+      discovery_runtime: "serpapi",
+      analysis_runtime: "demo",
+      demo_fallbacks_enabled: true,
+      runtime_warnings: [],
       failed_jobs_last_7_days: state.searchJobs.filter((job) => job.status === "failed").length,
       provider_failures_last_7_days: state.searchJobs.reduce(
         (count, job) => count + (job.provider_error_count > 0 ? 1 : 0),

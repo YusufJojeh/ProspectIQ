@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import random
 import time
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ import httpx
 
 from app.core.config import get_settings
 from app.modules.provider_serpapi.exceptions import ProviderConfigError, RetryableProviderError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -31,9 +34,11 @@ def fingerprint_params(params: dict[str, Any]) -> str:
 
 
 class SerpApiClient:
+    _BODY_PREVIEW_LIMIT = 400
+
     def __init__(self) -> None:
         settings = get_settings()
-        if not settings.serpapi_api_key or settings.serpapi_api_key == "<replace-me>":
+        if not settings.has_serpapi_configured:
             raise ProviderConfigError("SERPAPI_API_KEY is not configured.")
         self.api_key = settings.serpapi_api_key
         self.base_url = settings.serpapi_base_url
@@ -48,18 +53,20 @@ class SerpApiClient:
         for attempt in range(1, max_attempts + 1):
             attempt_started = datetime.now(tz=UTC)
             try:
+                logger.info(
+                    "serpapi.request attempt=%s max_attempts=%s fingerprint=%s engine=%s mode=%s",
+                    attempt,
+                    max_attempts,
+                    fingerprint_params(params),
+                    params.get("engine"),
+                    params.get("type", "search"),
+                )
                 response = self._client.get(
                     self.base_url, params={"api_key": self.api_key, **params}
                 )
                 last_status = response.status_code
-                serpapi_search_id = None
-                payload: dict[str, Any] | None = None
-                try:
-                    payload = response.json()
-                    if isinstance(payload.get("search_metadata"), dict):
-                        serpapi_search_id = str(payload["search_metadata"].get("id"))
-                except Exception:
-                    payload = None
+                payload, parse_error = self._parse_payload(response)
+                serpapi_search_id = self._extract_search_id(payload)
 
                 payload_error = self._extract_payload_error(payload)
 
@@ -83,6 +90,17 @@ class SerpApiClient:
                         finished_at=datetime.now(tz=UTC),
                     )
 
+                if parse_error is not None:
+                    return ProviderCallResult(
+                        ok=False,
+                        status_code=response.status_code,
+                        payload=payload,
+                        error_message=parse_error,
+                        serpapi_search_id=serpapi_search_id,
+                        started_at=attempt_started,
+                        finished_at=datetime.now(tz=UTC),
+                    )
+
                 if response.status_code >= 400:
                     return ProviderCallResult(
                         ok=False,
@@ -97,7 +115,7 @@ class SerpApiClient:
                 return ProviderCallResult(
                     ok=True,
                     status_code=response.status_code,
-                    payload=payload or {},
+                    payload=payload,
                     error_message=None,
                     serpapi_search_id=serpapi_search_id,
                     started_at=attempt_started,
@@ -126,6 +144,52 @@ class SerpApiClient:
             if isinstance(status_value, str) and status_value.lower() == "error":
                 return "SerpAPI reported an error status."
         return None
+
+    def _extract_search_id(self, payload: dict[str, Any] | None) -> str | None:
+        if not payload:
+            return None
+        metadata = payload.get("search_metadata")
+        if not isinstance(metadata, dict):
+            return None
+        search_id = metadata.get("id")
+        return str(search_id) if search_id is not None else None
+
+    def _parse_payload(
+        self, response: httpx.Response
+    ) -> tuple[dict[str, Any], str | None]:
+        try:
+            payload = response.json()
+        except Exception:
+            preview = response.text[: self._BODY_PREVIEW_LIMIT].strip()
+            logger.warning(
+                "serpapi.response.invalid_json status=%s content_type=%s preview=%s",
+                response.status_code,
+                response.headers.get("content-type"),
+                preview,
+            )
+            return (
+                {
+                    "parse_error": "invalid_json",
+                    "content_type": response.headers.get("content-type"),
+                    "body_preview": preview or None,
+                },
+                "SerpAPI returned a non-JSON response.",
+            )
+
+        if not isinstance(payload, dict):
+            logger.warning(
+                "serpapi.response.unexpected_shape status=%s payload_type=%s",
+                response.status_code,
+                type(payload).__name__,
+            )
+            return (
+                {
+                    "parse_error": "unexpected_json_shape",
+                    "payload_type": type(payload).__name__,
+                },
+                "SerpAPI returned an unexpected JSON payload shape.",
+            )
+        return payload, None
 
     def _is_retryable_payload_error(self, error_message: str) -> bool:
         normalized = error_message.lower()

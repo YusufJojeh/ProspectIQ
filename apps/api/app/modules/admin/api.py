@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 def get_active_scoring_config(
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("account_owner", "admin")),
 ) -> ActiveScoringConfigResponse:
     return AdminService().get_active_scoring(db, workspace_id=workspace_id)
 
@@ -34,7 +34,7 @@ def get_active_scoring_config(
 def list_scoring_versions(
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("account_owner", "admin")),
 ) -> ScoringConfigVersionListResponse:
     return AdminService().list_scoring_versions(db, workspace_id=workspace_id)
 
@@ -44,7 +44,7 @@ def create_scoring_version(
     payload: ScoringConfigVersionCreateRequest,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("account_owner", "admin")),
 ) -> ScoringConfigVersionResponse:
     return AdminService().create_scoring_version(
         db,
@@ -60,7 +60,7 @@ def activate_scoring_version(
     version_id: str,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("account_owner", "admin")),
 ) -> ActiveScoringConfigResponse:
     return AdminService().activate_scoring_version(
         db,
@@ -74,7 +74,7 @@ def activate_scoring_version(
 def get_provider_settings(
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("account_owner", "admin")),
 ) -> ProviderSettingsResponse:
     return AdminService().get_provider_settings(db, workspace_id=workspace_id)
 
@@ -84,7 +84,7 @@ def update_provider_settings(
     payload: ProviderSettingsUpdateRequest,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("account_owner", "admin")),
 ) -> ProviderSettingsResponse:
     return AdminService().update_provider_settings(
         db,
@@ -98,7 +98,7 @@ def update_provider_settings(
 def list_prompt_templates(
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("account_owner", "admin")),
 ) -> PromptTemplateListResponse:
     return AdminService().list_prompt_templates(db, workspace_id=workspace_id)
 
@@ -108,7 +108,7 @@ def create_prompt_template(
     payload: PromptTemplateCreateRequest,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("account_owner", "admin")),
 ) -> PromptTemplateResponse:
     return AdminService().create_prompt_template(
         db,
@@ -125,7 +125,7 @@ def activate_prompt_template(
     prompt_template_id: str,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("account_owner", "admin")),
 ) -> PromptTemplateResponse:
     return AdminService().activate_prompt_template(
         db,
@@ -139,6 +139,6 @@ def activate_prompt_template(
 def get_operational_health(
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("account_owner", "admin")),
 ) -> OperationalHealthResponse:
     return AdminService().get_operational_health(db, workspace_id=workspace_id)

@@ -165,6 +165,22 @@ def test_lead_list_filters_support_score_owner_category_and_sorting() -> None:
             "Acme Dental",
         ]
 
+        by_ids = LeadsService().list_leads(
+            db,
+            workspace_id=workspace.id,
+            page=1,
+            page_size=20,
+            status=None,
+            search_job_id=None,
+            has_website=None,
+            lead_public_ids=[first.public_id, third.public_id],
+            sort=LeadSortOption.NEWEST,
+        )
+
+        assert by_ids.pagination.total == 2
+        names = {item.company_name for item in by_ids.items}
+        assert names == {"Acme Dental", "Gamma Salon"}
+
 
 def test_lead_sort_sql_is_mariadb_safe() -> None:
     repository = LeadsRepository()

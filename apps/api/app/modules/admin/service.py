@@ -309,7 +309,12 @@ class AdminService:
         settings = get_settings()
         return OperationalHealthResponse(
             database_ok=bool(db.execute(text("SELECT 1")).scalar()),
-            serpapi_configured=bool(settings.serpapi_api_key),
+            serpapi_configured=settings.has_serpapi_configured,
+            serpapi_runtime_mode=settings.serpapi_runtime_mode,
+            discovery_runtime=settings.discovery_runtime,
+            analysis_runtime=settings.analysis_runtime,
+            demo_fallbacks_enabled=settings.allow_demo_fallbacks,
+            runtime_warnings=settings.runtime_warnings,
             failed_jobs_last_7_days=failed_jobs_last_7_days,
             provider_failures_last_7_days=provider_failures_last_7_days,
             recent_failed_jobs=[

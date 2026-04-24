@@ -1,9 +1,7 @@
 import { request, requestBlob } from "@/lib/api-client";
 import type {
   LeadActivityResponse,
-  LeadAnalysisResponse,
   LeadNoteResponse,
-  LeadOutreachResponse,
   LeadEvidenceResponse,
   LeadListResponse,
   LeadResponse,
@@ -11,7 +9,6 @@ import type {
   LeadScoreBand,
   LeadSortOption,
   LeadStatus,
-  OutreachGenerateRequest,
 } from "@/types/api";
 
 type LeadListFilters = {
@@ -85,20 +82,8 @@ export function listLeadActivity(leadId: string) {
   return request<LeadActivityResponse>(`/api/v1/leads/${leadId}/activity`);
 }
 
-export function analyzeLead(leadId: string) {
-  return request<LeadAnalysisResponse>(`/api/v1/leads/${leadId}/analyze`, { method: "POST" });
-}
-
 export function addLeadNote(leadId: string, note: string) {
   return request<LeadNoteResponse>(`/api/v1/leads/${leadId}/notes`, { method: "POST" }, { note });
-}
-
-export function generateLeadOutreach(leadId: string, payload?: OutreachGenerateRequest) {
-  return request<LeadOutreachResponse>(
-    `/api/v1/leads/${leadId}/outreach/generate`,
-    { method: "POST" },
-    payload,
-  );
 }
 
 export function updateLeadStatus(leadId: string, status: LeadStatus, note?: string) {

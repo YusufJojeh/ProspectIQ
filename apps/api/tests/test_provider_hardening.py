@@ -12,8 +12,10 @@ from app.core.database import Base
 from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.client import SerpApiClient
 from app.modules.provider_serpapi.engines.maps_place import build_maps_place_params
+from app.modules.provider_serpapi.engines.maps_search import build_maps_search_params
 from app.modules.provider_serpapi.models import LeadIdentity, ProviderNormalizedFact
 from app.modules.provider_serpapi.normalizers.maps_local_normalizer import MapsLocalNormalizer
+from app.modules.provider_serpapi.normalizers.maps_place_normalizer import MapsPlaceNormalizer
 from app.modules.provider_serpapi.normalizers.web_search_normalizer import WebSearchNormalizer
 from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
 from app.modules.provider_serpapi.schemas import LeadIdentityCandidate, PlaceLookupKey
@@ -250,6 +252,85 @@ def test_serpapi_client_retries_payload_rate_limit_then_succeeds(monkeypatch) ->
     assert result.serpapi_search_id == "search-2"
 
 
+def test_serpapi_client_fails_closed_on_non_json_success_response(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_API_KEY", "12345678901234567890123456789012")
+    clear_settings_cache()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="<html>temporary edge page</html>",
+            headers={"content-type": "text/html"},
+        )
+
+    client = SerpApiClient()
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+    try:
+        result = client.search({"engine": "google_maps", "q": "dentist in istanbul"})
+    finally:
+        client._client.close()
+        clear_settings_cache()
+
+    assert result.ok is False
+    assert result.status_code == 200
+    assert result.error_message == "SerpAPI returned a non-JSON response."
+    assert result.payload == {
+        "parse_error": "invalid_json",
+        "content_type": "text/html",
+        "body_preview": "<html>temporary edge page</html>",
+    }
+
+
+def test_maps_search_params_normalize_whitespace_and_limit_query_length() -> None:
+    params = build_maps_search_params(
+        business_type="  cosmetic   dentist  ",
+        city="   Istanbul ",
+        region=" Kadikoy ",
+        radius_km=25,
+        keyword_filter="  implants   emergency   same-day  " * 10,
+        hl="en",
+        gl="tr",
+        google_domain="google.com",
+    )
+
+    assert params["q"].startswith("cosmetic dentist in Istanbul Kadikoy within 25 km implants")
+    assert "  " not in params["q"]
+    assert len(params["q"]) <= 220
+
+
+def test_maps_place_normalizer_coerces_numeric_strings_and_curates_facts() -> None:
+    candidate = MapsPlaceNormalizer().normalize(
+        {
+            "place_results": {
+                "title": "North Dental",
+                "address": "Kadikoy, Istanbul, Turkey",
+                "phone": "+90 555 111 2233",
+                "website": "https://northdental.example",
+                "rating": "4.8",
+                "reviews": "36",
+                "gps_coordinates": {"latitude": "41.015", "longitude": "29.042"},
+                "data_id": "0xabc:0xdef",
+                "data_cid": "123456",
+                "place_id": "ChIJNorthDental",
+                "type": "Dentist",
+            }
+        }
+    )
+
+    assert candidate is not None
+    assert candidate.rating == 4.8
+    assert candidate.review_count == 36
+    assert candidate.lat == 41.015
+    assert candidate.lng == 29.042
+    assert candidate.facts["provider_shape"] == "maps_place_result"
+    assert candidate.facts["source_ids"] == {
+        "data_id": "0xabc:0xdef",
+        "data_cid": "123456",
+        "place_id": "ChIJNorthDental",
+    }
+    assert "gps_coordinates" not in candidate.facts
+
+
 def test_maps_place_params_uses_place_id_when_lookup_requires_it() -> None:
     params = build_maps_place_params(
         lookup=PlaceLookupKey(key_type="place_id", value="ChIJ123"),
@@ -319,3 +400,35 @@ def test_repository_prefers_place_id_for_place_lookup() -> None:
     assert lookup is not None
     assert lookup.key_type == "place_id"
     assert lookup.value == "ChIJNorthDental"
+
+
+def test_maps_local_normalizer_curates_facts_without_raw_provider_shape() -> None:
+    candidates = MapsLocalNormalizer().normalize(
+        {
+            "local_results": [
+                {
+                    "title": "North Dental",
+                    "address": "Kadikoy, Istanbul, Turkey",
+                    "phone": "+90 555 111 2233",
+                    "website": "https://northdental.example",
+                    "rating": "4.7",
+                    "reviews": "24",
+                    "gps_coordinates": {"latitude": "41.01", "longitude": "29.05"},
+                    "data_id": "0xabc:0xdef",
+                    "data_cid": "123456",
+                    "place_id": "ChIJNorthDental",
+                    "type": "Dentist",
+                }
+            ]
+        }
+    )
+
+    assert len(candidates) == 1
+    facts = candidates[0].facts
+    assert facts["provider_shape"] == "maps_search_result"
+    assert facts["source_ids"] == {
+        "data_id": "0xabc:0xdef",
+        "data_cid": "123456",
+        "place_id": "ChIJNorthDental",
+    }
+    assert "gps_coordinates" not in facts

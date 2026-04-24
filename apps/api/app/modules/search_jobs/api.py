@@ -24,6 +24,7 @@ def create_search_job(
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> SearchJobResponse:
     service = SearchJobService()
+    service.assert_discovery_runtime_available()
     job = service.create_search_job(
         db,
         payload,

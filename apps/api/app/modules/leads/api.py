@@ -40,6 +40,7 @@ def list_leads(
     owner_user_id: str | None = Query(default=None),
     search_job_id: str | None = Query(default=None),
     has_website: bool | None = Query(default=None),
+    lead_ids: list[str] | None = Query(default=None),
     sort: LeadSortOption = Query(default=LeadSortOption.NEWEST),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -61,6 +62,7 @@ def list_leads(
         max_score=max_score,
         qualified=qualified,
         owner_user_id=owner_user_id,
+        lead_public_ids=lead_ids,
         sort=sort,
     )
 

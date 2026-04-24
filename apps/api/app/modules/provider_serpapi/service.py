@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,6 +24,8 @@ from app.modules.provider_serpapi.exceptions import RetryableProviderError
 from app.modules.provider_serpapi.models import ProviderFetch, ProviderRawPayload, ProviderSettings
 from app.modules.provider_serpapi.schemas import PlaceLookupKey
 from app.shared.enums.jobs import ProviderFetchStatus
+
+logger = logging.getLogger(__name__)
 
 
 def _payload_sha(payload: dict[str, Any]) -> str:
@@ -140,13 +143,14 @@ class SerpApiService:
         params: dict[str, Any],
         attempt: int,
     ) -> tuple[ProviderFetch, dict[str, Any]]:
+        request_fingerprint = fingerprint_params(params)
         fetch = ProviderFetch(
             workspace_id=workspace_id,
             provider="serpapi",
             engine=engine,
             mode=mode,
             search_job_id=search_job_id,
-            request_fingerprint=fingerprint_params(params),
+            request_fingerprint=request_fingerprint,
             request_params_json=params,
             status=ProviderFetchStatus.ERROR.value,
             started_at=datetime.now(tz=UTC),
@@ -158,6 +162,14 @@ class SerpApiService:
 
         payload: dict[str, Any] = {}
         try:
+            logger.info(
+                "provider.fetch.start provider=serpapi mode=%s engine=%s search_job_id=%s attempt=%s fingerprint=%s",
+                mode,
+                engine,
+                search_job_id,
+                attempt,
+                request_fingerprint,
+            )
             result: ProviderCallResult
             if mode == "maps_search":
                 result = run_maps_search(self.client, params=params)
@@ -176,7 +188,7 @@ class SerpApiService:
             fetch.status = self._resolve_fetch_status(result)
             fetch.error_message = result.error_message
         except RetryableProviderError as exc:
-            fetch.status = ProviderFetchStatus.TIMEOUT.value
+            fetch.status = self._resolve_retryable_error_status(str(exc))
             fetch.error_message = str(exc)
         except Exception as exc:
             fetch.status = ProviderFetchStatus.ERROR.value
@@ -184,6 +196,18 @@ class SerpApiService:
         finally:
             if fetch.finished_at is None:
                 fetch.finished_at = datetime.now(tz=UTC)
+            logger.info(
+                "provider.fetch.finish provider=serpapi mode=%s engine=%s search_job_id=%s attempt=%s fingerprint=%s status=%s http_status=%s serpapi_search_id=%s error=%s",
+                mode,
+                engine,
+                search_job_id,
+                attempt,
+                request_fingerprint,
+                fetch.status,
+                fetch.http_status,
+                fetch.serpapi_search_id,
+                fetch.error_message,
+            )
             db.add(fetch)
             db.commit()
 
@@ -204,5 +228,13 @@ class SerpApiService:
         ):
             return ProviderFetchStatus.RATE_LIMITED.value
         if result.error_message and "timeout" in result.error_message.lower():
+            return ProviderFetchStatus.TIMEOUT.value
+        return ProviderFetchStatus.ERROR.value
+
+    def _resolve_retryable_error_status(self, error_message: str) -> str:
+        normalized = error_message.lower()
+        if "429" in normalized or "rate limit" in normalized or "too many requests" in normalized:
+            return ProviderFetchStatus.RATE_LIMITED.value
+        if "timeout" in normalized:
             return ProviderFetchStatus.TIMEOUT.value
         return ProviderFetchStatus.ERROR.value

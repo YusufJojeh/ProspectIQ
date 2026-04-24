@@ -7,7 +7,9 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import clear_settings_cache
 from app.core.database import Base
+from app.core.errors import ServiceUnavailableError
 from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.models import ProviderFetch, ProviderNormalizedFact
 from app.modules.provider_serpapi.schemas import PlaceLookupKey
@@ -291,3 +293,59 @@ def test_refresh_orchestrator_runs_web_validation_when_website_is_still_missing(
         assert refreshed.has_website is True
         assert db.scalar(select(func.count(ProviderNormalizedFact.id))) == 3
         assert db.scalar(select(func.count(LeadScore.id))) == 1
+
+
+def test_refresh_orchestrator_uses_demo_provider_runtime_when_forced(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_API_KEY", "<replace-me>")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "demo")
+    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "false")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    _, user_id, lead_id = _seed_refresh_target(session_factory)
+
+    try:
+        with session_factory() as db:
+            lead = db.get(Lead, lead_id)
+            assert lead is not None
+            refreshed = LeadRefreshOrchestrator().refresh(
+                db,
+                lead=lead,
+                requested_by_user_id=user_id,
+            )
+
+            latest_fetch = db.scalar(
+                select(ProviderFetch)
+                .where(ProviderFetch.search_job_id == refreshed.search_job_id)
+                .order_by(ProviderFetch.id.desc())
+            )
+            assert latest_fetch is not None
+            assert latest_fetch.provider == "demo"
+            assert refreshed.data_confidence > 0
+    finally:
+        clear_settings_cache()
+
+
+def test_refresh_orchestrator_blocks_when_live_mode_is_forced_without_key(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_API_KEY", "<replace-me>")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "live")
+    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "true")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    _, user_id, lead_id = _seed_refresh_target(session_factory)
+
+    try:
+        with session_factory() as db:
+            lead = db.get(Lead, lead_id)
+            assert lead is not None
+            try:
+                LeadRefreshOrchestrator().refresh(
+                    db,
+                    lead=lead,
+                    requested_by_user_id=user_id,
+                )
+            except ServiceUnavailableError as exc:
+                assert "Lead discovery is unavailable" in str(exc)
+            else:
+                raise AssertionError("Expected refresh to be blocked without a live SerpAPI key.")
+    finally:
+        clear_settings_cache()

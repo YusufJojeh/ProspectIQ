@@ -8,3 +8,7 @@ export function createSearchJob(payload: SearchJobCreateRequest) {
 export function listSearchJobs() {
   return request<SearchJobListResponse>("/api/v1/search-jobs");
 }
+
+export function getSearchJob(jobId: string) {
+  return request<SearchJobResponse>(`/api/v1/search-jobs/${jobId}`);
+}

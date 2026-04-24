@@ -2,9 +2,9 @@
 
 ## Environment and Secrets
 
-- replace `JWT_SECRET=<replace-me>`
-- replace `SERPAPI_API_KEY=<replace-me>`
-- rotate `DEFAULT_ADMIN_PASSWORD`
+- set a real `JWT_SECRET` (32+ chars)
+- set a rotated `DEFAULT_ADMIN_PASSWORD` (12+ chars)
+- set provider credentials if running in live provider mode (`SERPAPI_RUNTIME_MODE=live`, non-empty `SERPAPI_API_KEY`)
 - set explicit `WEB_ORIGINS` for the deployed frontend origin
 - confirm `DATABASE_URL` targets the intended MySQL or MariaDB instance
 - prepare a real `infra/deploy.env` from `infra/deploy.env.example`
@@ -30,7 +30,7 @@
 
 - `npm run lint`
 - `npm run build`
-- `npm run test:e2e -- --workers=1`
+- `npm run test:e2e -- --workers=2`
 - confirm the app loads from both the configured local origin and the intended deployed origin
 - review keyboard access for filters, lead selection, and admin forms
 
@@ -73,6 +73,5 @@
 
 ## Known Warnings
 
-- frontend build chunk-size warning still exists
-- backend tests intentionally use a short development JWT secret
+- local MariaDB startup still depends on Docker or an equivalent MySQL/MariaDB service being available
 - a real remote deployment still requires GitHub environment secrets and host-level Docker access

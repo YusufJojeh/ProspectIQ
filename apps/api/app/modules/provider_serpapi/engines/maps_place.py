@@ -9,6 +9,7 @@ from app.modules.provider_serpapi.schemas import PlaceLookupKey
 def build_maps_place_params(
     *, lookup: PlaceLookupKey, hl: str, gl: str, google_domain: str
 ) -> dict[str, Any]:
+    lookup_value = lookup.value.strip()
     params: dict[str, Any] = {
         "engine": "google_maps",
         "type": "place",
@@ -16,7 +17,7 @@ def build_maps_place_params(
         "gl": gl,
         "google_domain": google_domain,
     }
-    params[lookup.key_type] = lookup.value
+    params[lookup.key_type] = lookup_value
     return params
 
 

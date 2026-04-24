@@ -20,6 +20,16 @@ class SearchJobRepository:
     def get_by_public_id(self, db: Session, public_id: str) -> SearchJob | None:
         return db.scalar(select(SearchJob).where(SearchJob.public_id == public_id))
 
+    def get_by_public_id_for_workspace(
+        self, db: Session, *, workspace_id: int, public_id: str
+    ) -> SearchJob | None:
+        return db.scalar(
+            select(SearchJob).where(
+                SearchJob.public_id == public_id,
+                SearchJob.workspace_id == workspace_id,
+            )
+        )
+
     def list_for_workspace(
         self, db: Session, workspace_id: int, limit: int = 50
     ) -> list[SearchJob]:

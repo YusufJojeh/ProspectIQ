@@ -3,7 +3,6 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.modules.leads.models import Lead
-from app.modules.provider_serpapi.service import SerpApiService
 from app.modules.search_jobs.models import SearchJob
 from app.shared.enums.jobs import ProviderFetchStatus, WebsitePreference
 from app.workers.orchestration.lead_discovery import LeadDiscoveryOrchestrator
@@ -18,7 +17,7 @@ class LeadRefreshOrchestrator(LeadDiscoveryOrchestrator):
         requested_by_user_id: int,
     ) -> Lead:
         if self.provider_service is None:
-            self.provider_service = SerpApiService()
+            self.provider_service = self._get_provider_service()
 
         refreshed_lead = lead
         job = self._job_context(db, lead, requested_by_user_id)

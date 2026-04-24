@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import clear_settings_cache
 from app.core.database import Base
 from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.models import (
@@ -232,7 +233,7 @@ def test_orchestrator_persists_leads_evidence_and_scores() -> None:
 
         assert db.scalar(select(func.count(LeadIdentity.id))) == 3
         assert db.scalar(select(func.count(ProviderNormalizedFact.id))) == 2
-        assert db.scalar(select(func.count(LeadScore.id))) == 2
+        assert db.scalar(select(func.count(LeadScore.id))) == 1
 
 
 def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failure() -> None:
@@ -268,12 +269,35 @@ def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failur
         assert job.leads_upserted == 1
         assert job.provider_error_count == 1
         assert db.scalar(select(func.count(ProviderNormalizedFact.id))) == 1
-        assert db.scalar(select(func.count(LeadScore.id))) == 2
+        assert db.scalar(select(func.count(LeadScore.id))) == 1
+
+
+def test_orchestrator_uses_demo_provider_when_live_provider_is_unconfigured(monkeypatch) -> None:
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "true")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+
+    LeadDiscoveryOrchestrator(session_factory=session_factory).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        assert job.leads_upserted > 0
+        assert db.scalar(select(func.count(ProviderFetch.id))) >= 1
+        assert db.scalar(select(func.count(LeadScore.id))) >= 1
+
+    clear_settings_cache()
 
 
 def test_orchestrator_marks_job_failed_when_provider_configuration_is_missing(
     monkeypatch,
 ) -> None:
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "false")
+    clear_settings_cache()
     session_factory = _build_session_factory()
     job_public_id = _seed_job(session_factory)
 
@@ -294,3 +318,5 @@ def test_orchestrator_marks_job_failed_when_provider_configuration_is_missing(
         assert job.status == SearchJobStatus.FAILED.value
         assert job.provider_error_count == 1
         assert job.finished_at is not None
+
+    clear_settings_cache()

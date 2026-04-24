@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.security import decode_access_token
+from app.modules.auth.exceptions import InactiveUserError
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import AuthTokenClaims
 from app.modules.users.models import User
@@ -35,6 +36,8 @@ def get_current_user(
         raise UnauthorizedError("User not found.")
     if user.workspace_id != claims.workspace_id:
         raise UnauthorizedError("Token workspace mismatch.")
+    if user.status != "active":
+        raise InactiveUserError()
     return user
 
 

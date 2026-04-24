@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.auth.policies import get_current_workspace_id, require_role
+from app.modules.billing.service import BillingService
 from app.modules.exports.service import ExportService
 from app.modules.leads.schemas import LeadSortOption
 from app.modules.users.models import User
@@ -29,9 +30,15 @@ def export_leads_csv(
     lead_ids: list[str] | None = Query(default=None),
     sort: LeadSortOption = Query(default=LeadSortOption.NEWEST),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin", "agency_manager")),
+    current_user: User = Depends(require_role("account_owner", "admin", "manager", "member")),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> Response:
+    BillingService().enforce_usage(
+        db,
+        workspace_id=workspace_id,
+        metric_key="exports_per_month",
+        actor_user_id=current_user.id,
+    )
     csv_payload = ExportService().export_leads_csv(
         db,
         workspace_id=workspace_id,
@@ -56,6 +63,7 @@ def export_leads_csv(
         event_name="leads.exported_csv",
         details="Exported the current lead list as CSV.",
     )
+    BillingService().record_usage(db, workspace_id=workspace_id, metric_key="exports_per_month")
     return Response(
         content=csv_payload,
         media_type="text/csv",

@@ -67,6 +67,160 @@ def normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
 
 
+def clean_optional_text(
+    value: object, *, max_length: int | None = None
+) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = re.sub(r"\s+", " ", value.strip())
+    if not cleaned:
+        return None
+    if max_length is not None:
+        cleaned = cleaned[:max_length]
+    return cleaned
+
+
+def coerce_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+    elif isinstance(value, str):
+        stripped = value.strip().replace(",", "")
+        if not stripped:
+            return None
+        try:
+            numeric = float(stripped)
+        except ValueError:
+            return None
+    else:
+        return None
+    return numeric if numeric == numeric else None
+
+
+def coerce_int(value: object, *, default: int = 0) -> int:
+    numeric = coerce_float(value)
+    if numeric is None:
+        return default
+    return int(round(numeric))
+
+
+def extract_coordinates(payload: object) -> tuple[float | None, float | None]:
+    if not isinstance(payload, dict):
+        return None, None
+    latitude = coerce_float(payload.get("latitude"))
+    longitude = coerce_float(payload.get("longitude"))
+    return latitude, longitude
+
+
+def curated_maps_search_facts(
+    source: dict[str, object],
+    *,
+    company_name: str,
+    category: str | None,
+    address: str | None,
+    city: str | None,
+    phone: str | None,
+    website_url: str | None,
+    website_domain: str | None,
+    rating: float | None,
+    review_count: int,
+    lat: float | None,
+    lng: float | None,
+) -> dict[str, object]:
+    return {
+        "provider_shape": "maps_search_result",
+        "company_name": company_name,
+        "category": category,
+        "address": address,
+        "city": city,
+        "phone": phone,
+        "website_url": website_url,
+        "website_domain": website_domain,
+        "rating": rating,
+        "review_count": review_count,
+        "coordinates": {"lat": lat, "lng": lng} if lat is not None and lng is not None else None,
+        "source_ids": {
+            "data_id": clean_optional_text(source.get("data_id"), max_length=128),
+            "data_cid": clean_optional_text(source.get("data_cid"), max_length=128),
+            "place_id": clean_optional_text(source.get("place_id"), max_length=128),
+        },
+        "provider_fields_present": sorted(
+            key
+            for key in (
+                "title",
+                "name",
+                "address",
+                "phone",
+                "website",
+                "rating",
+                "reviews",
+                "gps_coordinates",
+                "data_id",
+                "data_cid",
+                "place_id",
+                "type",
+                "city",
+            )
+            if key in source
+        ),
+    }
+
+
+def curated_maps_place_facts(
+    source: dict[str, object],
+    *,
+    company_name: str,
+    category: str | None,
+    address: str | None,
+    city: str | None,
+    phone: str | None,
+    website_url: str | None,
+    website_domain: str | None,
+    rating: float | None,
+    review_count: int,
+    lat: float | None,
+    lng: float | None,
+) -> dict[str, object]:
+    return {
+        "provider_shape": "maps_place_result",
+        "company_name": company_name,
+        "category": category,
+        "address": address,
+        "city": city,
+        "phone": phone,
+        "website_url": website_url,
+        "website_domain": website_domain,
+        "rating": rating,
+        "review_count": review_count,
+        "coordinates": {"lat": lat, "lng": lng} if lat is not None and lng is not None else None,
+        "source_ids": {
+            "data_id": clean_optional_text(source.get("data_id"), max_length=128),
+            "data_cid": clean_optional_text(source.get("data_cid"), max_length=128),
+            "place_id": clean_optional_text(source.get("place_id"), max_length=128),
+        },
+        "provider_fields_present": sorted(
+            key
+            for key in (
+                "title",
+                "name",
+                "address",
+                "phone",
+                "website",
+                "rating",
+                "reviews",
+                "gps_coordinates",
+                "data_id",
+                "data_cid",
+                "place_id",
+                "type",
+                "city",
+            )
+            if key in source
+        ),
+    }
+
+
 def build_fingerprint(
     *,
     company_name: str | None,

@@ -141,6 +141,42 @@ def test_ai_analysis_persists_and_reuses_snapshot() -> None:
         )
 
 
+def test_ai_analysis_creates_default_prompt_template_when_missing() -> None:
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace, user, lead = _seed(db)
+        db.query(PromptTemplate).delete()
+        db.commit()
+
+        service = AIAnalysisService()
+        facts = NormalizedLeadFacts(
+            company_name=lead.company_name,
+            category=lead.category,
+            city=lead.city,
+            website_url=lead.website_url,
+            website_domain=lead.website_domain,
+            review_count=lead.review_count,
+            rating=lead.rating,
+            data_completeness=lead.data_completeness,
+            data_confidence=lead.data_confidence,
+            has_website=lead.has_website,
+            visibility_confidence=0.4,
+            visibility_source="web_search",
+        )
+
+        snapshot, result = service.analyze(
+            db,
+            workspace_id=workspace.id,
+            lead=lead,
+            facts=facts,
+            created_by_user_id=user.id,
+        )
+
+        assert snapshot.prompt_template_id is not None
+        assert result.summary
+        assert db.scalar(select(func.count(PromptTemplate.id))) == 1
+
+
 def test_ai_analysis_falls_back_to_valid_payload_when_adapter_output_is_invalid() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:

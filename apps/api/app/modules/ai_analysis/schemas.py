@@ -43,6 +43,7 @@ class WebVisibilitySummary(BaseModel):
 
 
 class LeadAnalysisInput(BaseModel):
+    prompt_instructions: str | None = None
     local_business: LocalBusinessFactsInput
     place_enrichment: PlaceEnrichmentSummary
     web_visibility: WebVisibilitySummary

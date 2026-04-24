@@ -3,10 +3,15 @@ from __future__ import annotations
 from typing import Any, cast
 
 from app.modules.provider_serpapi.normalizers.shared import (
+    clean_optional_text,
+    coerce_float,
+    coerce_int,
     compute_completeness,
     compute_domain,
     compute_identities,
     compute_simple_confidence,
+    curated_maps_place_facts,
+    extract_coordinates,
     guess_city_from_address,
     is_preferred_business_domain,
     normalize_phone,
@@ -23,38 +28,24 @@ class MapsPlaceNormalizer:
         if not isinstance(title, str) or not title.strip():
             return None
         place_dict = cast(dict[str, Any], place)
-        address = place.get("address") if isinstance(place.get("address"), str) else None
+        address = clean_optional_text(place.get("address"), max_length=512)
         phone = normalize_phone(place.get("phone")) if place.get("phone") else None
-        raw_website = place.get("website") if isinstance(place.get("website"), str) else None
+        raw_website = clean_optional_text(place.get("website"), max_length=512)
         raw_domain = compute_domain(raw_website)
         website = raw_website if is_preferred_business_domain(raw_domain) else None
         domain = raw_domain if website else None
-        rating_value = place_dict.get("rating")
-        rating: float | None = (
-            float(rating_value) if isinstance(rating_value, (int, float)) else None
-        )
-        reviews_value = place_dict.get("reviews")
-        reviews: int = reviews_value if isinstance(reviews_value, int) else 0
-        gps_value = place_dict.get("gps_coordinates")
-        gps: dict[str, Any] = cast(dict[str, Any], gps_value) if isinstance(gps_value, dict) else {}
-        latitude_value = gps.get("latitude")
-        longitude_value = gps.get("longitude")
-        lat: float | None = (
-            float(latitude_value) if isinstance(latitude_value, (int, float)) else None
-        )
-        lng: float | None = (
-            float(longitude_value) if isinstance(longitude_value, (int, float)) else None
-        )
+        rating = coerce_float(place_dict.get("rating"))
+        reviews = max(0, coerce_int(place_dict.get("reviews"), default=0))
+        lat, lng = extract_coordinates(place_dict.get("gps_coordinates"))
 
-        data_id = place.get("data_id") if isinstance(place.get("data_id"), str) else None
-        data_cid = place.get("data_cid") if isinstance(place.get("data_cid"), str) else None
-        place_id = place.get("place_id") if isinstance(place.get("place_id"), str) else None
+        data_id = clean_optional_text(place.get("data_id"), max_length=128)
+        data_cid = clean_optional_text(place.get("data_cid"), max_length=128)
+        place_id = clean_optional_text(place.get("place_id"), max_length=128)
         city = (
-            place.get("city")
-            if isinstance(place.get("city"), str)
-            else guess_city_from_address(address)
+            clean_optional_text(place.get("city"), max_length=128)
+            or guess_city_from_address(address)
         )
-        category = place.get("type") if isinstance(place.get("type"), str) else None
+        category = clean_optional_text(place.get("type"), max_length=255)
 
         identities = compute_identities(
             data_cid=data_cid,
@@ -101,6 +92,19 @@ class MapsPlaceNormalizer:
             lng=lng,
             confidence=confidence,
             completeness=completeness,
-            facts=place_dict,
+            facts=curated_maps_place_facts(
+                place_dict,
+                company_name=title.strip(),
+                category=category,
+                address=address,
+                city=city,
+                phone=phone,
+                website_url=website,
+                website_domain=domain,
+                rating=rating,
+                review_count=reviews,
+                lat=lat,
+                lng=lng,
+            ),
             identities=[LeadIdentityCandidate.model_validate(identity) for identity in identities],
         )

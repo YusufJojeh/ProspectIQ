@@ -1,4 +1,5 @@
-import type { LeadScoreBand, LeadStatus } from "@/types/api";
+import type { BadgeTone } from "@/components/ui/badge";
+import type { LeadScoreBand, LeadStatus, SearchJobStatus } from "@/types/api";
 
 export function formatDate(value: string | null | undefined) {
   if (!value) {
@@ -24,9 +25,9 @@ export function formatScore(value: number | null | undefined) {
   return `${Math.round(value)}/100`;
 }
 
-export function bandTone(band: LeadScoreBand | null | undefined): "neutral" | "accent" | "warning" {
+export function bandTone(band: LeadScoreBand | null | undefined): BadgeTone {
   if (band === "high") {
-    return "warning";
+    return "success";
   }
   if (band === "medium" || band === "low") {
     return "accent";
@@ -34,14 +35,30 @@ export function bandTone(band: LeadScoreBand | null | undefined): "neutral" | "a
   return "neutral";
 }
 
-export function statusTone(status: LeadStatus): "neutral" | "accent" | "warning" {
+export function statusTone(status: LeadStatus): BadgeTone {
   if (status === "qualified" || status === "interested" || status === "won") {
-    return "warning";
+    return "success";
   }
   if (status === "contacted" || status === "reviewed") {
     return "accent";
   }
+  if (status === "lost" || status === "archived") {
+    return "danger";
+  }
   return "neutral";
+}
+
+export function searchJobTone(status: SearchJobStatus): BadgeTone {
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "partially_completed") {
+    return "warning";
+  }
+  if (status === "failed") {
+    return "danger";
+  }
+  return "accent";
 }
 
 export function titleCaseLabel(value: string) {

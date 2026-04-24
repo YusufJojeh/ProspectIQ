@@ -158,6 +158,10 @@ def test_admin_can_manage_prompt_templates_and_view_operations_health() -> None:
     assert health_response.status_code == 200
     payload = health_response.json()
     assert payload["database_ok"] is True
+    assert payload["serpapi_runtime_mode"] in {"auto", "live", "demo"}
+    assert payload["discovery_runtime"] in {"demo", "serpapi"}
+    assert payload["analysis_runtime"] in {"demo", "ollama", "openai", "blocked"}
+    assert isinstance(payload["runtime_warnings"], list)
     assert payload["failed_jobs_last_7_days"] >= 1
     assert payload["provider_failures_last_7_days"] >= 1
     assert payload["recent_failed_jobs"][0]["status"] == "failed"

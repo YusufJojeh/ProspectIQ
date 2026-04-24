@@ -13,6 +13,7 @@ from app.modules.admin.api import router as admin_router
 from app.modules.ai_analysis.api import router as ai_analysis_router
 from app.modules.audit_logs.api import router as audit_logs_router
 from app.modules.auth.api import router as auth_router
+from app.modules.billing.api import router as billing_router
 from app.modules.exports.api import router as exports_router
 from app.modules.leads.api import router as leads_router
 from app.modules.outreach.api import router as outreach_router
@@ -67,6 +68,7 @@ def register_application_routers(app: FastAPI) -> None:
     app.include_router(build_core_router())
     app.include_router(auth_router)
     app.include_router(users_router)
+    app.include_router(billing_router)
     app.include_router(search_jobs_router)
     app.include_router(leads_router)
     app.include_router(ai_analysis_router)

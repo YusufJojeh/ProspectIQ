@@ -17,8 +17,10 @@ class PromptBuilder:
         *,
         score_context: LeadScoreContext | None = None,
         allowed_service_catalog: list[str],
+        prompt_instructions: str | None = None,
     ) -> LeadAnalysisInput:
         return LeadAnalysisInput(
+            prompt_instructions=prompt_instructions,
             local_business=LocalBusinessFactsInput(
                 company_name=facts.company_name,
                 category=facts.category,
@@ -61,9 +63,12 @@ class PromptBuilder:
         business = payload.local_business
         visibility = payload.web_visibility
         score = payload.deterministic_score
-        return (
+        instruction_block = payload.prompt_instructions or (
             "Use only the documented SerpAPI-derived evidence below. "
-            "Do not invent facts and do not overwrite source-of-truth lead data.\n"
+            "Do not invent facts and do not overwrite source-of-truth lead data."
+        )
+        return (
+            f"{instruction_block}\n"
             f"Company: {business.company_name}\n"
             f"Category: {business.category or 'Unknown'}\n"
             f"City: {business.city or 'Unknown'}\n"

@@ -15,6 +15,6 @@ def list_audit_logs(
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("account_owner", "admin")),
 ) -> AuditLogListResponse:
     return AuditLogService().list_entries(db, workspace_id=workspace_id, limit=limit)

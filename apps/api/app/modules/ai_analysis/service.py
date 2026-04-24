@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 from app.core.config import get_settings
-from app.core.errors import FeatureNotReadyError, NotFoundError
+from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.adapters import (
     DeterministicLLMAdapter,
     FallbackAnalysisBuilder,
     LLMClient,
+    OllamaLLMAdapter,
+    OpenAILLMAdapter,
 )
-from app.modules.ai_analysis.models import AIAnalysisSnapshot, ServiceRecommendation
+from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
 from app.modules.ai_analysis.prompt_builder import PromptBuilder
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import (
@@ -60,14 +65,17 @@ class AIAnalysisService:
         score_context: LeadScoreContext | None = None,
     ) -> tuple[AIAnalysisSnapshot, LeadAnalysisResult]:
         adapter, provider_name, model_name = self._resolve_runtime()
-        template = self.repository.get_active_prompt_template(db, workspace_id)
-        if template is None:
-            raise NotFoundError("Active prompt template was not found for this workspace.")
+        template = self._get_or_create_active_prompt_template(
+            db,
+            workspace_id=workspace_id,
+            created_by_user_id=created_by_user_id,
+        )
 
         input_payload = self.prompt_builder.build_input_payload(
             facts,
             score_context=score_context,
             allowed_service_catalog=list(ALLOWED_SERVICE_CATALOG),
+            prompt_instructions=template.template_text,
         )
         prompt = self.prompt_builder.build_prompt(input_payload)
         input_hash = self._input_hash(
@@ -75,6 +83,7 @@ class AIAnalysisService:
             facts=facts,
             score_context=score_context,
             prompt_template_id=template.id,
+            prompt_template_text=template.template_text,
         )
         existing = self.repository.get_snapshot_by_input_hash(
             db,
@@ -85,7 +94,12 @@ class AIAnalysisService:
         if existing is not None:
             return existing, LeadAnalysisResult.model_validate(existing.output_json)
 
-        result = self._run_analysis(adapter=adapter, input_payload=input_payload)
+        result, provider_name, model_name = self._run_analysis(
+            adapter=adapter,
+            input_payload=input_payload,
+            provider_name=provider_name,
+            model_name=model_name,
+        )
         snapshot = self.repository.add_snapshot(
             db,
             AIAnalysisSnapshot(
@@ -189,24 +203,69 @@ class AIAnalysisService:
         if self.llm_client is not None:
             return self.llm_client, "custom", "custom-client"
         settings = get_settings()
-        if settings.ai_provider != "stub":
-            raise FeatureNotReadyError(
-                f"Unsupported ai_provider '{settings.ai_provider}'. Only 'stub' is enabled in this build."
+        provider = settings.ai_provider.strip().casefold()
+        if provider in {"stub", "demo"}:
+            return DeterministicLLMAdapter(), "demo", "deterministic-rules-v1"
+        if provider == "openai":
+            if settings.has_openai_configured:
+                return (
+                    OpenAILLMAdapter(
+                        api_key=settings.openai_api_key,
+                        model=settings.openai_model,
+                    ),
+                    "openai",
+                    settings.openai_model,
+                )
+            if settings.allow_demo_fallbacks:
+                return DeterministicLLMAdapter(), "demo-fallback", "deterministic-rules-v1"
+            raise ServiceUnavailableError(
+                "AI analysis is unavailable because OPENAI_API_KEY is not configured and demo fallbacks are disabled."
             )
-        return DeterministicLLMAdapter(), "stub", "deterministic-rules-v1"
+        if provider == "ollama":
+            if settings.ollama_base_url.strip() and settings.ollama_model.strip():
+                return (
+                    OllamaLLMAdapter(
+                        base_url=settings.ollama_base_url,
+                        model=settings.ollama_model,
+                    ),
+                    "ollama",
+                    settings.ollama_model,
+                )
+            if settings.allow_demo_fallbacks:
+                return DeterministicLLMAdapter(), "demo-fallback", "deterministic-rules-v1"
+            raise ServiceUnavailableError(
+                "AI analysis is unavailable because the Ollama runtime is not configured and demo fallbacks are disabled."
+            )
+        if settings.allow_demo_fallbacks:
+            return DeterministicLLMAdapter(), "demo-fallback", "deterministic-rules-v1"
+        raise ServiceUnavailableError(
+            f"AI analysis is unavailable because ai_provider '{settings.ai_provider}' is unsupported."
+        )
 
     def _run_analysis(
         self,
         *,
         adapter: LLMClient,
         input_payload: LeadAnalysisInput,
-    ) -> LeadAnalysisResult:
+        provider_name: str,
+        model_name: str,
+    ) -> tuple[LeadAnalysisResult, str, str]:
         try:
             payload = adapter.analyze(input_payload)
-            return self.validator.validate(payload)
+            return self.validator.validate(payload), provider_name, model_name
         except Exception:
+            logger.warning(
+                "ai_analysis.adapter_failed provider=%s model=%s — falling back to deterministic builder",
+                provider_name,
+                model_name,
+                exc_info=True,
+            )
             fallback_payload = self.fallback_client.analyze(input_payload)
-            return self.validator.validate(fallback_payload)
+            return (
+                self.validator.validate(fallback_payload),
+                "demo-fallback",
+                "fallback-builder-v1",
+            )
 
     def _input_hash(
         self,
@@ -215,10 +274,12 @@ class AIAnalysisService:
         facts: NormalizedLeadFacts,
         score_context: LeadScoreContext | None,
         prompt_template_id: int,
+        prompt_template_text: str,
     ) -> str:
         payload = {
             "prompt": prompt,
             "prompt_template_id": prompt_template_id,
+            "prompt_template_text": prompt_template_text,
             "facts": facts.model_dump(mode="json"),
             "score_context": score_context.model_dump(mode="json") if score_context else None,
         }
@@ -240,6 +301,33 @@ class AIAnalysisService:
         if lead is None:
             raise NotFoundError("Lead was not found.")
         return lead
+
+    def _get_or_create_active_prompt_template(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        created_by_user_id: int,
+    ) -> PromptTemplate:
+        template = self.repository.get_active_prompt_template(db, workspace_id)
+        if template is not None:
+            return template
+        default_template = PromptTemplate(
+            workspace_id=workspace_id,
+            name="Default evidence-first prompt",
+            template_text=(
+                "Use only the stored evidence and deterministic score context. "
+                "Do not invent unsupported facts. Keep recommendations tied to the allowed service catalog."
+            ),
+            is_active=True,
+            created_by_user_id=created_by_user_id,
+        )
+        template = self.repository.add_prompt_template(db, default_template)
+        return self.repository.activate_prompt_template(
+            db,
+            workspace_id=workspace_id,
+            template=template,
+        )
 
     def _to_snapshot_response(
         self,

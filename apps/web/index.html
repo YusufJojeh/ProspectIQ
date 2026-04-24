@@ -10,6 +10,18 @@
     />
     <meta name="theme-color" content="#0f766e" />
     <script src="/runtime-config.js"></script>
+    <script>
+      (function () {
+        var t = localStorage.getItem("prospectiq-theme");
+        if (
+          t === "dark" ||
+          (t !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches)
+        ) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

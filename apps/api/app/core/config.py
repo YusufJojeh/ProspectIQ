@@ -26,9 +26,12 @@ class Settings(BaseSettings):
 
     serpapi_api_key: str = "<replace-me>"
     serpapi_base_url: str = "https://serpapi.com/search.json"
+    serpapi_runtime_mode: str = "auto"
 
     ai_provider: str = "stub"
+    allow_demo_fallbacks: bool = True
     openai_api_key: str = ""
+    openai_model: str = "gpt-4.1-mini"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
 
@@ -90,17 +93,78 @@ class Settings(BaseSettings):
         return self.app_env.lower() == "development"
 
     @property
+    def has_serpapi_configured(self) -> bool:
+        return bool(
+            self.serpapi_api_key.strip()
+            and self.serpapi_api_key.strip() != "<replace-me>"
+        )
+
+    @property
+    def has_openai_configured(self) -> bool:
+        return bool(self.openai_api_key.strip())
+
+    @field_validator("serpapi_runtime_mode")
+    @classmethod
+    def validate_serpapi_runtime_mode(cls, value: str) -> str:
+        normalized = value.strip().casefold()
+        if normalized not in {"auto", "live", "demo"}:
+            raise ValueError("SERPAPI_RUNTIME_MODE must be one of: auto, live, demo.")
+        return normalized
+
+    @property
+    def discovery_runtime(self) -> str:
+        if self.serpapi_runtime_mode == "demo":
+            return "demo"
+        if self.serpapi_runtime_mode == "live":
+            return "serpapi" if self.has_serpapi_configured else "blocked"
+        if self.has_serpapi_configured:
+            return "serpapi"
+        if self.allow_demo_fallbacks:
+            return "demo"
+        return "blocked"
+
+    @property
+    def analysis_runtime(self) -> str:
+        provider = self.ai_provider.strip().casefold()
+        if provider in {"stub", "demo"}:
+            return "demo"
+        if provider == "openai":
+            if self.has_openai_configured:
+                return "openai"
+            return "demo" if self.allow_demo_fallbacks else "blocked"
+        if provider == "ollama":
+            if self.ollama_base_url.strip() and self.ollama_model.strip():
+                return "ollama"
+            return "demo" if self.allow_demo_fallbacks else "blocked"
+        return "demo" if self.allow_demo_fallbacks else "blocked"
+
+    @property
     def runtime_warnings(self) -> list[str]:
         warnings: list[str] = []
         if self.jwt_secret == "<replace-me>":
             warnings.append("JWT_SECRET is still set to the placeholder value.")
-        if self.serpapi_api_key == "<replace-me>":
-            warnings.append("SERPAPI_API_KEY is still set to the placeholder value.")
+        if len(self.jwt_secret.strip()) < 32:
+            warnings.append("JWT_SECRET should be at least 32 characters.")
+        if self.serpapi_runtime_mode == "live" and not self.has_serpapi_configured:
+            warnings.append(
+                "Discovery is blocked because SERPAPI_RUNTIME_MODE=live requires a real SERPAPI_API_KEY."
+            )
         if self.default_admin_password == "ChangeMe123!":
             warnings.append("DEFAULT_ADMIN_PASSWORD is still using the local-development default.")
-        if not self.web_origins and "127.0.0.1" not in self.allowed_web_origins:
+        if len(self.default_admin_password.strip()) < 12:
+            warnings.append("DEFAULT_ADMIN_PASSWORD should be at least 12 characters.")
+        if not self.is_development and not self.web_origins:
             warnings.append(
                 "WEB_ORIGINS is not set; only the primary WEB_ORIGIN will be allowed outside development."
+            )
+        provider = self.ai_provider.strip().casefold()
+        if self.analysis_runtime == "demo" and provider not in {"stub", "demo"}:
+            warnings.append(
+                "AI analysis is running in demo fallback mode because the configured provider is unavailable."
+            )
+        if self.analysis_runtime == "blocked":
+            warnings.append(
+                "AI analysis is blocked because the configured provider is unavailable and demo fallbacks are disabled."
             )
         return warnings
 

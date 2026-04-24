@@ -4,6 +4,15 @@ from typing import Any
 
 from app.modules.provider_serpapi.client import ProviderCallResult, SerpApiClient
 
+_MAX_QUERY_LENGTH = 220
+
+
+def _clean_query_fragment(value: str | None) -> str | None:
+    if not value:
+        return None
+    cleaned = " ".join(value.split()).strip()
+    return cleaned or None
+
 
 def build_maps_search_params(
     *,
@@ -17,13 +26,18 @@ def build_maps_search_params(
     google_domain: str,
     page: int = 1,
 ) -> dict[str, Any]:
-    query = f"{business_type} in {city}"
+    query_parts = [
+        _clean_query_fragment(business_type),
+        "in",
+        _clean_query_fragment(city),
+    ]
     if region:
-        query = f"{query}, {region}"
+        query_parts.append(_clean_query_fragment(region))
     if radius_km is not None:
-        query = f"{query} within {radius_km} km"
+        query_parts.extend(["within", str(radius_km), "km"])
     if keyword_filter:
-        query = f"{query} {keyword_filter}"
+        query_parts.append(_clean_query_fragment(keyword_filter))
+    query = " ".join(part for part in query_parts if part)[:_MAX_QUERY_LENGTH]
 
     params: dict[str, Any] = {
         "engine": "google_maps",

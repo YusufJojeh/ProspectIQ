@@ -1,4 +1,12 @@
-import { createContext, type PropsWithChildren, useContext, useEffect, useSyncExternalStore } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   clearSession,
@@ -22,6 +30,10 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const storedSession = useSyncExternalStore(subscribeAuthSession, readStoredSession, () => null);
   const session = storedSession && !isSessionExpired(storedSession) ? storedSession : null;
+  const logout = useCallback(() => {
+    clearSession();
+    queryClient.clear();
+  }, [queryClient]);
 
   useEffect(() => {
     if (storedSession && session === null) {
@@ -35,20 +47,18 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     }
   }, [queryClient, session]);
 
+  const value = useMemo(
+    () => ({
+      session,
+      user: session?.user ?? null,
+      isAuthenticated: session !== null,
+      logout,
+    }),
+    [logout, session],
+  );
+
   return (
-    <AuthSessionContext.Provider
-      value={{
-        session,
-        user: session?.user ?? null,
-        isAuthenticated: session !== null,
-        logout: () => {
-          clearSession();
-          queryClient.clear();
-        },
-      }}
-    >
-      {children}
-    </AuthSessionContext.Provider>
+    <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
   );
 }
 

@@ -1,4 +1,5 @@
-export type UserRole = "admin" | "agency_manager" | "sales_user";
+export type UserRole = "account_owner" | "admin" | "manager" | "member";
+export type UserStatus = "active" | "inactive" | "pending";
 export type WebsitePreference = "any" | "must_have" | "must_be_missing";
 export type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
 export type LeadSortOption = "newest" | "score_desc" | "reviews_desc" | "rating_desc";
@@ -31,9 +32,13 @@ export interface PaginationMeta {
 export interface AuthenticatedUser {
   public_id: string;
   workspace_public_id: string;
+  workspace_name: string;
+  workspace_slug: string;
   email: string;
   full_name: string;
   role: UserRole;
+  status: UserStatus;
+  permissions: string[];
 }
 
 export interface TokenResponse {
@@ -44,7 +49,13 @@ export interface TokenResponse {
 }
 
 export interface LoginRequest {
-  workspace: string;
+  email: string;
+  password: string;
+}
+
+export interface SignupRequest {
+  full_name: string;
+  workspace_name: string;
   email: string;
   password: string;
 }
@@ -65,6 +76,7 @@ export interface SearchJobCreateRequest {
 
 export interface SearchJobResponse {
   public_id: string;
+  discovery_runtime: string;
   business_type: string;
   city: string;
   region: string | null;
@@ -371,6 +383,11 @@ export interface RecentProviderFailureResponse {
 export interface OperationalHealthResponse {
   database_ok: boolean;
   serpapi_configured: boolean;
+  serpapi_runtime_mode: string;
+  discovery_runtime: string;
+  analysis_runtime: string;
+  demo_fallbacks_enabled: boolean;
+  runtime_warnings: string[];
   failed_jobs_last_7_days: number;
   provider_failures_last_7_days: number;
   recent_failed_jobs: RecentFailedJobResponse[];
@@ -382,10 +399,140 @@ export interface UserOption {
   email: string;
   full_name: string;
   role: UserRole;
+  status: UserStatus;
+  job_title?: string | null;
+  last_login_at?: string | null;
+  created_at?: string;
 }
 
 export interface UserListResponse {
   items: UserOption[];
+}
+
+export interface UserDetailResponse extends UserOption {
+  workspace_public_id: string;
+  invited_by_user_public_id?: string | null;
+  avatar_url?: string | null;
+  updated_at: string;
+}
+
+export interface UserCreateRequest {
+  email: string;
+  full_name: string;
+  password: string;
+  role: UserRole;
+  job_title?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface UserUpdateRequest {
+  full_name?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  job_title?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface UserPasswordResetRequest {
+  password: string;
+}
+
+export interface WorkspaceSummary {
+  public_id: string;
+  name: string;
+  slug: string;
+  status: "active" | "suspended" | "disabled";
+}
+
+export interface WorkspaceSettingsResponse {
+  workspace: WorkspaceSummary;
+  owner_user_public_id?: string | null;
+  settings: Record<string, unknown>;
+}
+
+export interface WorkspaceSettingsUpdateRequest {
+  name?: string;
+  slug?: string;
+  settings?: Record<string, unknown>;
+}
+
+export interface PlanResponse {
+  code: string;
+  name: string;
+  monthly_price: number;
+  yearly_price: number;
+  limits: Record<string, number>;
+  is_active: boolean;
+}
+
+export interface PlanListResponse {
+  items: PlanResponse[];
+}
+
+export interface SubscriptionResponse {
+  public_id: string;
+  plan_code: string;
+  plan_name: string;
+  status: "trialing" | "active" | "past_due" | "canceled" | "expired";
+  billing_cycle: "monthly" | "yearly";
+  started_at: string;
+  ends_at?: string | null;
+  renews_at?: string | null;
+  canceled_at?: string | null;
+  trial_ends_at?: string | null;
+  simulated_payment_method: string;
+}
+
+export interface InvoiceItemResponse {
+  description: string;
+  amount: number;
+  quantity: number;
+}
+
+export interface PaymentAttemptResponse {
+  public_id: string;
+  status: string;
+  simulated_result: string;
+  attempted_at: string;
+  error_message?: string | null;
+}
+
+export interface InvoiceResponse {
+  public_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  issued_at: string;
+  due_at?: string | null;
+  paid_at?: string | null;
+  items: InvoiceItemResponse[];
+  payment_attempts: PaymentAttemptResponse[];
+}
+
+export interface InvoiceListResponse {
+  items: InvoiceResponse[];
+}
+
+export interface UsageMetricResponse {
+  metric_key: string;
+  current_value: number;
+  limit_value?: number | null;
+  period_start: string;
+  period_end: string;
+}
+
+export interface UsageSummaryResponse {
+  items: UsageMetricResponse[];
+}
+
+export interface SubscriptionChangeRequest {
+  plan_code: string;
+  billing_cycle: "monthly" | "yearly";
+}
+
+export interface BillingSimulationRequest {
+  invoice_public_id: string;
+  error_message?: string;
 }
 
 export interface AuditLogResponse {
