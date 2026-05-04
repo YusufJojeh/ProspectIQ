@@ -21,7 +21,7 @@ Flash copy is fine; treat the stick as **untrusted storage** if it ever held a r
 
 1. Copy the folder off the stick to a normal path (for example `Desktop\ProspectIQ`), or extract the zip there.
 2. Install **Python 3.12**, **Node 22**, **Docker Desktop** (if you use the compose database), and **Git** (optional but useful if `.git` was included).
-3. Follow **New machine setup** from step 2 (Database) onward. Always run `pip install` and `npm install` on the new machine; do not reuse `node_modules` or `.venv` from another OS or CPU unless you know it is the same environment.
+3. Follow **First-time run** from step **2** (database) onward. Always run `pip install` and `npm install` on the new machine; do not reuse `node_modules` or `.venv` from another OS or CPU unless you know it is the same environment.
 4. If the repo **has no `.git`** folder, you still run the app the same way; to sync with GitHub later, clone fresh into a new folder or `git init` + add remote (advanced)—simplest is to clone from GitHub on that laptop and copy over only files you changed, or use a new zip after pushing from the first PC.
 
 ## Prerequisites
@@ -48,66 +48,116 @@ Flash copy is fine; treat the stick as **untrusted storage** if it ever held a r
 
 Never commit real secrets. `.env` files are listed in `.gitignore`. After copying a laptop backup, **delete or rotate** secrets if the folder ever touched a thumb drive or cloud sync used for non-repo files.
 
-## New machine setup (minimal path)
+## First-time run (all commands)
 
-### 1. Get the code
+Run these **once per machine** (or after wiping Docker volumes / the database). Replace `<REPO_ROOT>` mentally with wherever you put the project (for example `C:\Users\You\Desktop\ProspectIQ`).
+
+### 1. Get the code (if you do not have the folder yet)
 
 ```powershell
-git clone <your-remote-url> ProspectIQ
+git clone https://github.com/YusufJojeh/ProspectIQ.git
 cd ProspectIQ
 ```
 
-If you copy a folder instead of cloning, still run `git status` inside it and prefer `git pull` on the new machine so you stay aligned with the remote.
+If you copied the project from USB or another disk, `cd` into that folder instead and skip `git clone`.
 
-### 2. Database (MariaDB)
+### 2. Database: option A — Docker (recommended; **creates DB and user automatically**)
 
-From the repo root:
+`infra/docker-compose.yml` sets `MARIADB_DATABASE`, `MARIADB_USER`, and `MARIADB_PASSWORD` so the first container start creates database **`prospectiq`** and user **`prospectiq`** (password **`prospectiq`**) to match `apps/api/.env.example`. You do **not** need to run `CREATE DATABASE` by hand.
+
+From **repository root**:
 
 ```powershell
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-Ensure the Docker engine is running (Windows: Docker Desktop).
+Wait until MariaDB is healthy (first start can take ~30–60 seconds). Then continue with **step 4** (backend).
 
-### 3. Backend API
+### 3. Database: option B — MariaDB / MySQL already installed (no Docker)
+
+Create the database and user yourself (matches default `DATABASE_URL` in `apps/api/.env.example`). Connect as root (or another admin) and run:
+
+```sql
+CREATE DATABASE IF NOT EXISTS prospectiq
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'prospectiq'@'127.0.0.1' IDENTIFIED BY 'prospectiq';
+GRANT ALL PRIVILEGES ON prospectiq.* TO 'prospectiq'@'127.0.0.1';
+
+CREATE USER IF NOT EXISTS 'prospectiq'@'localhost' IDENTIFIED BY 'prospectiq';
+GRANT ALL PRIVILEGES ON prospectiq.* TO 'prospectiq'@'localhost';
+
+FLUSH PRIVILEGES;
+```
+
+Paste the SQL block into any MariaDB/MySQL admin tool, or run `mysql -u root -p`, paste the block, and press Enter. If you use a **different** database name, user, password, or host, set `DATABASE_URL` in `apps/api/.env` to match.
+
+### 4. Backend API (first time)
+
+From **repository root**:
 
 ```powershell
-cd apps/api
+cd apps\api
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -3.12 -m pip install --upgrade pip
 py -3.12 -m pip install -e .[dev]
 Copy-Item .env.example .env
 py -3.12 -m alembic upgrade head
-py -3.12 scripts/seed.py
+py -3.12 scripts\seed.py
 py -3.12 -m uvicorn app.main:app --reload
 ```
 
-API: `http://localhost:8000`
+- API: `http://localhost:8000`
+- If `alembic` or `seed` cannot connect: confirm step **2** or **3** is done and `DATABASE_URL` in `.env` matches your running MariaDB.
 
-Adjust `.env` if your DB host, port, user, or password differ from `DATABASE_URL` in `.env.example`.
+### 5. Frontend (first time, second terminal)
 
-### 4. Frontend
-
-In a second terminal:
+From **repository root** in a **new** terminal:
 
 ```powershell
-cd apps/web
+cd apps\web
 npm install
 Copy-Item .env.example .env
 npm run dev
 ```
 
-App: `http://localhost:5173`
+- App: `http://localhost:5173`
+- `VITE_API_BASE_URL` in `apps/web/.env` must point at the API (default `http://localhost:8000`). CORS uses `WEB_ORIGIN` / `WEB_ORIGINS` in `apps/api/.env`.
 
-`VITE_API_BASE_URL` in `apps/web/.env` must match where the API listens (default `http://localhost:8000`). CORS is controlled by `WEB_ORIGIN` / `WEB_ORIGINS` in `apps/api/.env`.
+### 6. Smoke check (optional, Windows)
 
-### 5. Smoke check (optional, Windows)
-
-From repo root:
+From **repository root**:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/verify_local_environment.ps1
+powershell -ExecutionPolicy Bypass -File scripts\verify_local_environment.ps1
+```
+
+### macOS / Linux (same flow, different shell)
+
+```bash
+cd /path/to/ProspectIQ
+docker compose -f infra/docker-compose.yml up -d
+
+cd apps/api
+python3.12 -m venv .venv
+source .venv/bin/activate
+python3.12 -m pip install --upgrade pip
+python3.12 -m pip install -e .[dev]
+cp .env.example .env
+python3.12 -m alembic upgrade head
+python3.12 scripts/seed.py
+python3.12 -m uvicorn app.main:app --reload
+```
+
+Second terminal:
+
+```bash
+cd /path/to/ProspectIQ/apps/web
+npm install
+cp .env.example .env
+npm run dev
 ```
 
 ## Environment variables reference
