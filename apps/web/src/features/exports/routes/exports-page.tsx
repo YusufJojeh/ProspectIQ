@@ -141,10 +141,13 @@ export function ExportsPage() {
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="reviewed">Reviewed</SelectItem>
                   <SelectItem value="contacted">Contacted</SelectItem>
                   <SelectItem value="qualified">Qualified</SelectItem>
-                  <SelectItem value="disqualified">Disqualified</SelectItem>
-                  <SelectItem value="converted">Converted</SelectItem>
+                  <SelectItem value="interested">Interested</SelectItem>
+                  <SelectItem value="won">Won</SelectItem>
+                  <SelectItem value="lost">Lost</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
             </div>

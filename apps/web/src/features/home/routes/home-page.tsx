@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { CtaSection } from "@/components/landing/cta-section";
 import { EvidenceSection } from "@/components/landing/evidence-section";
 import { FaqSection } from "@/components/landing/faq-section";
@@ -12,7 +13,8 @@ import { WorkflowSection } from "@/components/landing/workflow-section";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 export function HomePage() {
-  useDocumentTitle("LeadScope AI");
+  const { t } = useTranslation();
+  useDocumentTitle(t("landing.documentTitle"));
 
   return (
     <div className="min-h-screen bg-background text-foreground">

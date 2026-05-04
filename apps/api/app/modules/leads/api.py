@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -21,8 +21,21 @@ from app.modules.leads.service import LeadsService
 from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.users.models import User
 from app.shared.enums.jobs import LeadScoreBand, LeadStatus
+from app.workers.orchestration.lead_refresh import LeadRefreshOrchestrator
 
 router = APIRouter(prefix="/api/v1/leads", tags=["leads"])
+
+
+def _run_lead_refresh_background(
+    workspace_id: int,
+    lead_public_id: str,
+    actor_user_id: int,
+) -> None:
+    LeadRefreshOrchestrator().run_for_lead(
+        workspace_id=workspace_id,
+        lead_public_id=lead_public_id,
+        actor_user_id=actor_user_id,
+    )
 
 
 @router.get("", response_model=LeadListResponse)
@@ -77,14 +90,28 @@ def get_lead(
     return LeadsService().get_lead(db, workspace_id, lead_id)
 
 
-@router.post("/{lead_id}/refresh", response_model=LeadResponse)
+@router.post(
+    "/{lead_id}/refresh",
+    response_model=LeadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def refresh_lead(
     lead_id: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> LeadResponse:
-    return LeadsService().refresh_lead(db, workspace_id, lead_id, current_user=current_user)
+    body = LeadsService().queue_refresh(
+        db, workspace_id, lead_id, current_user=current_user
+    )
+    background_tasks.add_task(
+        _run_lead_refresh_background,
+        workspace_id,
+        lead_id,
+        current_user.id,
+    )
+    return body
 
 
 @router.get("/{lead_id}/activity", response_model=LeadActivityResponse)

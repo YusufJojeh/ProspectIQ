@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, TypeVar
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -35,6 +35,8 @@ from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsiteP
 
 logger = logging.getLogger(__name__)
 ValueT = TypeVar("ValueT")
+
+ORCHESTRATION_TIMEOUT_SECONDS = 300
 
 
 class ProviderServiceProtocol(Protocol):
@@ -111,10 +113,11 @@ class LeadDiscoveryOrchestrator:
 
             try:
                 self._mark_running(db, job)
+                deadline = datetime.now(tz=UTC) + timedelta(seconds=ORCHESTRATION_TIMEOUT_SECONDS)
                 lead_ids = self._discover_leads(db, job)
                 if lead_ids:
-                    self._enrich_top_candidates(db, job, lead_ids)
-                    self._validate_web_presence(db, job, lead_ids)
+                    self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
+                    self._validate_web_presence(db, job, lead_ids, deadline=deadline)
                     self._score_leads(db, job, lead_ids)
                 self._finalize_status(db, job)
             except Exception as exc:
@@ -156,10 +159,23 @@ class LeadDiscoveryOrchestrator:
         self.search_job_repository.save(db, job)
         return list(lead_ids)
 
-    def _enrich_top_candidates(self, db: Session, job: SearchJob, lead_ids: list[int]) -> None:
+    def _enrich_top_candidates(
+        self,
+        db: Session,
+        job: SearchJob,
+        lead_ids: list[int],
+        *,
+        deadline: datetime,
+    ) -> None:
         provider_service = self._get_provider_service()
         settings = provider_service.get_settings(db, job.workspace_id)
         for lead in self._select_enrichment_targets(db, lead_ids, limit=settings.enrich_top_n):
+            if datetime.now(tz=UTC) >= deadline:
+                logger.warning(
+                    "Orchestration deadline reached after %ss; stopping candidate enrichment early.",
+                    ORCHESTRATION_TIMEOUT_SECONDS,
+                )
+                break
             lookup = self.evidence_repository.get_best_place_lookup(db, lead.id)
             if lookup is None:
                 continue
@@ -192,9 +208,22 @@ class LeadDiscoveryOrchestrator:
             job.enriched_count += 1
             self.search_job_repository.save(db, job)
 
-    def _validate_web_presence(self, db: Session, job: SearchJob, lead_ids: list[int]) -> None:
+    def _validate_web_presence(
+        self,
+        db: Session,
+        job: SearchJob,
+        lead_ids: list[int],
+        *,
+        deadline: datetime,
+    ) -> None:
         provider_service = self._get_provider_service()
         for lead in self._list_leads(db, lead_ids):
+            if datetime.now(tz=UTC) >= deadline:
+                logger.warning(
+                    "Orchestration deadline reached after %ss; stopping web presence validation early.",
+                    ORCHESTRATION_TIMEOUT_SECONDS,
+                )
+                break
             if lead.website_domain:
                 continue
             query = self._build_web_query(lead)

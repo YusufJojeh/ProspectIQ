@@ -2,6 +2,7 @@
 
 import { motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { appPaths } from "@/app/paths";
@@ -11,15 +12,11 @@ import { ThemeSwitcher } from "@/components/shell/theme-switcher";
 import { LanguageSwitcher } from "@/components/shell/language-switcher";
 import { cn } from "@/lib/utils";
 
-const LINKS = [
-  { label: "Platform", href: "#platform" },
-  { label: "Evidence", href: "#evidence" },
-  { label: "Workflow", href: "#workflow" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Docs", href: "#docs" },
-];
+type LandingLink = { label: string; href: string };
 
 export function LandingNav() {
+  const { t } = useTranslation();
+  const links = t("landing.nav.links", { returnObjects: true }) as LandingLink[];
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -48,7 +45,7 @@ export function LandingNav() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {LINKS.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
@@ -63,11 +60,11 @@ export function LandingNav() {
           <LanguageSwitcher />
           <ThemeSwitcher />
           <Button asChild variant="ghost" size="sm" className="h-8 text-[13px] font-medium">
-            <Link to={appPaths.login}>Sign in</Link>
+            <Link to={appPaths.login}>{t("landing.nav.signIn")}</Link>
           </Button>
           <Button asChild size="sm" className="h-8 gap-1 text-[13px] font-medium">
             <Link to={appPaths.signUp}>
-              Request access <ArrowRight className="size-3.5" />
+              {t("landing.nav.requestAccess")} <ArrowRight className="size-3.5" />
             </Link>
           </Button>
         </div>
@@ -76,7 +73,7 @@ export function LandingNav() {
           type="button"
           className="inline-flex size-9 items-center justify-center rounded-full border border-border text-foreground md:hidden"
           onClick={() => setOpen((value) => !value)}
-          aria-label="Toggle menu"
+          aria-label={t("landing.nav.toggleMenu")}
         >
           {open ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
@@ -88,7 +85,7 @@ export function LandingNav() {
           animate={{ opacity: 1, y: 0 }}
           className="absolute inset-x-4 top-[72px] flex flex-col gap-1 rounded-2xl border border-border bg-background/95 p-3 shadow-xl backdrop-blur-xl md:hidden"
         >
-          {LINKS.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
@@ -105,10 +102,10 @@ export function LandingNav() {
             </div>
             <div className="flex gap-2">
               <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent">
-                <Link to={appPaths.login}>Sign in</Link>
+                <Link to={appPaths.login}>{t("landing.nav.signIn")}</Link>
               </Button>
               <Button asChild size="sm" className="flex-1">
-                <Link to={appPaths.signUp}>Request access</Link>
+                <Link to={appPaths.signUp}>{t("landing.nav.requestAccess")}</Link>
               </Button>
             </div>
           </div>

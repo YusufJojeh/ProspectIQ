@@ -40,7 +40,7 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      eyebrow="Workspace sign in"
+      eyebrow={t("auth.signInEyebrow")}
       title={t("auth.signInTitle")}
       description={t("auth.signInSubtitle")}
       footer={
@@ -53,10 +53,7 @@ export function LoginPage() {
       }
     >
       <Form {...form}>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
-        >
+        <form className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
           <FormField
             control={form.control}
             name="email"
@@ -64,7 +61,7 @@ export function LoginPage() {
               <FormItem>
                 <FormLabel>{t("auth.workEmail")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="email" placeholder="you@company.com" {...field} />
+                  <Input autoComplete="email" placeholder={t("auth.emailPlaceholder") as string} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -90,9 +87,7 @@ export function LoginPage() {
             )}
           />
 
-          {mutation.error ? (
-            <QueryStateNotice tone="error" title={t("auth.signInFailed")} description={mutation.error.message} />
-          ) : null}
+          {mutation.error ? <QueryStateNotice tone="error" title={t("auth.signInFailed")} description={mutation.error.message} /> : null}
 
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? t("auth.signingIn") : t("auth.openWorkspace")}

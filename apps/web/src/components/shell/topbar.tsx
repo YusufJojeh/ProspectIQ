@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Search, Command, Bell, Plus, ChevronRight, Sparkles, Radar, LogOut } from "lucide-react";
+import { Search, Command, Bell, Plus, ChevronRight, Sparkles, Radar, LogOut, MessageSquareText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ const SEGMENT_KEYS: Record<string, string> = {
   searches: "nav.searches",
   leads: "nav.leads",
   "ai-analysis": "nav.aiAnalysis",
+  assistant: "nav.assistant",
   outreach: "nav.outreach",
   admin: "nav.admin",
   team: "nav.team",
@@ -37,9 +38,7 @@ export function AppTopbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthSession();
 
-  const segments = location.pathname
-    .split("/")
-    .filter((segment) => segment && SEGMENT_KEYS[segment] !== undefined);
+  const segments = location.pathname.split("/").filter((segment) => segment && SEGMENT_KEYS[segment] !== undefined);
 
   const userInitials =
     user?.full_name
@@ -94,6 +93,13 @@ export function AppTopbar() {
           </Link>
         </Button>
 
+        <Button variant="outline" size="sm" className="hidden border-border bg-transparent font-medium lg:inline-flex" asChild>
+          <Link to={appPaths.assistant}>
+            <MessageSquareText className="size-3.5 text-[oklch(var(--signal))]" />
+            <span>{t("topbar.assistant")}</span>
+          </Link>
+        </Button>
+
         <Button size="sm" className="h-9 gap-1.5 px-2.5 font-medium sm:px-3" asChild>
           <Link to={appPaths.searches}>
             <Plus className="size-3.5" />
@@ -118,13 +124,13 @@ export function AppTopbar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem className="flex-col items-start gap-0.5">
               <div className="flex items-center gap-1.5 text-sm">
-                <Radar className="size-3.5 text-[oklch(var(--signal))]" /> Discovery job enrichment phase active
+                <Radar className="size-3.5 text-[oklch(var(--signal))]" /> {t("topbar.discoveryActive")}
               </div>
-              <div className="text-xs text-muted-foreground">2m ago</div>
+              <div className="text-xs text-muted-foreground">{t("topbar.discoveryActiveTime")}</div>
             </DropdownMenuItem>
             <DropdownMenuItem className="flex-col items-start gap-0.5">
-              <div className="text-sm">Scoring weights updated to v12</div>
-              <div className="text-xs text-muted-foreground">1h ago / review_velocity +0.05</div>
+              <div className="text-sm">{t("topbar.scoringUpdated")}</div>
+              <div className="text-xs text-muted-foreground">{t("topbar.scoringUpdatedTime")}</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -137,7 +143,7 @@ export function AppTopbar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel className="flex flex-col">
-              <span className="text-sm font-medium">{user?.full_name ?? "Workspace"}</span>
+              <span className="text-sm font-medium">{user?.full_name ?? t("common.workspace")}</span>
               <span className="text-xs text-muted-foreground">{user?.email ?? ""}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

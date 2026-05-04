@@ -10,6 +10,7 @@ from app.core.errors import ServiceUnavailableError, register_exception_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import add_cors_middleware, add_http_middleware
 from app.modules.admin.api import router as admin_router
+from app.modules.assistant.api import router as assistant_router
 from app.modules.ai_analysis.api import router as ai_analysis_router
 from app.modules.audit_logs.api import router as audit_logs_router
 from app.modules.auth.api import router as auth_router
@@ -71,6 +72,7 @@ def register_application_routers(app: FastAPI) -> None:
     app.include_router(billing_router)
     app.include_router(search_jobs_router)
     app.include_router(leads_router)
+    app.include_router(assistant_router)
     app.include_router(ai_analysis_router)
     app.include_router(outreach_router)
     app.include_router(admin_router)

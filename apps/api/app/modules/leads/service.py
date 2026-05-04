@@ -8,7 +8,7 @@ from app.core.errors import NotFoundError
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.billing.service import BillingService
-from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
+from app.modules.leads.models import Lead, LeadNote
 from app.modules.leads.repository import LeadsRepository
 from app.modules.leads.schemas import (
     LeadActivityEntry,
@@ -33,7 +33,6 @@ from app.modules.users.models import User
 from app.shared.enums.jobs import LeadScoreBand, LeadStatus
 from app.shared.pagination.schemas import PaginationMeta
 from app.shared.services.lead_intelligence import LeadIntelligenceService
-from app.workers.orchestration.lead_refresh import LeadRefreshOrchestrator
 
 
 class LeadsService:
@@ -139,7 +138,7 @@ class LeadsService:
         items.sort(key=lambda item: (item.created_at, item.entry_id), reverse=True)
         return LeadActivityResponse(lead_id=lead.public_id, items=items)
 
-    def refresh_lead(
+    def queue_refresh(
         self,
         db: Session,
         workspace_id: int,
@@ -148,21 +147,16 @@ class LeadsService:
         current_user: User,
     ) -> LeadResponse:
         lead = self._get_or_raise(db, workspace_id, lead_id)
-        refreshed = LeadRefreshOrchestrator().refresh(
-            db,
-            lead=lead,
-            requested_by_user_id=current_user.id,
-        )
         self.audit_logs.record(
             db,
             workspace_id=workspace_id,
             actor_user_id=current_user.id,
-            event_name="lead.refreshed",
-            details=f"Refreshed provider evidence and rescored lead {refreshed.public_id}.",
+            event_name="lead.refresh_queued",
+            details=f"Queued background refresh for lead {lead.public_id}.",
         )
-        latest = self.repository.get_latest_scores(db, [refreshed.id]).get(refreshed.id)
-        assignee_public_id = self._lookup_assignee_public_id(db, refreshed)
-        return self._to_response(refreshed, latest, assignee_public_id)
+        latest = self.repository.get_latest_scores(db, [lead.id]).get(lead.id)
+        assignee_public_id = self._lookup_assignee_public_id(db, lead)
+        return self._to_response(lead, latest, assignee_public_id)
 
     def analyze_lead(
         self,
@@ -290,26 +284,14 @@ class LeadsService:
     ) -> LeadResponse:
         lead = self._get_or_raise(db, workspace_id, lead_id)
         previous_status = lead.status
-        lead.status = payload.status.value
-        lead.updated_at = datetime.now(tz=UTC)
-        saved = self.repository.save(db, lead)
-        db.add(
-            LeadStatusHistory(
-                lead_id=saved.id,
-                from_status=previous_status,
-                to_status=saved.status,
-                changed_by_user_id=current_user.id,
-            )
+        saved = self.repository.record_status_change(
+            db,
+            lead,
+            previous_status=previous_status,
+            new_status=payload.status.value,
+            changed_by_user_id=current_user.id,
+            note=payload.note,
         )
-        if payload.note:
-            db.add(
-                LeadNote(
-                    lead_id=saved.id,
-                    note=payload.note,
-                    created_by_user_id=current_user.id,
-                )
-            )
-        db.commit()
         self.audit_logs.record(
             db,
             workspace_id=workspace_id,
@@ -411,13 +393,7 @@ class LeadsService:
         )
 
     def _get_assignee_public_ids(self, db: Session, leads: list[Lead]) -> dict[int, str]:
-        from sqlalchemy import select
-
-        ids = {lead.assigned_to_user_id for lead in leads if lead.assigned_to_user_id is not None}
-        if not ids:
-            return {}
-        rows = db.execute(select(User.id, User.public_id).where(User.id.in_(list(ids)))).all()
-        return {int(row[0]): str(row[1]) for row in rows}
+        return self.repository.get_assignee_public_ids(db, leads)
 
     def _lookup_assignee_public_id(self, db: Session, lead: Lead) -> str | None:
         assigned_to_user_id = lead.assigned_to_user_id

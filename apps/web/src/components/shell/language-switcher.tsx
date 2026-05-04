@@ -9,23 +9,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const LANGUAGES = [
-  { code: "en", label: "English", nativeLabel: "English" },
-  { code: "ar", label: "Arabic", nativeLabel: "العربية" },
+  { code: "en", nativeLabel: "English" },
+  { code: "ar", nativeLabel: "العربية" },
 ] as const;
 
 export function LanguageSwitcher() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const currentLang = i18n.language?.split("-")[0] ?? "en";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          aria-label="Switch language"
-        >
+        <Button variant="ghost" size="icon" className="size-9 shrink-0" aria-label={t("language.switch")}>
           <Globe className="size-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -37,13 +32,9 @@ export function LanguageSwitcher() {
             className="gap-2"
             aria-current={currentLang === lang.code ? "true" : undefined}
           >
-            <span className="w-4 text-center text-xs font-bold uppercase text-muted-foreground">
-              {lang.code}
-            </span>
+            <span className="w-4 text-center text-xs font-bold uppercase text-muted-foreground">{lang.code}</span>
             <span>{lang.nativeLabel}</span>
-            {currentLang === lang.code && (
-              <span className="ml-auto text-xs text-muted-foreground">✓</span>
-            )}
+            {currentLang === lang.code ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

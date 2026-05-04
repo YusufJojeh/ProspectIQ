@@ -14,31 +14,32 @@ import { signup } from "@/features/auth/api";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
-const signUpSchema = z
-  .object({
-    full_name: z.string().min(2),
-    workspace_name: z.string().min(2),
-    email: z.string().email(),
-    password: z
-      .string()
-      .min(12)
-      .regex(/[a-z]/)
-      .regex(/[A-Z]/)
-      .regex(/\d/)
-      .regex(/[^A-Za-z0-9]/),
-    confirm_password: z.string().min(12),
-  })
-  .refine((value) => value.password === value.confirm_password, {
-    message: "Passwords must match.",
-    path: ["confirm_password"],
-  });
-
-type SignUpValues = z.infer<typeof signUpSchema>;
+type SignUpValues = {
+  full_name: string;
+  workspace_name: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+};
 
 export function SignUpPage() {
   const { t } = useTranslation();
   useDocumentTitle(t("auth.signUp"));
   const navigate = useNavigate();
+
+  const signUpSchema = z
+    .object({
+      full_name: z.string().min(2),
+      workspace_name: z.string().min(2),
+      email: z.string().email(),
+      password: z.string().min(12).regex(/[a-z]/).regex(/[A-Z]/).regex(/\d/).regex(/[^A-Za-z0-9]/),
+      confirm_password: z.string().min(12),
+    })
+    .refine((value) => value.password === value.confirm_password, {
+      message: t("auth.passwordsMustMatch"),
+      path: ["confirm_password"],
+    });
+
   const form = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -63,7 +64,7 @@ export function SignUpPage() {
 
   return (
     <AuthShell
-      eyebrow="Create workspace"
+      eyebrow={t("auth.signUpEyebrow")}
       title={t("auth.signUpTitle")}
       description={t("auth.signUpSubtitle")}
       footer={
@@ -76,10 +77,7 @@ export function SignUpPage() {
       }
     >
       <Form {...form}>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
-        >
+        <form className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
           <FormField
             control={form.control}
             name="full_name"
@@ -87,7 +85,7 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.fullName")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="name" placeholder="Avery North" {...field} />
+                  <Input autoComplete="name" placeholder={t("auth.namePlaceholder") as string} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -101,7 +99,7 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.workspaceName")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="organization" placeholder="Northbeam Analytics" {...field} />
+                  <Input autoComplete="organization" placeholder={t("auth.workspacePlaceholder") as string} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -115,7 +113,7 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.workEmail")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="email" placeholder="avery@northbeam.com" {...field} />
+                  <Input autoComplete="email" placeholder={t("auth.workspaceEmailPlaceholder") as string} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -129,7 +127,7 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.password")}</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" placeholder="At least 12 characters" {...field} />
+                  <Input type="password" autoComplete="new-password" placeholder={t("auth.passwordPlaceholder") as string} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -143,7 +141,12 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("settings.confirmPassword")}</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" placeholder="Re-enter your password" {...field} />
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={t("auth.confirmPasswordPlaceholder") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -153,11 +156,7 @@ export function SignUpPage() {
           {mutation.error ? (
             <QueryStateNotice tone="error" title={t("auth.signUpFailed")} description={mutation.error.message} />
           ) : (
-            <QueryStateNotice
-              tone="info"
-              title="Simulated starter billing"
-              description="Signup creates a real workspace and owner account, then seeds a simulated starter trial with internal billing records only."
-            />
+            <QueryStateNotice tone="info" title={t("auth.starterTrialTitle")} description={t("auth.starterTrialDescription")} />
           )}
 
           <Button type="submit" disabled={mutation.isPending}>

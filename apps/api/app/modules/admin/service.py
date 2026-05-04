@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
+from app.modules.admin.repository import AdminRepository
 from app.modules.admin.schemas import (
     OperationalHealthResponse,
     PromptTemplateCreateRequest,
@@ -20,7 +21,7 @@ from app.modules.admin.schemas import (
 from app.modules.ai_analysis.models import PromptTemplate
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.audit_logs.service import AuditLogService
-from app.modules.provider_serpapi.models import ProviderFetch, ProviderSettings
+from app.modules.provider_serpapi.models import ProviderFetch
 from app.modules.scoring.models import ScoringConfigVersion
 from app.modules.scoring.schemas import (
     ActiveScoringConfigResponse,
@@ -39,6 +40,7 @@ class AdminService:
         self.scoring = ScoringConfigService()
         self.audit_logs = AuditLogService()
         self.ai_repository = AIAnalysisRepository()
+        self.admin_repository = AdminRepository()
 
     def get_active_scoring(self, db: Session, *, workspace_id: int) -> ActiveScoringConfigResponse:
         version = self.scoring.get_active_version(db, workspace_id)
@@ -100,11 +102,8 @@ class AdminService:
         version_public_id: str,
         actor: User,
     ) -> ActiveScoringConfigResponse:
-        version = db.scalar(
-            select(ScoringConfigVersion).where(
-                ScoringConfigVersion.workspace_id == workspace_id,
-                ScoringConfigVersion.public_id == version_public_id,
-            )
+        version = self.admin_repository.get_scoring_version(
+            db, workspace_id=workspace_id, public_id=version_public_id
         )
         if version is None:
             raise NotFoundError("Scoring configuration was not found.")
@@ -177,11 +176,8 @@ class AdminService:
         prompt_template_public_id: str,
         actor: User,
     ) -> PromptTemplateResponse:
-        template = db.scalar(
-            select(PromptTemplate).where(
-                PromptTemplate.workspace_id == workspace_id,
-                PromptTemplate.public_id == prompt_template_public_id,
-            )
+        template = self.admin_repository.get_prompt_template(
+            db, workspace_id=workspace_id, public_id=prompt_template_public_id
         )
         if template is None:
             raise NotFoundError("Prompt template was not found.")
@@ -200,7 +196,7 @@ class AdminService:
         return self._to_prompt_template_response(template, actor)
 
     def get_provider_settings(self, db: Session, *, workspace_id: int) -> ProviderSettingsResponse:
-        settings = self._ensure_provider_settings(db, workspace_id=workspace_id)
+        settings = self.admin_repository.ensure_provider_settings(db, workspace_id=workspace_id)
         return ProviderSettingsResponse(
             hl=settings.hl,
             gl=settings.gl,
@@ -216,7 +212,7 @@ class AdminService:
         payload: ProviderSettingsUpdateRequest,
         actor: User,
     ) -> ProviderSettingsResponse:
-        settings = self._ensure_provider_settings(db, workspace_id=workspace_id)
+        settings = self.admin_repository.ensure_provider_settings(db, workspace_id=workspace_id)
         if payload.hl is not None:
             settings.hl = payload.hl
         if payload.gl is not None:
@@ -225,9 +221,7 @@ class AdminService:
             settings.google_domain = payload.google_domain
         if payload.enrich_top_n is not None:
             settings.enrich_top_n = payload.enrich_top_n
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
+        self.admin_repository.save_provider_settings(db, settings)
         self.audit_logs.record(
             db,
             workspace_id=workspace_id,
@@ -343,17 +337,6 @@ class AdminService:
                 for item in provider_failures
             ],
         )
-
-    def _ensure_provider_settings(self, db: Session, *, workspace_id: int) -> ProviderSettings:
-        settings = db.scalar(
-            select(ProviderSettings).where(ProviderSettings.workspace_id == workspace_id)
-        )
-        if settings is None:
-            settings = ProviderSettings(workspace_id=workspace_id)
-            db.add(settings)
-            db.commit()
-            db.refresh(settings)
-        return settings
 
     def _to_scoring_response(
         self, version: ScoringConfigVersion, creator: User | None

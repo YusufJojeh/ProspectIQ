@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.workers.orchestration.lead_discovery as lead_discovery_module
 from app.core.config import clear_settings_cache
 from app.core.database import Base
 from app.modules.leads.models import Lead
@@ -21,7 +22,10 @@ from app.modules.scoring.models import LeadScore
 from app.modules.search_jobs.models import SearchJob
 from app.modules.users.models import User, Workspace
 from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsitePreference
-from app.workers.orchestration.lead_discovery import LeadDiscoveryOrchestrator
+from app.workers.orchestration.lead_discovery import (
+    ORCHESTRATION_TIMEOUT_SECONDS,
+    LeadDiscoveryOrchestrator,
+)
 
 
 @dataclass
@@ -36,13 +40,15 @@ class _FakeProviderService:
         search_payload: dict,
         web_payload: dict | None = None,
         web_status: str = ProviderFetchStatus.OK.value,
+        enrich_top_n: int = 0,
     ) -> None:
         self.search_payload = search_payload
         self.web_payload = web_payload or {}
         self.web_status = web_status
+        self._enrich_top_n = enrich_top_n
 
     def get_settings(self, db: Session, workspace_id: int) -> _ProviderSettings:  # noqa: ARG002
-        return _ProviderSettings(enrich_top_n=0)
+        return _ProviderSettings(enrich_top_n=self._enrich_top_n)
 
     def maps_search(
         self,
@@ -292,22 +298,18 @@ def test_orchestrator_uses_demo_provider_when_live_provider_is_unconfigured(monk
     clear_settings_cache()
 
 
-def test_orchestrator_marks_job_failed_when_provider_configuration_is_missing(
-    monkeypatch,
-) -> None:
-    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
-    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "false")
+def test_orchestrator_marks_job_failed_when_discovery_is_blocked(monkeypatch) -> None:
+    """Deterministic: does not depend on host .env, SERPAPI_API_KEY, or demo fallbacks."""
     clear_settings_cache()
     session_factory = _build_session_factory()
     job_public_id = _seed_job(session_factory)
 
-    class _BrokenProviderService:
-        def __init__(self) -> None:
-            raise RuntimeError("SERPAPI_API_KEY is not configured.")
+    class _BlockedSettings:
+        discovery_runtime = "blocked"
 
     monkeypatch.setattr(
-        "app.workers.orchestration.lead_discovery.SerpApiService",
-        _BrokenProviderService,
+        "app.workers.orchestration.lead_discovery.get_settings",
+        lambda: _BlockedSettings(),
     )
 
     LeadDiscoveryOrchestrator(session_factory=session_factory).run(job_public_id)
@@ -320,3 +322,157 @@ def test_orchestrator_marks_job_failed_when_provider_configuration_is_missing(
         assert job.finished_at is not None
 
     clear_settings_cache()
+
+
+def test_run_skips_enrichment_when_orchestration_deadline_is_immediate(monkeypatch) -> None:
+    """Integration-style: zero-second budget makes enrich exit before maps_place (full run())."""
+    monkeypatch.setattr(lead_discovery_module, "ORCHESTRATION_TIMEOUT_SECONDS", 0)
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+
+    provider = _FakeProviderService(
+        search_payload={
+            "local_results": [
+                {
+                    "title": "Acme Dental",
+                    "address": "Bagdat Avenue, Istanbul, Turkey",
+                    "phone": "+90 555 111 2233",
+                    "rating": 4.5,
+                    "reviews": 12,
+                    "gps_coordinates": {"latitude": 41.01, "longitude": 29.05},
+                    "data_id": "maps-acme-1",
+                    "type": "Dentist",
+                }
+            ]
+        },
+        web_payload={"knowledge_graph": {"website": "https://acme.example"}},
+        enrich_top_n=5,
+    )
+    maps_calls = {"n": 0}
+    orig_maps = provider.maps_place
+
+    def counting_maps(*a, **k):
+        maps_calls["n"] += 1
+        return orig_maps(*a, **k)
+
+    provider.maps_place = counting_maps
+
+    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(
+        job_public_id
+    )
+
+    assert maps_calls["n"] == 0
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        assert job.leads_upserted == 1
+
+    clear_settings_cache()
+
+
+def test_enrich_top_candidates_skips_maps_place_when_deadline_elapsed() -> None:
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    discovery_provider = _FakeProviderService(
+        search_payload={
+            "local_results": [
+                {
+                    "title": "Acme Dental",
+                    "address": "Bagdat Avenue, Istanbul, Turkey",
+                    "phone": "+90 555 111 2233",
+                    "rating": 4.5,
+                    "reviews": 12,
+                    "gps_coordinates": {"latitude": 41.01, "longitude": 29.05},
+                    "data_id": "maps-acme-1",
+                    "type": "Dentist",
+                }
+            ]
+        },
+        web_payload={"knowledge_graph": {"website": "https://acme.example"}},
+        enrich_top_n=0,
+    )
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory, provider_service=discovery_provider
+    ).run(job_public_id)
+
+    enrich_provider = _FakeProviderService(
+        search_payload={"local_results": []},
+        enrich_top_n=5,
+    )
+    maps_calls = {"n": 0}
+    orig_maps = enrich_provider.maps_place
+
+    def counting_maps(*a, **k):
+        maps_calls["n"] += 1
+        return orig_maps(*a, **k)
+
+    enrich_provider.maps_place = counting_maps
+
+    orch = LeadDiscoveryOrchestrator(
+        session_factory=session_factory, provider_service=enrich_provider
+    )
+    deadline = datetime.now(tz=UTC) - timedelta(seconds=1)
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        lead = db.scalar(select(Lead).where(Lead.search_job_id == job.id))
+        assert lead is not None
+        orch._enrich_top_candidates(db, job, [lead.id], deadline=deadline)
+
+    assert maps_calls["n"] == 0
+
+
+def test_validate_web_presence_skips_web_search_when_deadline_elapsed() -> None:
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(
+        search_payload={
+            "local_results": [
+                {
+                    "title": "Acme Dental",
+                    "address": "Bagdat Avenue, Istanbul, Turkey",
+                    "phone": "+90 555 111 2233",
+                    "rating": 4.5,
+                    "reviews": 12,
+                    "gps_coordinates": {"latitude": 41.01, "longitude": 29.05},
+                    "data_id": "maps-acme-1",
+                    "type": "Dentist",
+                }
+            ]
+        },
+        web_payload={},
+        web_status=ProviderFetchStatus.OK.value,
+    )
+    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(
+        job_public_id
+    )
+
+    web_calls = {"n": 0}
+    orig_web = provider.web_search
+
+    def counting_web(*a, **k):
+        web_calls["n"] += 1
+        return orig_web(*a, **k)
+
+    provider.web_search = counting_web
+
+    orch = LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider)
+    deadline = datetime.now(tz=UTC) - timedelta(seconds=1)
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        lead = db.scalar(select(Lead).where(Lead.search_job_id == job.id))
+        assert lead is not None
+        lead.website_domain = None
+        lead.has_website = False
+        db.add(lead)
+        db.commit()
+        orch._validate_web_presence(db, job, [lead.id], deadline=deadline)
+
+    assert web_calls["n"] == 0
+
+
+def test_orchestration_timeout_constant_is_five_minutes() -> None:
+    assert ORCHESTRATION_TIMEOUT_SECONDS == 300

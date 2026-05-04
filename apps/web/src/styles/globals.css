@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@source "../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 /* LeadScope AI — Premium evidence-first SaaS theme.
@@ -205,6 +207,24 @@
 .ring-signal {
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--signal) 55%, transparent),
               0 0 24px -4px color-mix(in oklch, var(--signal) 35%, transparent);
+}
+
+.ai-markdown {
+  line-height: 1.7;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  padding-inline-start: 1.1rem;
+}
+
+.ai-markdown pre {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+}
+
+.ai-markdown code {
+  font-family: var(--font-mono);
 }
 
 @keyframes shimmer {

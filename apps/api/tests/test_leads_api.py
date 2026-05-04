@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from test_workspace_e2e import _build_session_factory, _login, _override_client, _seed_workspace
 
+from app.modules.audit_logs.models import AuditLog
 from app.modules.leads.models import Lead
 from app.modules.users.models import Workspace
 
@@ -92,6 +93,38 @@ def test_update_status_endpoint_creates_status_and_note_activity_entries() -> No
         and item["note"] == "Reached out after qualification review."
         for item in activity_items
     )
+
+
+def test_refresh_lead_returns_202_and_records_refresh_queued_audit(monkeypatch) -> None:
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+
+    monkeypatch.setattr(
+        "app.modules.leads.api.LeadRefreshOrchestrator.run_for_lead",
+        lambda *a, **k: None,
+    )
+
+    with _override_client(session_factory) as client:
+        token = _login(client, seed)
+        response = client.post(
+            f"/api/v1/leads/{seed.lead_public_id}/refresh",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == 202
+
+    with session_factory() as db:
+        workspace = db.scalar(
+            select(Workspace).where(Workspace.public_id == seed.workspace_public_id)
+        )
+        assert workspace is not None
+        n = db.scalar(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.workspace_id == workspace.id,
+                AuditLog.event_name == "lead.refresh_queued",
+            )
+        )
+        assert n == 1
 
 
 def test_lead_endpoints_reject_foreign_workspace_leads() -> None:

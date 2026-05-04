@@ -3,9 +3,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.audit_logs.service import AuditLogService
 from app.modules.auth.policies import get_current_workspace_id, require_role
-from app.modules.billing.service import BillingService
 from app.modules.exports.service import ExportService
 from app.modules.leads.schemas import LeadSortOption
 from app.modules.users.models import User
@@ -33,15 +31,10 @@ def export_leads_csv(
     current_user: User = Depends(require_role("account_owner", "admin", "manager", "member")),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> Response:
-    BillingService().enforce_usage(
+    csv_payload = ExportService().export_with_billing(
         db,
         workspace_id=workspace_id,
-        metric_key="exports_per_month",
         actor_user_id=current_user.id,
-    )
-    csv_payload = ExportService().export_leads_csv(
-        db,
-        workspace_id=workspace_id,
         status=status.value if status else None,
         search_job_public_id=search_job_id,
         has_website=has_website,
@@ -56,14 +49,6 @@ def export_leads_csv(
         lead_public_ids=lead_ids or None,
         sort=sort,
     )
-    AuditLogService().record(
-        db,
-        workspace_id=workspace_id,
-        actor_user_id=current_user.id,
-        event_name="leads.exported_csv",
-        details="Exported the current lead list as CSV.",
-    )
-    BillingService().record_usage(db, workspace_id=workspace_id, metric_key="exports_per_month")
     return Response(
         content=csv_payload,
         media_type="text/csv",

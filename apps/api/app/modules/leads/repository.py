@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
@@ -231,11 +232,51 @@ class LeadsRepository:
         db.refresh(lead)
         return lead
 
+    def record_status_change(
+        self,
+        db: Session,
+        lead: Lead,
+        *,
+        previous_status: str,
+        new_status: str,
+        changed_by_user_id: int,
+        note: str | None,
+    ) -> Lead:
+        lead.status = new_status
+        lead.updated_at = datetime.now(tz=UTC)
+        saved = self.save(db, lead)
+        db.add(
+            LeadStatusHistory(
+                lead_id=saved.id,
+                from_status=previous_status,
+                to_status=new_status,
+                changed_by_user_id=changed_by_user_id,
+            )
+        )
+        if note:
+            db.add(
+                LeadNote(
+                    lead_id=saved.id,
+                    note=note,
+                    created_by_user_id=changed_by_user_id,
+                )
+            )
+        db.commit()
+        db.refresh(saved)
+        return saved
+
     def add_note(self, db: Session, note: LeadNote) -> LeadNote:
         db.add(note)
         db.commit()
         db.refresh(note)
         return note
+
+    def get_assignee_public_ids(self, db: Session, leads: list[Lead]) -> dict[int, str]:
+        ids = {lead.assigned_to_user_id for lead in leads if lead.assigned_to_user_id is not None}
+        if not ids:
+            return {}
+        rows = db.execute(select(User.id, User.public_id).where(User.id.in_(list(ids)))).all()
+        return {int(row[0]): str(row[1]) for row in rows}
 
     def list_notes(
         self, db: Session, lead_id: int

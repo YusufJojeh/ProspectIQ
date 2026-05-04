@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
@@ -46,19 +47,19 @@ class BillingRepository:
     def get_plan(self, db: Session, plan_id: int) -> Plan | None:
         return db.scalar(select(Plan).where(Plan.id == plan_id))
 
-    def add(self, db: Session, item):
+    def add(self, db: Session, item: Any) -> Any:
         db.add(item)
         db.commit()
         db.refresh(item)
         return item
 
-    def save(self, db: Session, item):
+    def save(self, db: Session, item: Any) -> Any:
         db.add(item)
         db.commit()
         db.refresh(item)
         return item
 
-    def save_all(self, db: Session, *items) -> None:
+    def save_all(self, db: Session, *items: Any) -> None:
         for item in items:
             db.add(item)
         db.commit()

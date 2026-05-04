@@ -1,5 +1,11 @@
 import { test, expect } from "./fixtures";
-import { gotoPath, expectNoHorizontalOverflow, expectStableScreenshot, isTabletProject } from "./helpers/page";
+import {
+  expectNoHorizontalOverflow,
+  expectStableScreenshot,
+  gotoPath,
+  isDesktopWideProject,
+  isTabletProject,
+} from "./helpers/page";
 import { routes } from "./helpers/routes";
 
 test.describe.configure({ mode: "serial" });
@@ -15,6 +21,10 @@ test("landing loads, major sections render, and navigation works", async ({ page
   await expect(page.getByText(/discover, normalize, and score b2b leads with a deterministic pipeline/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /from blank query to approved outreach in one governed pipeline/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /priced per seat for teams that take discovery seriously/i })).toBeVisible();
+
+  if (isDesktopWideProject(testInfo.project.name)) {
+    await expectStableScreenshot(page.locator("main"), "landing-main.png");
+  }
 
   if (testInfo.project.name === "mobile") {
     await page.getByRole("button", { name: /toggle menu/i }).click();

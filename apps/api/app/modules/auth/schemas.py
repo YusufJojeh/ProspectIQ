@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, StringConstraints
@@ -39,7 +40,7 @@ class AuthenticatedUser(BaseModel):
     full_name: str
     role: str
     status: str
-    permissions: list[str]
+    permissions: Sequence[str]
 
     model_config = {"from_attributes": True}
 

@@ -41,3 +41,11 @@ playwright-report/
 test-results/
 apps/web/playwright-report/
 apps/web/test-results/
+
+# Local scratch, editor tooling, and generated test artifacts (do not commit)
+tmp/
+output/
+.claude/
+.playwright-mcp/
+apps/web/tests/e2e/.auth/
+apps/web/test-artifacts/

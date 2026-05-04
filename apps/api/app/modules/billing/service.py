@@ -3,6 +3,7 @@ from __future__ import annotations
 from calendar import monthrange
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -238,7 +239,7 @@ class BillingService:
         )
         counter.current_value += 1
         counter.updated_at = datetime.now(tz=UTC)
-        return self.repository.save(db, counter)
+        return cast(UsageCounter, self.repository.save(db, counter))
 
     def change_subscription(
         self,

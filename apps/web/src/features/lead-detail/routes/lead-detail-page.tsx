@@ -332,6 +332,7 @@ export function LeadDetailPage() {
           <LeadAiAnalysisPanel
             snapshot={latestAnalysis}
             onGenerate={() => analysisMutation.mutate()}
+            leadId={leadId}
             generating={analysisMutation.isPending}
             error={latestAnalysisQuery.isError ? latestAnalysisQuery.error.message : null}
           />

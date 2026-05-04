@@ -24,6 +24,7 @@ from app.modules.users.schemas import (
     UserProfile,
     UserRole,
     UserStatus,
+    UserUpdateRequest,
     WorkspaceSettingsResponse,
     WorkspaceSettingsUpdateRequest,
 )
@@ -149,12 +150,9 @@ class UsersService:
         *,
         workspace_id: int,
         user_public_id: str,
-        payload,
+        payload: UserUpdateRequest,
         actor: User,
     ) -> UserDetailResponse:
-        from app.modules.users.schemas import UserUpdateRequest
-
-        payload = cast(UserUpdateRequest, payload)
         self._assert_team_manager(actor)
         user = self.repository.get_by_public_id(db, workspace_id, user_public_id)
         if user is None:

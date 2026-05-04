@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.orm import Session
 
+from app.modules.audit_logs.service import AuditLogService
 from app.modules.leads.models import Lead
+from app.modules.leads.repository import LeadsRepository
 from app.modules.search_jobs.models import SearchJob
 from app.shared.enums.jobs import ProviderFetchStatus, WebsitePreference
 from app.workers.orchestration.lead_discovery import LeadDiscoveryOrchestrator
+
+logger = logging.getLogger(__name__)
 
 
 class LeadRefreshOrchestrator(LeadDiscoveryOrchestrator):
@@ -59,6 +65,59 @@ class LeadRefreshOrchestrator(LeadDiscoveryOrchestrator):
         self._score_leads(db, job, [refreshed_lead.id])
         db.refresh(refreshed_lead)
         return refreshed_lead
+
+    def run_for_lead(
+        self,
+        *,
+        workspace_id: int,
+        lead_public_id: str,
+        actor_user_id: int,
+    ) -> None:
+        """Run refresh in a dedicated session (not the HTTP request session)."""
+        audit = AuditLogService()
+        leads_repo = LeadsRepository()
+        try:
+            with self.session_factory() as db:
+                lead = leads_repo.get_by_public_id_for_workspace(
+                    db,
+                    workspace_id=workspace_id,
+                    public_id=lead_public_id,
+                )
+                if lead is None:
+                    logger.warning(
+                        "Background refresh skipped: lead %s not in workspace %s.",
+                        lead_public_id,
+                        workspace_id,
+                    )
+                    return
+                refreshed = self.refresh(db, lead=lead, requested_by_user_id=actor_user_id)
+                audit.record(
+                    db,
+                    workspace_id=workspace_id,
+                    actor_user_id=actor_user_id,
+                    event_name="lead.refreshed",
+                    details=f"Refreshed provider evidence and rescored lead {refreshed.public_id}.",
+                )
+        except Exception:
+            logger.exception(
+                "Background refresh failed for lead %s in workspace %s.",
+                lead_public_id,
+                workspace_id,
+            )
+            try:
+                with self.session_factory() as db:
+                    audit.record(
+                        db,
+                        workspace_id=workspace_id,
+                        actor_user_id=actor_user_id,
+                        event_name="lead.refresh_failed",
+                        details=f"Background refresh failed for lead {lead_public_id}.",
+                    )
+            except Exception:
+                logger.exception(
+                    "Failed to record refresh failure audit for lead %s.",
+                    lead_public_id,
+                )
 
     def _job_context(self, db: Session, lead: Lead, requested_by_user_id: int) -> SearchJob:
         if lead.search_job_id is not None:

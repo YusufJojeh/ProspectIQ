@@ -45,13 +45,36 @@
     "activate": "Activate",
     "deactivate": "Deactivate",
     "reset": "Reset",
-    "download": "Download"
+    "download": "Download",
+    "workspace": "Workspace",
+    "system": "System"
+  },
+  "language": {
+    "switch": "Switch language",
+    "en": "English",
+    "ar": "Arabic"
+  },
+  "theme": {
+    "switch": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "command": {
+    "placeholder": "Search leads, jobs, evidence, or run an action...",
+    "noResults": "No results. Try a different query.",
+    "quickActions": "Quick actions",
+    "navigate": "Navigate",
+    "newSearchJob": "New search job",
+    "runAiAnalysis": "Run AI analysis on current view",
+    "exportSelection": "Export selection to CSV"
   },
   "nav": {
     "dashboard": "Dashboard",
     "searches": "Search Jobs",
     "leads": "Leads",
     "aiAnalysis": "AI Analysis",
+    "assistant": "AI Assistant",
     "outreach": "Outreach Drafts",
     "admin": "Admin",
     "team": "Team",
@@ -68,23 +91,28 @@
     "searchPlaceholder": "Search leads, jobs, evidence...",
     "newSearch": "New search",
     "aiAnalysis": "AI Analysis",
+    "assistant": "Assistant",
     "notifications": "Notifications",
     "operationalEvents": "Operational events",
     "profilePreferences": "Profile & preferences",
     "teamManagement": "Team management",
     "billingPlans": "Billing and plans",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "discoveryActive": "Discovery job enrichment is in progress",
+    "discoveryActiveTime": "2m ago",
+    "scoringUpdated": "Scoring weights updated to v12",
+    "scoringUpdatedTime": "1h ago / review_velocity +0.05"
   },
   "auth": {
     "signIn": "Sign in",
-    "signUp": "Sign up",
+    "signUp": "Request access",
     "signOut": "Sign out",
     "signingIn": "Signing in...",
     "openWorkspace": "Open workspace",
     "signInTitle": "Sign in to your LeadScope workspace",
     "signInSubtitle": "Use your work email and password to access your workspace.",
     "signUpTitle": "Create your LeadScope workspace",
-    "signUpSubtitle": "Start discovering and qualifying leads with AI-powered scoring.",
+    "signUpSubtitle": "Start discovering and qualifying leads with evidence-backed scoring.",
     "forgotPasswordTitle": "Reset your password",
     "forgotPasswordSubtitle": "Enter your work email and we will send you a reset link.",
     "workEmail": "Work email",
@@ -95,18 +123,23 @@
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "signInFailed": "Sign-in failed",
-    "signUpFailed": "Sign-up failed",
+    "signUpFailed": "Workspace creation failed",
     "sendResetLink": "Send reset link",
     "sending": "Sending...",
     "resetLinkSent": "Reset link sent",
-    "sidebar": {
-      "headline": "Evidence-backed lead intelligence",
-      "subtext": "Every score traces to normalized provider facts — no hallucinated signals.",
-      "feature1": "Deterministic scoring pipeline",
-      "feature2": "Operator-grade governance",
-      "trust": "Trusted by 1,400+ agency teams",
-      "compliance": "SOC 2 · Type II"
-    }
+    "signInEyebrow": "Workspace sign in",
+    "signUpEyebrow": "Create workspace",
+    "forgotPasswordEyebrow": "Password reset",
+    "emailPlaceholder": "you@company.com",
+    "namePlaceholder": "Avery North",
+    "workspacePlaceholder": "Northbeam Analytics",
+    "workspaceEmailPlaceholder": "avery@northbeam.com",
+    "passwordPlaceholder": "At least 12 characters",
+    "confirmPasswordPlaceholder": "Re-enter your password",
+    "starterTrialTitle": "Starter plan trial",
+    "starterTrialDescription": "This flow creates a real workspace and owner account, then provisions a simulated starter trial for internal billing tests.",
+    "resetPendingDescription": "The reset API is not live yet, but the authentication flow is ready for it.",
+    "passwordsMustMatch": "Passwords must match."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -418,5 +451,318 @@
     "noResultsDescription": "Try adjusting your filters or search query.",
     "noData": "No data available",
     "getStarted": "Get started"
+  },
+  "landing": {
+    "documentTitle": "LeadScope AI",
+    "nav": {
+      "links": [
+        { "label": "Platform", "href": "#platform" },
+        { "label": "Evidence", "href": "#evidence" },
+        { "label": "Workflow", "href": "#workflow" },
+        { "label": "Pricing", "href": "#pricing" },
+        { "label": "FAQ", "href": "#docs" }
+      ],
+      "signIn": "Sign in",
+      "requestAccess": "Request access",
+      "toggleMenu": "Toggle menu"
+    },
+    "hero": {
+      "pill": "LeadScope Intelligence 12.4 with deterministic scoring v4",
+      "titlePrefix": "Evidence-first",
+      "titleHighlight": "lead intelligence",
+      "titleSuffix": "for serious operators.",
+      "description": "Discover, normalize, and score B2B leads with a deterministic pipeline. Every rank traces to provider facts, scoring inputs, and stored evidence instead of black-box guesses.",
+      "watchTour": "Watch 90s product tour",
+      "trust": [
+        "SOC 2 Type II",
+        "GDPR and CCPA ready",
+        "99.98% uptime SLA",
+        "Used by 1,400+ agencies"
+      ]
+    },
+    "logoCloud": {
+      "title": "Operator teams at 1,400+ agencies run discovery on LeadScope"
+    },
+    "features": {
+      "eyebrow": "The platform",
+      "title": "Built for operators who have to defend every decision.",
+      "description": "Four integrated surfaces - discovery, enrichment, scoring, and outreach - governed by a deterministic evidence ledger.",
+      "cards": [
+        {
+          "title": "Discovery jobs, not spreadsheet exports",
+          "body": "Run versioned search jobs with typed parameters. Every run produces a reproducible candidate set you can diff against the last one."
+        },
+        {
+          "title": "Provider normalization",
+          "body": "Clearbit, Apollo, ZoomInfo, and BuiltWith unified into a single canonical record."
+        },
+        {
+          "title": "Sub-second re-scoring",
+          "body": "Adjust weights and watch every lead re-rank in place."
+        },
+        {
+          "title": "Immutable audit log",
+          "body": "Who changed what, when, and why - cryptographically chained."
+        },
+        {
+          "title": "Versioned scoring",
+          "body": "Pin a scoring model to a commit and reproduce any decision from last quarter."
+        },
+        {
+          "title": "Typed evidence schema",
+          "body": "Every fact is labeled, sourced, dated, and confidence-scored."
+        },
+        {
+          "title": "Assistive outreach, never autonomous",
+          "body": "AI drafts with inline evidence citations. You approve every send."
+        }
+      ],
+      "visual": {
+        "searchTitle": "Search | Series B SaaS | NYC",
+        "searchMeta": "218 leads | 12s",
+        "draftTitle": "Draft | LinkedIn",
+        "draftCopyPrefix": "Saw Northbeam just closed your",
+        "draftHighlightFunding": "Series B",
+        "draftMiddle": "and posted",
+        "draftHighlightHiring": "15 growth hires",
+        "draftSuffix": "- worth a 15m on paid media ROI?",
+        "citationsTitle": "Citations",
+        "citations": [
+          "Clearbit | Series B $42M | Mar 2026",
+          "LinkedIn | 15 hires | 90d",
+          "Earnings | CFO quote | Q1"
+        ]
+      }
+    },
+    "evidence": {
+      "eyebrow": "Evidence ledger",
+      "titleLine1": "Traceable by design.",
+      "titleLine2": "Defensible by default.",
+      "description": "Most lead platforms are black boxes. LeadScope is an evidence ledger - every signal, every score, every decision is citable. If you cannot trace it, we do not show it.",
+      "points": [
+        {
+          "title": "Every field is sourced",
+          "body": "No orphaned data. Each attribute on a lead traces to a named provider, a timestamp, and a confidence score."
+        },
+        {
+          "title": "Every score is reproducible",
+          "body": "Scoring models are pinned to commits. Re-run any historical decision and reproduce it byte for byte."
+        },
+        {
+          "title": "Every change is immutable",
+          "body": "Cryptographically chained event log. Exports, edits, approvals, and sends are permanent and provable."
+        }
+      ],
+      "ledgerTitle": "Lead ledger | ld_01hpn",
+      "ledgerRoot": "chain-root: 0x8f2a...c1b9",
+      "verified": "Verified",
+      "events": [
+        "Company record hydrated",
+        "Hiring signals synced | 15 growth roles",
+        "Tech stack fingerprinted | 38 tools",
+        "Model v4.2.1 applied | grade A | 87",
+        "avery@ approved for outreach queue",
+        "Draft generated with 4 citations"
+      ]
+    },
+    "workflow": {
+      "eyebrow": "The workflow",
+      "title": "From blank query to approved outreach in one governed pipeline.",
+      "stepLabel": "STEP",
+      "steps": [
+        {
+          "title": "Discover",
+          "body": "Define a typed search job: ICP, geo, funding, tech. Run it and get a reproducible candidate set, never a CSV dump with no lineage."
+        },
+        {
+          "title": "Normalize",
+          "body": "Providers merge into a canonical schema. Conflicts surface for review, while completeness and freshness stay visible."
+        },
+        {
+          "title": "Score",
+          "body": "Deterministic, weighted, explainable. Adjust a weight and every lead re-ranks with an auditable diff."
+        },
+        {
+          "title": "Outreach",
+          "body": "AI drafts with inline evidence. Humans approve the message before anything is sent."
+        }
+      ]
+    },
+    "metrics": {
+      "items": [
+        { "value": "3.2x", "label": "reply-rate lift vs. baseline outreach" },
+        { "value": "87%", "label": "reduction in unqualified meetings" },
+        { "value": "12s", "label": "median discovery-job completion" },
+        { "value": "99.98%", "label": "platform uptime, measured" }
+      ],
+      "person": "Maya Rostov",
+      "role": "VP Growth, Brightwave",
+      "quote": "LeadScope is the first tool we have used where every lead rank comes with a receipt. My team stopped debating prioritization with sales the week we rolled it out. The evidence ledger is genuinely unique."
+    },
+    "pricing": {
+      "eyebrow": "Pricing",
+      "title": "Priced per seat for teams that take discovery seriously.",
+      "description": "Annual billing with usage-based enrichment. Every plan includes the evidence ledger and deterministic scoring engine.",
+      "featuredBadge": "Most chosen",
+      "tiers": [
+        {
+          "name": "Operator",
+          "price": "$480",
+          "suffix": "/seat / mo",
+          "description": "For founder-led operators running discovery end to end.",
+          "cta": "Start with Operator",
+          "features": [
+            "5,000 enriched leads / month",
+            "3 scoring models",
+            "Deterministic re-scoring",
+            "Standard evidence ledger",
+            "Email and LinkedIn draft queue",
+            "SOC 2 Type II"
+          ]
+        },
+        {
+          "name": "Team",
+          "price": "$1,850",
+          "suffix": "/seat / mo",
+          "description": "For growth teams that need approvals, governance, and a shared audit trail.",
+          "cta": "Talk to sales",
+          "features": [
+            "50,000 enriched leads / month",
+            "Unlimited scoring models",
+            "Approval workflows and RBAC",
+            "Immutable evidence ledger",
+            "Export retention policies",
+            "SSO and SCIM provisioning",
+            "Custom provider connectors",
+            "Priority support and SLA"
+          ]
+        },
+        {
+          "name": "Enterprise",
+          "price": "Custom",
+          "suffix": "",
+          "description": "For agencies with procurement, security review, and custom data residency needs.",
+          "cta": "Request proposal",
+          "features": [
+            "Unlimited seats and usage",
+            "Dedicated deployment region",
+            "Bring-your-own data lake",
+            "Private model hosting",
+            "Named security engineer",
+            "Custom DPA and MSA"
+          ]
+        }
+      ]
+    },
+    "faq": {
+      "eyebrow": "Frequently asked",
+      "title": "Questions we hear from serious operators.",
+      "items": [
+        {
+          "q": "What makes LeadScope different from a standard enrichment tool?",
+          "a": "LeadScope is not just an enrichment tool. It is an evidence ledger with discovery, scoring, and outreach built on top. Every attribute on a lead is sourced, timestamped, and confidence-scored. Every rank is reproducible."
+        },
+        {
+          "q": "Do you send outreach autonomously?",
+          "a": "No. LeadScope drafts outreach with inline evidence citations, but a human approves every send. Autonomous outreach creates brand and deliverability risk that we do not ship."
+        },
+        {
+          "q": "Can I reproduce a lead rank from last quarter?",
+          "a": "Yes. Scoring models are pinned to commits. Given a lead ID and a point-in-time model version, we replay the ledger and produce the identical score."
+        },
+        {
+          "q": "What data providers do you integrate?",
+          "a": "Out of the box: Clearbit, Apollo, ZoomInfo, BuiltWith, LinkedIn sanctioned endpoints, Crunchbase, Harmonic, plus sanctioned company filings. Team plan and above support custom provider connectors."
+        },
+        {
+          "q": "How do you handle GDPR and CCPA?",
+          "a": "Typed consent tracking, per-region data residency on Team and Enterprise, DPA included, and right-to-erasure workflows built into the admin surface. We are SOC 2 Type II certified and share security documentation on request."
+        },
+        {
+          "q": "Can we bring our own data?",
+          "a": "Yes. Enterprise customers can pipe a data lake into the normalization layer and score proprietary signals alongside our providers. We never re-sell or train on customer data."
+        }
+      ]
+    },
+    "cta": {
+      "eyebrow": "Onboarding in under 72 hours",
+      "titleLine1": "Stop exporting spreadsheets.",
+      "titleLine2": "Start building a ledger.",
+      "description": "Request access and we will provision the workspace, load your ICP, and walk you through the first discovery job live.",
+      "requestAccess": "Request access",
+      "existingWorkspace": "Sign in to existing workspace"
+    },
+    "footer": {
+      "description": "The evidence-first lead intelligence platform for serious agency operators.",
+      "groups": [
+        {
+          "label": "Product",
+          "links": [
+            { "label": "Platform", "href": "#platform" },
+            { "label": "Evidence ledger", "href": "#evidence" },
+            { "label": "Workflow", "href": "#workflow" },
+            { "label": "Pricing", "href": "#pricing" },
+            { "label": "Changelog", "href": "#" }
+          ]
+        },
+        {
+          "label": "Company",
+          "links": [
+            { "label": "About", "href": "#" },
+            { "label": "Customers", "href": "#" },
+            { "label": "Careers", "href": "#" },
+            { "label": "Press", "href": "#" }
+          ]
+        },
+        {
+          "label": "Resources",
+          "links": [
+            { "label": "Docs", "href": "#" },
+            { "label": "API reference", "href": "#" },
+            { "label": "Security", "href": "#" },
+            { "label": "Status", "href": "#" },
+            { "label": "Trust center", "href": "#" }
+          ]
+        },
+        {
+          "label": "Legal",
+          "links": [
+            { "label": "Privacy", "href": "#" },
+            { "label": "Terms", "href": "#" },
+            { "label": "DPA", "href": "#" },
+            { "label": "Responsible use", "href": "#" }
+          ]
+        }
+      ],
+      "copyright": "Copyright 2026 LeadScope, Inc. All rights reserved.",
+      "status": "All systems normal"
+    }
+  },
+  "shell": {
+    "workspaceFallbackSlug": "isolated-account",
+    "scoringVersion": "Scoring | v12",
+    "scoringSummary": "Deterministic weights shipped 2d ago. Review velocity +0.05.",
+    "viewChangelog": "View changelog"
+  },
+  "authSidebar": {
+    "compliance": "SOC 2 | Type II",
+    "title": "The evidence-first lead intelligence platform for serious agency operators.",
+    "description": "Discover leads, normalize provider data, score deterministically, and ship assistive outreach with every decision traceable to source facts.",
+    "proofPoints": [
+      {
+        "title": "Evidence-backed lead intelligence",
+        "body": "Every score traces to normalized provider facts - no fabricated signals."
+      },
+      {
+        "title": "Deterministic scoring pipeline",
+        "body": "Versioned weights, reproducible stages, and complete audit visibility."
+      },
+      {
+        "title": "Operator-grade governance",
+        "body": "Role-aware access, retention-aware exports, and an immutable event log."
+      }
+    ],
+    "trust": "Trusted by 1,400+ agency teams",
+    "region": "us-west"
   }
 }

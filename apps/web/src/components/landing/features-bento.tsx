@@ -1,84 +1,39 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { Database, GitBranch, Layers, Radar, ShieldCheck, Sparkles, Zap } from "lucide-react"
+import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
+import { Database, GitBranch, Layers, Radar, ShieldCheck, Sparkles, Zap } from "lucide-react";
+
+type FeatureCopy = { title: string; body: string };
 
 export function FeaturesBento() {
+  const { t } = useTranslation();
+  const cards = t("landing.features.cards", { returnObjects: true }) as FeatureCopy[];
+
   return (
     <section id="platform" className="relative py-24 lg:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="The platform"
-          title="Built for operators who have to defend every decision."
-          description="Four integrated surfaces — discovery, enrichment, scoring, and outreach — governed by a deterministic evidence ledger."
+          eyebrow={t("landing.features.eyebrow")}
+          title={t("landing.features.title")}
+          description={t("landing.features.description")}
         />
 
         <div className="mt-16 grid grid-cols-1 gap-4 md:grid-cols-6 md:auto-rows-[180px]">
-          <FeatureCard
-            className="md:col-span-4 md:row-span-2"
-            icon={Radar}
-            title="Discovery jobs, not spreadsheet exports"
-            body="Run versioned search jobs with typed parameters. Every run produces a reproducible candidate set you can diff against the last one."
-            visual={<DiscoveryVisual />}
-          />
-
-          <FeatureCard
-            className="md:col-span-2 md:row-span-1"
-            icon={Layers}
-            title="Provider normalization"
-            body="Clearbit, Apollo, ZoomInfo, BuiltWith — unified into a single canonical record."
-          />
-
-          <FeatureCard
-            className="md:col-span-2 md:row-span-1"
-            icon={Zap}
-            title="Sub-second re-scoring"
-            body="Adjust weights, see every lead re-rank in-place."
-          />
-
-          <FeatureCard
-            className="md:col-span-2 md:row-span-1"
-            icon={ShieldCheck}
-            title="Immutable audit log"
-            body="Who touched what, when, and why — cryptographically chained."
-          />
-
-          <FeatureCard
-            className="md:col-span-2 md:row-span-1"
-            icon={GitBranch}
-            title="Versioned scoring"
-            body="Pin a scoring model to a commit. Reproduce any decision from last quarter."
-          />
-
-          <FeatureCard
-            className="md:col-span-2 md:row-span-1"
-            icon={Database}
-            title="Typed evidence schema"
-            body="Every fact is labeled, sourced, dated, and confidence-scored."
-          />
-
-          <FeatureCard
-            className="md:col-span-6 md:row-span-1"
-            icon={Sparkles}
-            title="Assistive outreach — never autonomous"
-            body="AI drafts with inline evidence citations. You approve every send."
-            visual={<OutreachVisual />}
-          />
+          <FeatureCard className="md:col-span-4 md:row-span-2" icon={Radar} title={cards[0].title} body={cards[0].body} visual={<DiscoveryVisual />} />
+          <FeatureCard className="md:col-span-2 md:row-span-1" icon={Layers} title={cards[1].title} body={cards[1].body} />
+          <FeatureCard className="md:col-span-2 md:row-span-1" icon={Zap} title={cards[2].title} body={cards[2].body} />
+          <FeatureCard className="md:col-span-2 md:row-span-1" icon={ShieldCheck} title={cards[3].title} body={cards[3].body} />
+          <FeatureCard className="md:col-span-2 md:row-span-1" icon={GitBranch} title={cards[4].title} body={cards[4].body} />
+          <FeatureCard className="md:col-span-2 md:row-span-1" icon={Database} title={cards[5].title} body={cards[5].body} />
+          <FeatureCard className="md:col-span-6 md:row-span-1" icon={Sparkles} title={cards[6].title} body={cards[6].body} visual={<OutreachVisual />} />
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-function SectionHeader({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string
-  title: string
-  description: string
-}) {
+function SectionHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -90,12 +45,10 @@ function SectionHeader({
       <div className="inline-flex items-center gap-2 rounded-full border border-[oklch(var(--signal)/0.3)] bg-[oklch(var(--signal)/0.08)] px-2.5 py-0.5 text-[11px] font-medium text-[oklch(var(--signal))]">
         {eyebrow}
       </div>
-      <h2 className="mt-4 text-pretty text-[36px] font-semibold leading-[1.1] tracking-tight sm:text-[44px]">
-        {title}
-      </h2>
+      <h2 className="mt-4 text-pretty text-[36px] font-semibold leading-[1.1] tracking-tight sm:text-[44px]">{title}</h2>
       <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">{description}</p>
     </motion.div>
-  )
+  );
 }
 
 function FeatureCard({
@@ -105,11 +58,11 @@ function FeatureCard({
   body,
   visual,
 }: {
-  className?: string
-  icon: React.ElementType
-  title: string
-  body: string
-  visual?: React.ReactNode
+  className?: string;
+  icon: React.ElementType;
+  title: string;
+  body: string;
+  visual?: React.ReactNode;
 }) {
   return (
     <motion.div
@@ -128,7 +81,7 @@ function FeatureCard({
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{body}</p>
       {visual ? <div className="mt-4 flex-1">{visual}</div> : null}
     </motion.div>
-  )
+  );
 }
 
 function DiscoveryVisual() {
@@ -137,12 +90,15 @@ function DiscoveryVisual() {
     { name: "Brightwave Studio", score: 74, tone: "oklch(var(--evidence))" },
     { name: "Apex Signals", score: 68, tone: "oklch(var(--caution))" },
     { name: "Parallax HQ", score: 55, tone: "oklch(var(--risk))" },
-  ]
+  ];
+  const { t } = useTranslation();
+  const citations = t("landing.features.visual.citations", { returnObjects: true }) as string[];
+
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl border border-border bg-background/60 p-4">
       <div className="mb-3 flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        <span>Search · Series B SaaS · NYC</span>
-        <span className="font-mono">218 leads · 12s</span>
+        <span>{t("landing.features.visual.searchTitle")}</span>
+        <span className="font-mono">{t("landing.features.visual.searchMeta")}</span>
       </div>
       <div className="flex flex-col gap-2">
         {rows.map((r, i) => (
@@ -171,38 +127,37 @@ function DiscoveryVisual() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function OutreachVisual() {
+  const { t } = useTranslation();
+  const citations = t("landing.features.visual.citations", { returnObjects: true }) as string[];
+
   return (
     <div className="relative grid grid-cols-1 gap-3 md:grid-cols-2">
       <div className="rounded-xl border border-border bg-background/60 p-3">
-        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Draft · LinkedIn
-        </div>
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("landing.features.visual.draftTitle")}</div>
         <p className="text-[12px] leading-relaxed text-foreground">
-          Saw Northbeam just closed your{" "}
+          {t("landing.features.visual.draftCopyPrefix")}{" "}
           <span className="rounded bg-[oklch(var(--signal)/0.15)] px-1 text-[oklch(var(--signal))]">
-            Series B
+            {t("landing.features.visual.draftHighlightFunding")}
           </span>{" "}
-          and posted{" "}
+          {t("landing.features.visual.draftMiddle")}{" "}
           <span className="rounded bg-[oklch(var(--evidence)/0.15)] px-1 text-[oklch(var(--evidence))]">
-            15 growth hires
+            {t("landing.features.visual.draftHighlightHiring")}
           </span>{" "}
-          — worth a 15m on paid media ROI?
+          {t("landing.features.visual.draftSuffix")}
         </p>
       </div>
       <div className="rounded-xl border border-border bg-background/60 p-3">
-        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Citations
-        </div>
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("landing.features.visual.citationsTitle")}</div>
         <div className="flex flex-col gap-1.5 text-[11px] text-muted-foreground">
-          <div>· Clearbit · Series B $42M · Mar 2026</div>
-          <div>· LinkedIn · 15 hires · 90d</div>
-          <div>· Earnings · CFO quote · Q1</div>
+          {citations.map((item) => (
+            <div key={item}>- {item}</div>
+          ))}
         </div>
       </div>
     </div>
-  )
+  );
 }

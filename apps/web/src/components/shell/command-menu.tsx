@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
@@ -25,6 +26,7 @@ import {
 import { appPaths } from "@/app/paths";
 
 export function CommandMenu() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -46,63 +48,63 @@ export function CommandMenu() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Search leads, jobs, evidence, or run an action…" />
+      <CommandInput placeholder={t("command.placeholder")} />
       <CommandList>
-        <CommandEmpty>No results. Try a different query.</CommandEmpty>
+        <CommandEmpty>{t("command.noResults")}</CommandEmpty>
 
-        <CommandGroup heading="Quick actions">
+        <CommandGroup heading={t("command.quickActions")}>
           <CommandItem onSelect={() => go(appPaths.searches)}>
             <Plus className="size-4" />
-            New search job
+            {t("command.newSearchJob")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.aiAnalysis)}>
             <Zap className="size-4" />
-            Run AI analysis on current view
+            {t("command.runAiAnalysis")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.exports)}>
             <FileDown className="size-4" />
-            Export selection to CSV
+            {t("command.exportSelection")}
           </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
 
-        <CommandGroup heading="Navigate">
+        <CommandGroup heading={t("command.navigate")}>
           <CommandItem onSelect={() => go(appPaths.dashboard)}>
             <LayoutDashboard className="size-4" />
-            Dashboard
+            {t("nav.dashboard")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.searches)}>
             <Radar className="size-4" />
-            Search Jobs
+            {t("nav.searches")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.leads)}>
             <Users className="size-4" />
-            Leads
+            {t("nav.leads")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.aiAnalysis)}>
             <Sparkles className="size-4" />
-            AI Analysis
+            {t("nav.aiAnalysis")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.outreach)}>
             <Send className="size-4" />
-            Outreach Drafts
+            {t("nav.outreach")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.admin)}>
             <ShieldCheck className="size-4" />
-            Admin
+            {t("nav.admin")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.auditLogs)}>
             <ScrollText className="size-4" />
-            Audit Logs
+            {t("nav.auditLogs")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.exports)}>
             <FileDown className="size-4" />
-            Exports
+            {t("nav.exports")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.settings)}>
             <Settings className="size-4" />
-            Settings
+            {t("nav.settings")}
           </CommandItem>
         </CommandGroup>
       </CommandList>

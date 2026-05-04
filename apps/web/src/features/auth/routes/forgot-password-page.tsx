@@ -17,7 +17,7 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      eyebrow="Password reset"
+      eyebrow={t("auth.forgotPasswordEyebrow")}
       title={t("auth.forgotPasswordTitle")}
       description={t("auth.forgotPasswordSubtitle")}
       footer={
@@ -39,7 +39,7 @@ export function ForgotPasswordPage() {
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">{t("auth.workEmail")}</Label>
-            <Input id="email" type="email" autoComplete="email" required placeholder="you@company.com" />
+            <Input id="email" type="email" autoComplete="email" required placeholder={t("auth.emailPlaceholder") as string} />
           </div>
           <Button type="submit">
             {t("auth.sendResetLink")}
@@ -47,11 +47,7 @@ export function ForgotPasswordPage() {
           </Button>
         </form>
       ) : (
-        <QueryStateNotice
-          tone="success"
-          title={t("auth.resetLinkSent")}
-          description="The reset API is not implemented yet, but the auth shell is ready for the future flow."
-        />
+        <QueryStateNotice tone="success" title={t("auth.resetLinkSent")} description={t("auth.resetPendingDescription")} />
       )}
     </AuthShell>
   );

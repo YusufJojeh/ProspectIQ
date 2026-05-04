@@ -7,6 +7,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, ServiceRecommendation
+from app.modules.audit_logs.service import AuditLogService
+from app.modules.billing.service import BillingService
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
 from app.modules.leads.schemas import LeadSortOption
@@ -17,6 +19,61 @@ from app.modules.users.models import User
 class ExportService:
     def __init__(self) -> None:
         self.leads = LeadsRepository()
+        self.billing = BillingService()
+        self.audit_logs = AuditLogService()
+
+    def export_with_billing(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        actor_user_id: int,
+        status: str | None = None,
+        search_job_public_id: str | None = None,
+        has_website: bool | None = None,
+        q: str | None = None,
+        city: str | None = None,
+        band: str | None = None,
+        category: str | None = None,
+        min_score: float | None = None,
+        max_score: float | None = None,
+        qualified: bool | None = None,
+        owner_public_id: str | None = None,
+        lead_public_ids: list[str] | None = None,
+        sort: LeadSortOption = LeadSortOption.NEWEST,
+    ) -> str:
+        self.billing.enforce_usage(
+            db,
+            workspace_id=workspace_id,
+            metric_key="exports_per_month",
+            actor_user_id=actor_user_id,
+        )
+        csv_payload = self.export_leads_csv(
+            db,
+            workspace_id=workspace_id,
+            status=status,
+            search_job_public_id=search_job_public_id,
+            has_website=has_website,
+            q=q,
+            city=city,
+            band=band,
+            category=category,
+            min_score=min_score,
+            max_score=max_score,
+            qualified=qualified,
+            owner_public_id=owner_public_id,
+            lead_public_ids=lead_public_ids,
+            sort=sort,
+        )
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=actor_user_id,
+            event_name="leads.exported_csv",
+            details="Exported the current lead list as CSV.",
+        )
+        self.billing.record_usage(db, workspace_id=workspace_id, metric_key="exports_per_month")
+        return csv_payload
 
     def export_leads_csv(
         self,

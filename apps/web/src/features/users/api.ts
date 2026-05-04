@@ -3,6 +3,7 @@ import type {
   UserCreateRequest,
   UserDetailResponse,
   UserListResponse,
+  UserOption,
   UserPasswordResetRequest,
   UserUpdateRequest,
 } from "@/types/api";
@@ -16,7 +17,7 @@ export function getUser(userId: string) {
 }
 
 export function createUser(payload: UserCreateRequest) {
-  return request<UserDetailResponse | UserListResponse["items"][number]>("/api/v1/users", { method: "POST" }, payload);
+  return request<UserOption>("/api/v1/users", { method: "POST" }, payload);
 }
 
 export function updateUser(userId: string, payload: UserUpdateRequest) {

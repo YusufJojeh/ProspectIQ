@@ -7,6 +7,7 @@ export const appPaths = {
   searches: "/app/searches",
   leads: "/app/leads",
   aiAnalysis: "/app/ai-analysis",
+  assistant: "/app/assistant",
   outreach: "/app/outreach",
   admin: "/app/admin",
   auditLogs: "/app/audit-logs",

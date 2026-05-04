@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -18,7 +16,7 @@ from app.modules.auth.schemas import (
     SignupRequest,
     TokenResponse,
 )
-from app.modules.users.models import User, Workspace
+from app.modules.users.models import User
 from app.modules.users.repository import UsersRepository
 from app.modules.users.service import (
     ensure_default_roles,
@@ -56,11 +54,7 @@ class AuthService:
             )
             raise InactiveUserError()
 
-        user.last_login_at = datetime.now(tz=UTC)
-        user.updated_at = datetime.now(tz=UTC)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        user = self.repository.update_last_login(db, user)
 
         self.audit_logs.record(
             db,
@@ -73,7 +67,6 @@ class AuthService:
 
     def signup(self, db: Session, payload: SignupRequest) -> TokenResponse:
         from app.modules.billing.service import BillingService
-        from app.modules.provider_serpapi.models import ProviderSettings
 
         email = payload.email.lower()
         existing = self.repository.get_user_by_email(db, email)
@@ -87,52 +80,25 @@ class AuthService:
         if existing_workspace is not None:
             raise ConflictError("Workspace slug is already in use.")
 
-        workspace = Workspace(
-            name=payload.workspace_name.strip(),
+        user = self.repository.create_workspace_with_owner(
+            db,
+            workspace_name=payload.workspace_name.strip(),
             slug=slug,
-            status="active",
-            settings_json={"locale": "en-US", "theme": "dark"},
-        )
-        db.add(workspace)
-        db.flush()
-
-        user = User(
-            workspace_id=workspace.id,
             email=email,
             full_name=payload.full_name.strip(),
             hashed_password=ensure_hashed_password(payload.password),
-            role="account_owner",
-            status="active",
-            last_login_at=datetime.now(tz=UTC),
         )
-        db.add(user)
-        db.flush()
-
-        workspace.owner_user_id = user.id
-        workspace.updated_at = datetime.now(tz=UTC)
-        db.add(
-            ProviderSettings(
-                workspace_id=workspace.id,
-                hl="en",
-                gl="us",
-                google_domain="google.com",
-                enrich_top_n=20,
-            )
-        )
-        db.commit()
-        db.refresh(user)
-        db.refresh(workspace)
 
         billing = BillingService()
         billing.ensure_seed_data(db)
-        billing.bootstrap_workspace_subscription(db, workspace=workspace, actor_user_id=user.id)
+        billing.bootstrap_workspace_subscription(db, workspace=user.workspace, actor_user_id=user.id)
 
         self.audit_logs.record(
             db,
-            workspace_id=workspace.id,
+            workspace_id=user.workspace_id,
             actor_user_id=user.id,
             event_name="auth.signup",
-            details=f"Created workspace {workspace.public_id} with owner {user.public_id}.",
+            details=f"Created workspace {user.workspace.public_id} with owner {user.public_id}.",
         )
         return self._issue_token(user)
 

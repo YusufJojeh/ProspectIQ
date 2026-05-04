@@ -86,7 +86,7 @@ function getActiveSession(): AuthSession | null {
   return session;
 }
 
-function buildRequestUrl(path: string): string {
+export function buildRequestUrl(path: string): string {
   return env.VITE_API_BASE_URL ? `${env.VITE_API_BASE_URL}${path}` : path;
 }
 

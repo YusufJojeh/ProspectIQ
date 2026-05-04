@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Literal
 
@@ -30,7 +31,7 @@ class UserProfile(BaseModel):
     status: UserStatus
     avatar_url: str | None = None
     job_title: str | None = None
-    permissions: list[str] = Field(default_factory=list)
+    permissions: Sequence[str] = Field(default_factory=list)
 
 
 class UserOption(BaseModel):

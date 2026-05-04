@@ -87,9 +87,16 @@ export function AiAnalysisPage() {
         title="Evidence-grounded recommendations"
         description="Every recommendation cites the verified facts behind it. No hallucinated signals, no opaque scoring."
         actions={
-          <Button size="sm">
-            <Zap className="size-3.5" /> Run batch analysis
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="bg-transparent" asChild>
+              <Link to={appPaths.assistant}>
+                <Sparkles className="size-3.5" /> Open assistant
+              </Link>
+            </Button>
+            <Button size="sm">
+              <Zap className="size-3.5" /> Run batch analysis
+            </Button>
+          </div>
         }
       />
 
@@ -256,6 +263,9 @@ export function AiAnalysisPage() {
                     <Link to={appPaths.leadDetail(lead.public_id)}>
                       <TrendingUp className="size-3.5" /> Open lead
                     </Link>
+                  </Button>
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link to={`${appPaths.assistant}?leadId=${lead.public_id}`}>Ask assistant</Link>
                   </Button>
                 </div>
               </article>

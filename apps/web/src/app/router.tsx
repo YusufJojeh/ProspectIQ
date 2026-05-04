@@ -58,6 +58,10 @@ const AiAnalysisPage = lazy(async () => {
   const module = await import("@/features/ai-analysis/routes/ai-analysis-page");
   return { default: module.AiAnalysisPage };
 });
+const AssistantPage = lazy(async () => {
+  const module = await import("@/features/assistant/routes/assistant-page");
+  return { default: module.AssistantPage };
+});
 const AuditLogsPage = lazy(async () => {
   const module = await import("@/features/audit-logs/routes/audit-logs-page");
   return { default: module.AuditLogsPage };
@@ -228,6 +232,14 @@ const router = createBrowserRouter([
         }),
       },
       {
+        path: "assistant",
+        element: lazyPage(AssistantPage, {
+          title: "Loading AI assistant",
+          description: "Preparing the streaming lead-aware assistant workspace.",
+          compact: true,
+        }),
+      },
+      {
         path: "outreach",
         element: lazyPage(OutreachPage, {
           title: "Loading outreach workspace",
@@ -236,18 +248,42 @@ const router = createBrowserRouter([
         }),
       },
       {
-        path: "audit-logs",
-        element: lazyPage(AuditLogsPage, {
-          title: "Loading audit logs",
-          description: "Fetching tamper-evident event history.",
-          compact: true,
-        }),
-      },
-      {
         path: "exports",
         element: lazyPage(ExportsPage, {
           title: "Loading exports",
           description: "Preparing lead export workspace.",
+          compact: true,
+        }),
+      },
+      {
+        path: "team",
+        element: lazyPage(TeamPage, {
+          title: "Loading team",
+          description: "Preparing workspace team members and access controls.",
+          compact: true,
+        }),
+      },
+      {
+        path: "billing",
+        element: lazyPage(BillingPage, {
+          title: "Loading billing",
+          description: "Preparing subscription controls and simulated billing records.",
+          compact: true,
+        }),
+      },
+      {
+        path: "invoices",
+        element: lazyPage(InvoicesPage, {
+          title: "Loading invoices",
+          description: "Preparing invoice history and payment simulation actions.",
+          compact: true,
+        }),
+      },
+      {
+        path: "usage",
+        element: lazyPage(UsagePage, {
+          title: "Loading usage",
+          description: "Preparing current plan limits and usage counters.",
           compact: true,
         }),
       },
@@ -271,34 +307,10 @@ const router = createBrowserRouter([
             }),
           },
           {
-            path: "team",
-            element: lazyPage(TeamPage, {
-              title: "Loading team",
-              description: "Preparing workspace team members and access controls.",
-              compact: true,
-            }),
-          },
-          {
-            path: "billing",
-            element: lazyPage(BillingPage, {
-              title: "Loading billing",
-              description: "Preparing subscription controls and simulated billing records.",
-              compact: true,
-            }),
-          },
-          {
-            path: "invoices",
-            element: lazyPage(InvoicesPage, {
-              title: "Loading invoices",
-              description: "Preparing invoice history and payment simulation actions.",
-              compact: true,
-            }),
-          },
-          {
-            path: "usage",
-            element: lazyPage(UsagePage, {
-              title: "Loading usage",
-              description: "Preparing current plan limits and usage counters.",
+            path: "audit-logs",
+            element: lazyPage(AuditLogsPage, {
+              title: "Loading audit logs",
+              description: "Fetching tamper-evident event history.",
               compact: true,
             }),
           },

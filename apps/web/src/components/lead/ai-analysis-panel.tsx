@@ -1,18 +1,23 @@
 import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
+import { appPaths } from "@/app/paths";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
+import { MessageResponse } from "@/components/ai-elements/message";
 import { formatDate } from "@/lib/presenters";
 import type { LeadAnalysisSnapshotResponse } from "@/types/api";
 
 export function LeadAiAnalysisPanel({
   snapshot,
   onGenerate,
+  leadId,
   generating,
   error,
 }: {
   snapshot: LeadAnalysisSnapshotResponse | null;
   onGenerate: () => void;
+  leadId: string;
   generating?: boolean;
   error?: string | null;
 }) {
@@ -32,6 +37,11 @@ export function LeadAiAnalysisPanel({
       </header>
 
       <div className="space-y-4 p-4">
+        <div className="flex justify-end">
+          <Button asChild size="sm" variant="outline" className="bg-transparent">
+            <Link to={`${appPaths.assistant}?leadId=${leadId}`}>Ask assistant about this lead</Link>
+          </Button>
+        </div>
         {error ? <QueryStateNotice tone="error" title="Analysis unavailable" description={error} /> : null}
         {snapshot ? (
           <>
@@ -43,7 +53,9 @@ export function LeadAiAnalysisPanel({
             </div>
 
             <div className="rounded-xl border border-border bg-muted/20 p-4">
-              <p className="text-sm leading-7 text-muted-foreground">{snapshot.analysis.summary}</p>
+              <MessageResponse className="ai-markdown text-sm leading-7 text-muted-foreground">
+                {snapshot.analysis.summary}
+              </MessageResponse>
             </div>
 
             <InfoList
@@ -99,7 +111,11 @@ function InfoList({
       </div>
       <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
         {items.map((item) => (
-          <li key={item}>{item}</li>
+          <li key={item}>
+            <MessageResponse className="ai-markdown text-sm leading-6 text-muted-foreground">
+              {item}
+            </MessageResponse>
+          </li>
         ))}
       </ul>
     </div>
