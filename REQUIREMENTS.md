@@ -1,6 +1,28 @@
 # Local development requirements (ProspectIQ)
 
-Use this checklist when you clone or copy the project onto a new laptop so the stack runs the same way as on your main machine.
+Use this checklist when you **clone from Git**, **copy from a USB flash drive**, or otherwise move the project onto a new laptop so the stack runs the same way as on your main machine.
+
+## Copying via USB flash drive
+
+Flash copy is fine; treat the stick as **untrusted storage** if it ever held a real `apps/api/.env` with production or personal API keys (rotate those secrets after setup if you are unsure).
+
+**On the source PC (before ejecting the drive)**
+
+1. Copy the **entire** `ProspectIQ` project folder to the stick, or zip it and copy the archive (often faster and fewer “path too long” issues on Windows).
+2. Optional but recommended: include the **`.git`** folder so the other laptop can run `git pull` later. In File Explorer, turn on **View → Hidden items** so `.git` is visible; some drag-and-drop UIs skip hidden folders unless you zip the parent folder.
+3. To save space and avoid broken installs, you can **delete before copying** (they are recreated on the new machine):
+   - `apps/web/node_modules`
+   - `apps/api/.venv`
+   - `apps/web/dist`, `apps/web/.vite`
+   - `tmp/`, `output/`, `apps/web/test-artifacts/` if present
+4. Do **not** assume you need `apps/api/.env` or `apps/web/.env` on the stick for the app to work elsewhere: on the new PC, create them from `.env.example` (see below). If you do copy `.env` for convenience, handle the stick like a secret.
+
+**On the destination PC**
+
+1. Copy the folder off the stick to a normal path (for example `Desktop\ProspectIQ`), or extract the zip there.
+2. Install **Python 3.12**, **Node 22**, **Docker Desktop** (if you use the compose database), and **Git** (optional but useful if `.git` was included).
+3. Follow **New machine setup** from step 2 (Database) onward. Always run `pip install` and `npm install` on the new machine; do not reuse `node_modules` or `.venv` from another OS or CPU unless you know it is the same environment.
+4. If the repo **has no `.git`** folder, you still run the app the same way; to sync with GitHub later, clone fresh into a new folder or `git init` + add remote (advanced)—simplest is to clone from GitHub on that laptop and copy over only files you changed, or use a new zip after pushing from the first PC.
 
 ## Prerequisites
 
