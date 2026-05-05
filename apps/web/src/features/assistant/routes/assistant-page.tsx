@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -36,14 +37,9 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { buildRequestUrl, readToken } from "@/lib/api-client";
 import { formatScore } from "@/lib/presenters";
 
-const STARTER_PROMPTS = [
-  "Summarize the strongest evidence for this lead.",
-  "What is the clearest outreach angle from the stored signals?",
-  "Explain the main reasons behind this lead's current score.",
-];
-
 export function AssistantPage() {
-  useDocumentTitle("AI Assistant");
+  const { t } = useTranslation();
+  useDocumentTitle(t("nav.assistant"));
   const [searchParams] = useSearchParams();
   const leadId = searchParams.get("leadId") ?? "";
   const [input, setInput] = useState("");
@@ -68,6 +64,12 @@ export function AssistantPage() {
   const lead = leadQuery.data;
   const isStreaming = status === "submitted" || status === "streaming";
 
+  const starterPrompts = [
+    t("assistant.starterPrompt1"),
+    t("assistant.starterPrompt2"),
+    t("assistant.starterPrompt3"),
+  ];
+
   const submitPrompt = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isStreaming) {
@@ -85,13 +87,13 @@ export function AssistantPage() {
   return (
     <div className="grid gap-4 p-3 sm:p-4 lg:p-6">
       <PageHeader
-        eyebrow="AI assistant"
-        title="Lead-aware conversational workspace"
-        description="Ask follow-up questions against stored lead evidence, current deterministic scoring, and the latest assistive analysis."
+        eyebrow={t("assistant.eyebrow")}
+        title={t("assistant.title")}
+        description={t("assistant.description")}
         actions={
           <Button variant="outline" className="bg-transparent" onClick={() => setMessages([])}>
             <MessageSquareText className="size-3.5" />
-            Clear thread
+            {t("assistant.clearThread")}
           </Button>
         }
       />
@@ -99,62 +101,60 @@ export function AssistantPage() {
       <div className="grid gap-4 xl:grid-cols-[0.78fr_1.22fr]">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Grounding context</CardTitle>
-            <CardDescription>
-              The assistant stays tenant-scoped and only answers from stored facts and the active lead context.
-            </CardDescription>
+            <CardTitle>{t("assistant.groundingContext")}</CardTitle>
+            <CardDescription>{t("assistant.groundingContextDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {leadId ? (
               leadQuery.isPending ? (
                 <QueryStateNotice
                   tone="loading"
-                  title="Loading lead context"
-                  description="Fetching the active lead record for grounded assistant replies."
+                  title={t("assistant.loadingContext")}
+                  description={t("assistant.loadingContextDescription")}
                 />
               ) : leadQuery.isError ? (
                 <QueryStateNotice
                   tone="error"
-                  title="Lead context unavailable"
-                  description={leadQuery.error.message}
+                  title={t("assistant.contextUnavailable")}
+                  error={leadQuery.error}
                 />
               ) : lead ? (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <AiPill>Lead context attached</AiPill>
+                    <AiPill>{t("assistant.contextAttached")}</AiPill>
                     <ConfidenceBadge value={lead.data_confidence} />
                   </div>
 
                   <div>
                     <div className="text-lg font-semibold">{lead.company_name}</div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {lead.category ?? "Business"} · {lead.city ?? "Unknown city"}
+                      {lead.category ?? t("common.unknown")} · {lead.city ?? t("common.unknown")}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <ContextMetric label="Score" value={formatScore(lead.latest_score)} />
-                    <ContextMetric label="Band" value={lead.latest_band ?? "unscored"} />
-                    <ContextMetric label="Reviews" value={String(lead.review_count)} />
-                    <ContextMetric label="Website" value={lead.website_domain ?? "missing"} />
+                    <ContextMetric label={t("leads.score")} value={formatScore(lead.latest_score)} />
+                    <ContextMetric label={t("leads.band")} value={lead.latest_band ?? t("leads.unscored")} />
+                    <ContextMetric label={t("leads.reviews")} value={String(lead.review_count)} />
+                    <ContextMetric label={t("leads.website")} value={lead.website_domain ?? t("leads.noWebsite")} />
                   </div>
                 </div>
               ) : null
             ) : (
               <QueryStateNotice
                 tone="info"
-                title="No lead selected"
-                description="Open this assistant from a lead detail page to attach score and evidence context automatically."
+                title={t("assistant.noLeadSelected")}
+                description={t("assistant.noLeadSelectedDescription")}
               />
             )}
 
             <div className="rounded-2xl border border-border bg-muted/20 p-4">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Sparkles className="size-4 text-[oklch(var(--signal))]" />
-                Suggested prompts
+                {t("assistant.suggestedPrompts")}
               </div>
               <div className="mt-3 flex flex-col gap-2">
-                {STARTER_PROMPTS.map((prompt) => (
+                {starterPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
@@ -173,16 +173,14 @@ export function AssistantPage() {
 
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Conversation</CardTitle>
-            <CardDescription>
-              Streaming markdown responses rendered through AI Elements.
-            </CardDescription>
+            <CardTitle>{t("assistant.conversation")}</CardTitle>
+            <CardDescription>{t("assistant.conversationDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="flex min-h-[620px] flex-col">
             {error ? (
               <QueryStateNotice
                 tone="error"
-                title="Assistant reply failed"
+                title={t("assistant.replyFailed")}
                 description={error.message}
               />
             ) : null}
@@ -192,11 +190,11 @@ export function AssistantPage() {
                 {messages.length === 0 ? (
                   <ConversationEmptyState
                     icon={<Bot className="size-5" />}
-                    title="No assistant replies yet"
+                    title={t("assistant.noRepliesYet")}
                     description={
                       leadId
-                        ? "Ask about score drivers, risks, or outreach angles for the attached lead."
-                        : "Attach a lead context or start with a general workspace question."
+                        ? t("assistant.noRepliesWithLead")
+                        : t("assistant.noRepliesWorkspace")
                     }
                   />
                 ) : (
@@ -236,8 +234,8 @@ export function AssistantPage() {
                   onChange={(event) => setInput(event.currentTarget.value)}
                   placeholder={
                     leadId
-                      ? "Ask about this lead's score, evidence, or outreach strategy..."
-                      : "Ask about your workspace or attach lead context from a detail page..."
+                      ? t("assistant.placeholderWithLead")
+                      : t("assistant.placeholderWorkspace")
                   }
                 />
               </PromptInputBody>
@@ -245,7 +243,7 @@ export function AssistantPage() {
                 <PromptInputTools>
                   <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
                     <CornerDownRight className="size-3" />
-                    {leadId ? "Lead-scoped assistant" : "Workspace-scoped assistant"}
+                    {leadId ? t("assistant.scopeLabel") : t("assistant.scopeLabelWorkspace")}
                   </div>
                 </PromptInputTools>
                 <PromptInputSubmit

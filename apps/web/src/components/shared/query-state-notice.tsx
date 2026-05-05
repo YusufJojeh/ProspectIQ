@@ -1,10 +1,16 @@
 import { AlertCircle, CheckCircle2, Info, LoaderCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import { resolveErrorMessage } from "@/lib/error-messages";
+import type { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 type QueryStateNoticeProps = {
   title: string;
-  description: string;
+  /** The message to display. Accepts a plain string, an ApiError, or any Error. */
+  description?: string | ApiError | Error | null;
+  /** Alias for description — pass an error object directly. */
+  error?: ApiError | Error | null;
   tone?: "loading" | "error" | "info" | "success";
   className?: string;
 };
@@ -36,10 +42,20 @@ const toneStyles = {
 export function QueryStateNotice({
   title,
   description,
+  error,
   tone = "info",
   className,
 }: QueryStateNoticeProps) {
+  const { t } = useTranslation();
   const Icon = toneStyles[tone].icon;
+
+  // Prefer description; fall back to error prop; fall back to generic message
+  const effectiveDescription = description ?? error ?? null;
+  const resolvedDescription = typeof effectiveDescription === "string"
+    ? effectiveDescription
+    : effectiveDescription
+      ? resolveErrorMessage(effectiveDescription, t)
+      : t("errors.generic");
 
   return (
     <div
@@ -59,7 +75,7 @@ export function QueryStateNotice({
           {tone}
         </Badge>
         <p className="text-sm font-semibold">{title}</p>
-        <p className="text-sm leading-6 text-[color:var(--muted)]">{description}</p>
+        <p className="text-sm leading-6 text-[color:var(--muted)]">{resolvedDescription}</p>
       </div>
     </div>
   );

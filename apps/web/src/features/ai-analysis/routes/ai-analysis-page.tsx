@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Sparkles,
   Zap,
@@ -35,7 +36,8 @@ function leadKind(lead: LeadResponse): Exclude<Filter, "all"> {
 }
 
 export function AiAnalysisPage() {
-  useDocumentTitle("AI Analysis");
+  const { t } = useTranslation();
+  useDocumentTitle(t("ai.title"));
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
 
@@ -71,12 +73,12 @@ export function AiAnalysisPage() {
     leads.length > 0 ? leads.reduce((sum, l) => sum + l.data_confidence, 0) / leads.length : 0;
 
   if (leadsQuery.isPending) {
-    return <QueryStateNotice tone="loading" title="Loading AI analysis" description="Fetching lead intelligence…" />;
+    return <QueryStateNotice tone="loading" title={t("ai.title")} description={t("ai.generating")} />;
   }
 
   if (leadsQuery.isError) {
     return (
-      <QueryStateNotice tone="error" title="Could not load leads" description={leadsQuery.error.message} />
+      <QueryStateNotice tone="error" title={t("leadDetail.couldNotLoadLeads")} error={leadsQuery.error} />
     );
   }
 
@@ -104,30 +106,30 @@ export function AiAnalysisPage() {
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
-              k: "Leads analyzed",
+              k: t("ai.leadsAnalyzed"),
               v: String(scored.length),
-              sub: `${counts.recommend} recommended`,
+              sub: t("ai.recommendedCount", { count: counts.recommend }),
               tone: "evidence",
               icon: Sparkles,
             },
             {
-              k: "Avg. confidence",
+              k: t("ai.avgConfidence"),
               v: `${Math.round(avgConfidence * 100)}%`,
-              sub: "across all leads",
+              sub: t("ai.acrossAllLeads"),
               tone: "signal",
               icon: ShieldCheck,
             },
             {
-              k: "Recommend outreach",
+              k: t("ai.recommendOutreach"),
               v: String(counts.recommend),
-              sub: "high-band qualified",
+              sub: t("ai.highBandQualified"),
               tone: "signal",
               icon: Target,
             },
             {
-              k: "Needs attention",
+              k: t("ai.needsAttention"),
               v: String(counts.attention),
-              sub: "low signal strength",
+              sub: t("ai.lowSignalStrength"),
               tone: "caution",
               icon: AlertTriangle,
             },
@@ -146,24 +148,24 @@ export function AiAnalysisPage() {
         <section className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/50 p-2">
           {(
             [
-              { id: "all", label: "All", count: counts.all },
-              { id: "recommend", label: "Recommended", count: counts.recommend },
-              { id: "watch", label: "Watch", count: counts.watch },
-              { id: "attention", label: "Attention", count: counts.attention },
+              { id: "all", label: t("ai.filterAll"), count: counts.all },
+              { id: "recommend", label: t("ai.filterRecommended"), count: counts.recommend },
+              { id: "watch", label: t("ai.filterWatch"), count: counts.watch },
+              { id: "attention", label: t("ai.filterAttention"), count: counts.attention },
             ] as const
-          ).map((t) => (
+          ).map((tab) => (
             <button
-              key={t.id}
-              onClick={() => setFilter(t.id)}
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
               className={cn(
                 "flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12px] transition",
-                filter === t.id
+                filter === tab.id
                   ? "border-[oklch(var(--signal)/0.5)] bg-[oklch(var(--signal)/0.1)] text-foreground"
                   : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
               )}
             >
-              {t.label}
-              <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">{t.count}</span>
+              {tab.label}
+              <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">{tab.count}</span>
             </button>
           ))}
           <div className="relative w-full md:ml-auto md:w-64">
@@ -171,7 +173,7 @@ export function AiAnalysisPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search companies…"
+              placeholder={t("ai.searchLeads")}
               className="h-8 bg-background pl-8 text-[12.5px]"
             />
           </div>
@@ -276,15 +278,15 @@ export function AiAnalysisPage() {
         {visible.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card/40 py-16 text-center">
             <Sparkles className="size-5 text-muted-foreground" />
-            <div className="text-sm font-medium">No recommendations match your filters</div>
-            <div className="text-xs text-muted-foreground">Try another segment or clear your search.</div>
+            <div className="text-sm font-medium">{t("ai.noRecommendationsMatch")}</div>
+            <div className="text-xs text-muted-foreground">{t("ai.noRecommendationsHint")}</div>
           </div>
         )}
 
         {visible.length > 0 && (
           <div className="flex items-center justify-center gap-2 pt-2 text-[11.5px] text-muted-foreground">
             <span>
-              Showing {visible.length} of {scored.length}
+              {t("ai.showing", { visible: visible.length, total: scored.length })}
             </span>
             <ArrowRight className="size-3" />
           </div>

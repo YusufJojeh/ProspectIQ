@@ -1,768 +1,890 @@
 {
-  "common": {
-    "save": "حفظ",
-    "cancel": "إلغاء",
-    "create": "إنشاء",
-    "update": "تحديث",
-    "delete": "حذف",
-    "confirm": "تأكيد",
-    "close": "إغلاق",
-    "back": "رجوع",
-    "next": "التالي",
-    "loading": "جارٍ التحميل...",
-    "noData": "لا توجد بيانات",
-    "error": "حدث خطأ ما",
-    "retry": "إعادة المحاولة",
-    "search": "بحث",
-    "filter": "تصفية",
-    "export": "تصدير",
-    "generate": "إنشاء",
-    "refresh": "تحديث",
-    "copy": "نسخ",
-    "edit": "تعديل",
-    "view": "عرض",
-    "assign": "تعيين",
-    "submit": "إرسال",
-    "actions": "الإجراءات",
-    "status": "الحالة",
-    "score": "الدرجة",
-    "date": "التاريخ",
-    "name": "الاسم",
-    "email": "البريد الإلكتروني",
-    "role": "الدور",
-    "all": "الكل",
-    "yes": "نعم",
-    "no": "لا",
-    "optional": "اختياري",
-    "required": "مطلوب",
-    "active": "نشط",
-    "inactive": "غير نشط",
-    "enabled": "مفعّل",
-    "disabled": "معطّل",
-    "none": "لا شيء",
-    "unknown": "غير معروف",
-    "version": "الإصدار",
-    "activate": "تفعيل",
-    "deactivate": "تعطيل",
-    "reset": "إعادة تعيين",
-    "download": "تنزيل",
-    "workspace": "مساحة العمل",
-    "system": "النظام"
-  },
-  "language": {
-    "switch": "تغيير اللغة",
-    "en": "الإنجليزية",
-    "ar": "العربية"
-  },
-  "theme": {
-    "switch": "تغيير المظهر",
-    "light": "فاتح",
-    "dark": "داكن",
-    "system": "النظام"
-  },
-  "command": {
-    "placeholder": "ابحث في العملاء والمهام والأدلة أو نفّذ إجراءً...",
-    "noResults": "لا توجد نتائج. جرّب استعلامًا مختلفًا.",
-    "quickActions": "إجراءات سريعة",
-    "navigate": "التنقّل",
-    "newSearchJob": "مهمة بحث جديدة",
-    "runAiAnalysis": "تشغيل تحليل الذكاء الاصطناعي على العرض الحالي",
-    "exportSelection": "تصدير التحديد إلى CSV"
-  },
-  "nav": {
-    "dashboard": "لوحة التحكم",
-    "searches": "مهام البحث",
-    "leads": "العملاء المحتملون",
-    "aiAnalysis": "تحليل الذكاء الاصطناعي",
-    "assistant": "المساعد الذكي",
-    "outreach": "مسودات التواصل",
-    "admin": "الإدارة",
-    "team": "الفريق",
-    "billing": "الفوترة",
-    "invoices": "الفواتير",
-    "usage": "الاستخدام",
-    "auditLogs": "سجلات التدقيق",
-    "exports": "التصديرات",
-    "settings": "الإعدادات",
-    "operate": "التشغيل",
-    "govern": "الحوكمة"
-  },
-  "topbar": {
-    "searchPlaceholder": "ابحث في العملاء والمهام والأدلة...",
-    "newSearch": "بحث جديد",
-    "aiAnalysis": "تحليل الذكاء الاصطناعي",
-    "assistant": "المساعد",
-    "notifications": "الإشعارات",
-    "operationalEvents": "الأحداث التشغيلية",
-    "profilePreferences": "الملف الشخصي والتفضيلات",
-    "teamManagement": "إدارة الفريق",
-    "billingPlans": "الفوترة والخطط",
-    "signOut": "تسجيل الخروج",
-    "discoveryActive": "مرحلة إثراء مهمة الاكتشاف قيد التشغيل",
-    "discoveryActiveTime": "منذ دقيقتين",
-    "scoringUpdated": "تم تحديث أوزان التقييم إلى v12",
-    "scoringUpdatedTime": "منذ ساعة / review_velocity +0.05"
-  },
-  "auth": {
-    "signIn": "تسجيل الدخول",
-    "signUp": "طلب الوصول",
-    "signOut": "تسجيل الخروج",
-    "signingIn": "جارٍ تسجيل الدخول...",
-    "openWorkspace": "فتح مساحة العمل",
-    "signInTitle": "سجّل الدخول إلى مساحة عمل LeadScope",
-    "signInSubtitle": "استخدم بريد العمل وكلمة المرور للوصول إلى مساحة عملك.",
-    "signUpTitle": "أنشئ مساحة عمل LeadScope",
-    "signUpSubtitle": "ابدأ اكتشاف العملاء وتأهيلهم باستخدام تقييم قائم على الأدلة.",
-    "forgotPasswordTitle": "إعادة تعيين كلمة المرور",
-    "forgotPasswordSubtitle": "أدخل بريد العمل وسنرسل لك رابط إعادة التعيين.",
-    "workEmail": "بريد العمل",
-    "password": "كلمة المرور",
-    "fullName": "الاسم الكامل",
-    "workspaceName": "اسم مساحة العمل",
-    "forgotPassword": "هل نسيت كلمة المرور؟",
-    "noAccount": "ليس لديك حساب؟",
-    "haveAccount": "لديك حساب بالفعل؟",
-    "signInFailed": "فشل تسجيل الدخول",
-    "signUpFailed": "تعذر إنشاء مساحة العمل",
-    "sendResetLink": "إرسال رابط إعادة التعيين",
-    "sending": "جارٍ الإرسال...",
-    "resetLinkSent": "تم إرسال رابط إعادة التعيين",
-    "signInEyebrow": "تسجيل دخول مساحة العمل",
-    "signUpEyebrow": "إنشاء مساحة عمل",
-    "forgotPasswordEyebrow": "إعادة تعيين كلمة المرور",
-    "emailPlaceholder": "you@company.com",
-    "namePlaceholder": "Avery North",
-    "workspacePlaceholder": "Northbeam Analytics",
-    "workspaceEmailPlaceholder": "avery@northbeam.com",
-    "passwordPlaceholder": "12 حرفًا على الأقل",
-    "confirmPasswordPlaceholder": "أعد إدخال كلمة المرور",
-    "starterTrialTitle": "تجربة خطة Starter",
-    "starterTrialDescription": "ينشئ هذا المسار مساحة عمل حقيقية وحساب مالك، ثم يفعّل تجربة Starter تجريبية لأغراض الفوترة الداخلية فقط.",
-    "resetPendingDescription": "واجهة إعادة التعيين غير مفعّلة بعد، لكن تدفق المصادقة جاهز لها.",
-    "passwordsMustMatch": "يجب أن تتطابق كلمتا المرور."
-  },
-  "dashboard": {
-    "title": "لوحة التحكم",
-    "subtitle": "نظرة عامة مباشرة على مساحة العمل",
-    "totalLeads": "إجمالي العملاء",
-    "qualifiedLeads": "العملاء المؤهلون",
-    "activeJobs": "المهام النشطة",
-    "avgScore": "متوسط الدرجة",
-    "highBand": "الشريحة العليا",
-    "mediumBand": "الشريحة المتوسطة",
-    "lowBand": "الشريحة المنخفضة",
-    "unscored": "غير مقيّم",
-    "recentActivity": "النشاط الأخير",
-    "scoreDistribution": "توزيع الدرجات",
-    "jobThroughput": "معدل إنجاز المهام",
-    "cityCoverage": "التغطية الجغرافية",
-    "discovered": "تم اكتشافه",
-    "qualified": "مؤهل",
-    "noLeadsYet": "لا يوجد عملاء بعد",
-    "noLeadsDescription": "ابدأ مهمة بحث لاكتشاف العملاء وتقييمهم.",
-    "startSearch": "بدء بحث",
-    "leads": "عميل",
-    "jobs": "مهمة"
-  },
-  "leads": {
-    "title": "العملاء المحتملون",
-    "subtitle": "إدارة العملاء المكتشفين وتأهيلهم",
-    "table": "جدول",
-    "cards": "بطاقات",
-    "map": "خريطة",
-    "search": "ابحث في العملاء...",
-    "filterBy": "تصفية حسب",
-    "sortBy": "ترتيب حسب",
-    "status": "الحالة",
-    "band": "شريحة التقييم",
-    "city": "المدينة",
-    "category": "الفئة",
-    "hasWebsite": "لديه موقع إلكتروني",
-    "qualified": "مؤهل",
-    "assignedTo": "مُعيّن إلى",
-    "scoreRange": "نطاق الدرجة",
-    "companyName": "اسم الشركة",
-    "address": "العنوان",
-    "phone": "الهاتف",
-    "website": "الموقع الإلكتروني",
-    "rating": "التقييم",
-    "reviews": "المراجعات",
-    "score": "الدرجة",
-    "confidence": "الثقة",
-    "assignee": "المسؤول",
-    "lastUpdated": "آخر تحديث",
-    "noLeads": "لم يتم العثور على عملاء",
-    "noLeadsFiltered": "لا يوجد عملاء يطابقون الفلاتر الحالية.",
-    "clearFilters": "مسح الفلاتر",
-    "selectLead": "اختر عميلاً لعرض التفاصيل",
-    "updateStatus": "تحديث الحالة",
-    "assignLead": "تعيين العميل",
-    "generateAnalysis": "إنشاء تحليل",
-    "generateOutreach": "إنشاء رسالة تواصل",
-    "refreshLead": "تحديث بيانات العميل",
-    "addNote": "إضافة ملاحظة",
-    "outreachReady": "جاهز للتواصل",
-    "needsReview": "يحتاج إلى مراجعة",
-    "statusNew": "جديد",
-    "statusContacted": "تم التواصل",
-    "statusQualified": "مؤهل",
-    "statusDisqualified": "غير مؤهل",
-    "statusArchived": "مؤرشف",
-    "exportCsv": "تصدير CSV",
-    "exportingCsv": "جارٍ التصدير...",
-    "generating": "جارٍ الإنشاء...",
-    "refreshing": "جارٍ التحديث...",
-    "noWebsite": "لم يتم اكتشاف موقع إلكتروني",
-    "locationUnavailable": "الموقع غير متاح",
-    "unscored": "غير مقيّم",
-    "evidence": "الأدلة",
-    "scoreBreakdown": "تفصيل الدرجة",
-    "activity": "النشاط"
-  },
-  "searches": {
-    "title": "مهام البحث",
-    "subtitle": "اكتشف عملاء جددًا عبر عمليات بحث مدعومة بـ SerpAPI",
-    "newSearch": "بحث جديد",
-    "businessType": "نوع النشاط",
-    "businessTypePlaceholder": "مثلاً: عيادة أسنان، مكتب محاماة، مطعم...",
-    "city": "المدينة",
-    "cityPlaceholder": "مثلاً: نيويورك، لندن، دبي...",
-    "region": "المنطقة / الولاية",
-    "regionPlaceholder": "مثلاً: نيويورك، كاليفورنيا...",
-    "radiusKm": "نطاق البحث (كم)",
-    "maxResults": "الحد الأقصى للنتائج",
-    "minRating": "الحد الأدنى للتقييم",
-    "maxRating": "الحد الأعلى للتقييم",
-    "minReviews": "الحد الأدنى للمراجعات",
-    "maxReviews": "الحد الأعلى للمراجعات",
-    "keywordFilter": "فلتر الكلمات المفتاحية",
-    "keywordFilterPlaceholder": "مثلاً: مفتوح الآن، توصيل...",
-    "websitePreference": "تفضيل الموقع الإلكتروني",
-    "websiteAny": "الكل",
-    "websiteRequired": "مع موقع",
-    "websiteNone": "بدون موقع",
-    "startSearch": "بدء البحث",
-    "starting": "جارٍ البدء...",
-    "status": "الحالة",
-    "statusQueued": "في الانتظار",
-    "statusRunning": "قيد التشغيل",
-    "statusCompleted": "مكتمل",
-    "statusFailed": "فشل",
-    "statusPartial": "جزئي",
-    "created": "تاريخ الإنشاء",
-    "completed": "تاريخ الاكتمال",
-    "candidates": "المرشحون",
-    "leadsUpserted": "العملاء",
-    "enriched": "المُثرى",
-    "noJobs": "لا توجد مهام بحث بعد",
-    "noJobsDescription": "أنشئ أول عملية بحث لبدء اكتشاف العملاء.",
-    "jobDetails": "تفاصيل المهمة",
-    "viewLeads": "عرض العملاء",
-    "discoveryRuntime": "المدة",
-    "errorCount": "الأخطاء"
-  },
-  "outreach": {
-    "title": "مسودات التواصل",
-    "subtitle": "رسائل تواصل مولدة بالذكاء الاصطناعي للعملاء المؤهلين",
-    "toneLabel": "الأسلوب",
-    "toneFormal": "رسمي",
-    "toneFriendly": "ودّي",
-    "toneConsultative": "استشاري",
-    "toneShortPitch": "عرض مختصر",
-    "generate": "إنشاء",
-    "regenerate": "إعادة الإنشاء",
-    "generating": "جارٍ الإنشاء...",
-    "copyDraft": "نسخ المسودة",
-    "copied": "تم النسخ!",
-    "noDraft": "لا توجد مسودة بعد",
-    "generateFirst": "اختر أسلوبًا ثم اضغط على إنشاء لصياغة رسالة تواصل.",
-    "noLeads": "لا يوجد عملاء مؤهلون بعد",
-    "noLeadsDescription": "قم بتأهيل العملاء أولاً لإنشاء رسائل التواصل.",
-    "selectLead": "اختر عميلاً لإنشاء رسالة تواصل",
-    "draftFor": "مسودة لـ",
-    "totalDrafts": "إجمالي المسودات",
-    "avgLength": "متوسط الطول",
-    "tonesUsed": "الأساليب المستخدمة",
-    "latestDraft": "أحدث مسودة",
-    "chars": "حرف"
-  },
-  "ai": {
-    "title": "تحليل الذكاء الاصطناعي",
-    "subtitle": "تحليل تفصيلي مدعوم بالذكاء الاصطناعي لأهم العملاء",
-    "generateAnalysis": "إنشاء تحليل",
-    "generating": "جارٍ الإنشاء...",
-    "latestAnalysis": "أحدث تحليل",
-    "noAnalysis": "لا يوجد تحليل بعد",
-    "generateFirst": "اضغط على إنشاء تحليل لإعداد تقييم مدعوم بالذكاء الاصطناعي.",
-    "strengths": "نقاط القوة",
-    "weaknesses": "نقاط الضعف",
-    "opportunities": "الفرص",
-    "recommendation": "التوصية",
-    "filterBand": "تصفية حسب الشريحة",
-    "allBands": "كل الشرائح",
-    "highBand": "مرتفع",
-    "mediumBand": "متوسط",
-    "lowBand": "منخفض",
-    "noLeads": "لا يوجد عملاء للتحليل",
-    "searchLeads": "ابحث في العملاء..."
-  },
-  "billing": {
-    "title": "الفوترة",
-    "subtitle": "إدارة الاشتراك وتفاصيل الدفع",
-    "currentPlan": "الخطة الحالية",
-    "changePlan": "تغيير الخطة",
-    "cancelSubscription": "إلغاء الاشتراك",
-    "renewSubscription": "تجديد الاشتراك",
-    "invoices": "الفواتير",
-    "invoiceDate": "التاريخ",
-    "invoiceAmount": "المبلغ",
-    "invoiceStatus": "الحالة",
-    "invoiceDownload": "تنزيل",
-    "usage": "الاستخدام",
-    "usageCredits": "الأرصدة المستخدمة",
-    "usageLeads": "العملاء المكتشفون",
-    "usageJobs": "مهام البحث المنفذة",
-    "planFree": "مجاني",
-    "planStarter": "Starter",
-    "planGrowth": "Growth",
-    "planPro": "Pro",
-    "planEnterprise": "Enterprise",
-    "monthly": "شهري",
-    "annual": "سنوي",
-    "perMonth": "/شهر",
-    "perYear": "/سنة",
-    "mostPopular": "الأكثر شيوعًا",
-    "currentPlanBadge": "الخطة الحالية",
-    "upgradeNow": "الترقية الآن",
-    "downgradeConfirm": "تأكيد خفض الخطة",
-    "cancelConfirm": "إلغاء الاشتراك",
-    "cancelWarning": "سينتهي اشتراكك بنهاية دورة الفوترة الحالية.",
-    "statusActive": "نشط",
-    "statusCancelled": "ملغى",
-    "statusPastDue": "متأخر السداد",
-    "statusTrialing": "تجريبي",
-    "noPermission": "ليست لديك صلاحية إدارة الفوترة.",
-    "noInvoices": "لا توجد فواتير بعد"
-  },
-  "team": {
-    "title": "الفريق",
-    "subtitle": "إدارة أعضاء مساحة العمل وأدوارهم",
-    "inviteMember": "دعوة عضو",
-    "memberName": "الاسم",
-    "memberEmail": "البريد الإلكتروني",
-    "memberRole": "الدور",
-    "memberStatus": "الحالة",
-    "memberActions": "الإجراءات",
-    "resetPassword": "إعادة تعيين كلمة المرور",
-    "updateRole": "تحديث الدور",
-    "roleOwner": "مالك الحساب",
-    "roleAdmin": "مسؤول",
-    "roleManager": "مدير",
-    "roleMember": "عضو",
-    "statusActive": "نشط",
-    "statusInactive": "غير نشط",
-    "noMembers": "لا يوجد أعضاء فريق بعد",
-    "inviteFirst": "ادعُ أول عضو في فريقك.",
-    "noPermission": "ليست لديك صلاحية إدارة الفريق.",
-    "createMember": "إنشاء عضو",
-    "creating": "جارٍ الإنشاء...",
-    "passwordLabel": "كلمة المرور الجديدة",
-    "resetting": "جارٍ إعادة التعيين..."
-  },
-  "admin": {
-    "title": "الإدارة",
-    "subtitle": "إعدادات مساحة العمل والصحة التشغيلية",
-    "scoringConfig": "إعدادات التقييم",
-    "activeConfig": "الإعداد النشط",
-    "configVersions": "إصدارات الإعداد",
-    "createVersion": "إنشاء إصدار",
-    "activateVersion": "تفعيل",
-    "providerSettings": "إعدادات المزود",
-    "serpApiKey": "مفتاح SerpAPI",
-    "aiProvider": "مزود الذكاء الاصطناعي",
-    "promptTemplates": "قوالب التعليمات",
-    "createTemplate": "إنشاء قالب",
-    "activateTemplate": "تفعيل",
-    "operationalHealth": "الصحة التشغيلية",
-    "dbStatus": "قاعدة البيانات",
-    "workerStatus": "المعالجة الخلفية",
-    "healthy": "سليم",
-    "degraded": "متراجع",
-    "unhealthy": "غير سليم",
-    "workspaceSettings": "إعدادات مساحة العمل",
-    "workspaceName": "اسم مساحة العمل",
-    "workspaceSlug": "المعرف المختصر",
-    "saveSettings": "حفظ الإعدادات",
-    "saving": "جارٍ الحفظ..."
-  },
-  "settings": {
-    "title": "الإعدادات",
-    "subtitle": "ملفك الشخصي وتفضيلات مساحة العمل",
-    "profile": "الملف الشخصي",
-    "fullName": "الاسم الكامل",
-    "email": "البريد الإلكتروني",
-    "jobTitle": "المسمى الوظيفي",
-    "avatarUrl": "رابط الصورة الشخصية",
-    "saveProfile": "حفظ الملف الشخصي",
-    "saving": "جارٍ الحفظ...",
-    "changePassword": "تغيير كلمة المرور",
-    "currentPassword": "كلمة المرور الحالية",
-    "newPassword": "كلمة المرور الجديدة",
-    "confirmPassword": "تأكيد كلمة المرور",
-    "updatePassword": "تحديث كلمة المرور"
-  },
-  "audit": {
-    "title": "سجلات التدقيق",
-    "subtitle": "تتبع جميع الإجراءات والتغييرات داخل مساحة العمل",
-    "actor": "المنفّذ",
-    "action": "الإجراء",
-    "resource": "المورد",
-    "timestamp": "الوقت",
-    "details": "التفاصيل",
-    "noLogs": "لا توجد سجلات تدقيق بعد",
-    "noLogsDescription": "ستظهر هنا جميع الإجراءات التي تتم داخل مساحة العمل.",
-    "filterAction": "تصفية حسب الإجراء",
-    "allActions": "كل الإجراءات"
-  },
-  "exports": {
-    "title": "التصديرات",
-    "subtitle": "نزّل بيانات العملاء بصيغة CSV",
-    "exportLeads": "تصدير العملاء",
-    "exporting": "جارٍ التصدير...",
-    "preview": "معاينة",
-    "filterBand": "شريحة الدرجة",
-    "filterStatus": "الحالة",
-    "allBands": "كل الشرائح",
-    "allStatuses": "كل الحالات",
-    "noLeads": "لا يوجد عملاء للتصدير",
-    "downloadCsv": "تنزيل CSV",
-    "previewRows": "عرض صفوف المعاينة"
-  },
-  "errors": {
-    "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
-    "network": "خطأ في الشبكة. تحقق من اتصالك.",
-    "unauthorized": "ليست لديك صلاحية تنفيذ هذا الإجراء.",
-    "notFound": "المورد المطلوب غير موجود.",
-    "validation": "يرجى التحقق من أخطاء النموذج.",
-    "sessionExpired": "انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجددًا."
-  },
-  "empty": {
-    "noResults": "لا توجد نتائج",
-    "noResultsDescription": "حاول تعديل الفلاتر أو عبارة البحث.",
-    "noData": "لا توجد بيانات متاحة",
-    "getStarted": "ابدأ الآن"
-  },
-  "landing": {
-    "documentTitle": "LeadScope AI",
+    "common": {
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "create": "إنشاء",
+        "update": "تحديث",
+        "delete": "حذف",
+        "confirm": "تأكيد",
+        "close": "إغلاق",
+        "back": "رجوع",
+        "next": "التالي",
+        "loading": "جارٍ التحميل...",
+        "noData": "لا توجد بيانات",
+        "error": "حدث خطأ ما",
+        "retry": "إعادة المحاولة",
+        "search": "بحث",
+        "filter": "تصفية",
+        "export": "تصدير",
+        "generate": "إنشاء",
+        "refresh": "تحديث",
+        "copy": "نسخ",
+        "edit": "تعديل",
+        "view": "عرض",
+        "assign": "تعيين",
+        "submit": "إرسال",
+        "actions": "الإجراءات",
+        "status": "الحالة",
+        "score": "الدرجة",
+        "date": "التاريخ",
+        "name": "الاسم",
+        "email": "البريد الإلكتروني",
+        "role": "الدور",
+        "all": "الكل",
+        "yes": "نعم",
+        "no": "لا",
+        "optional": "اختياري",
+        "required": "مطلوب",
+        "active": "نشط",
+        "inactive": "غير نشط",
+        "enabled": "مفعّل",
+        "disabled": "معطّل",
+        "none": "لا شيء",
+        "unknown": "غير معروف",
+        "version": "الإصدار",
+        "activate": "تفعيل",
+        "deactivate": "تعطيل",
+        "reset": "إعادة تعيين",
+        "download": "تنزيل",
+        "workspace": "مساحة العمل",
+        "system": "النظام"
+    },
+    "language": {
+        "switch": "تغيير اللغة",
+        "en": "الإنجليزية",
+        "ar": "العربية"
+    },
+    "theme": {
+        "switch": "تغيير المظهر",
+        "light": "فاتح",
+        "dark": "داكن",
+        "system": "النظام"
+    },
+    "command": {
+        "placeholder": "ابحث في العملاء والمهام والأدلة أو نفّذ إجراءً...",
+        "noResults": "لا توجد نتائج. جرّب استعلامًا مختلفًا.",
+        "quickActions": "إجراءات سريعة",
+        "navigate": "التنقّل",
+        "newSearchJob": "مهمة بحث جديدة",
+        "runAiAnalysis": "تشغيل تحليل الذكاء الاصطناعي على العرض الحالي",
+        "exportSelection": "تصدير التحديد إلى CSV"
+    },
     "nav": {
-      "links": [
-        { "label": "المنصة", "href": "#platform" },
-        { "label": "سجل الأدلة", "href": "#evidence" },
-        { "label": "سير العمل", "href": "#workflow" },
-        { "label": "الأسعار", "href": "#pricing" },
-        { "label": "الأسئلة الشائعة", "href": "#docs" }
-      ],
-      "signIn": "تسجيل الدخول",
-      "requestAccess": "طلب الوصول",
-      "toggleMenu": "فتح أو إغلاق القائمة"
+        "dashboard": "لوحة التحكم",
+        "searches": "مهام البحث",
+        "leads": "العملاء المحتملون",
+        "aiAnalysis": "تحليل الذكاء الاصطناعي",
+        "assistant": "المساعد الذكي",
+        "outreach": "مسودات التواصل",
+        "admin": "الإدارة",
+        "team": "الفريق",
+        "billing": "الفوترة",
+        "invoices": "الفواتير",
+        "usage": "الاستخدام",
+        "auditLogs": "سجلات التدقيق",
+        "exports": "التصديرات",
+        "settings": "الإعدادات",
+        "operate": "التشغيل",
+        "govern": "الحوكمة"
     },
-    "hero": {
-      "pill": "LeadScope Intelligence 12.4 مع تقييم حتمي v4",
-      "titlePrefix": "ذكاء العملاء",
-      "titleHighlight": "القائم على الأدلة",
-      "titleSuffix": "للفرق الجادة في التشغيل.",
-      "description": "اكتشف العملاء المحتملين ونسّق بياناتهم وقم بتقييمهم عبر خط معالجة حتمي. كل ترتيب يستند إلى حقائق مزوّدين، ومدخلات تقييم، وأدلة محفوظة بدل التخمينات غير الشفافة.",
-      "watchTour": "شاهد جولة المنتج في 90 ثانية",
-      "trust": [
-        "SOC 2 Type II",
-        "جاهز لـ GDPR و CCPA",
-        "اتفاقية إتاحة 99.98%",
-        "تستخدمه أكثر من 1,400 وكالة"
-      ]
+    "topbar": {
+        "searchPlaceholder": "ابحث في العملاء والمهام والأدلة...",
+        "newSearch": "بحث جديد",
+        "aiAnalysis": "تحليل الذكاء الاصطناعي",
+        "assistant": "المساعد",
+        "notifications": "الإشعارات",
+        "operationalEvents": "الأحداث التشغيلية",
+        "profilePreferences": "الملف الشخصي والتفضيلات",
+        "teamManagement": "إدارة الفريق",
+        "billingPlans": "الفوترة والخطط",
+        "signOut": "تسجيل الخروج",
+        "discoveryActive": "مرحلة إثراء مهمة الاكتشاف قيد التشغيل",
+        "discoveryActiveTime": "منذ دقيقتين",
+        "scoringUpdated": "تم تحديث أوزان التقييم إلى v12",
+        "scoringUpdatedTime": "منذ ساعة / review_velocity +0.05"
     },
-    "logoCloud": {
-      "title": "فرق التشغيل في أكثر من 1,400 وكالة تدير الاكتشاف عبر LeadScope"
+    "auth": {
+        "signIn": "تسجيل الدخول",
+        "signUp": "طلب الوصول",
+        "signOut": "تسجيل الخروج",
+        "signingIn": "جارٍ تسجيل الدخول...",
+        "openWorkspace": "فتح مساحة العمل",
+        "signInTitle": "سجّل الدخول إلى مساحة عمل LeadScope",
+        "signInSubtitle": "استخدم بريد العمل وكلمة المرور للوصول إلى مساحة عملك.",
+        "signUpTitle": "أنشئ مساحة عمل LeadScope",
+        "signUpSubtitle": "ابدأ اكتشاف العملاء وتأهيلهم باستخدام تقييم قائم على الأدلة.",
+        "forgotPasswordTitle": "إعادة تعيين كلمة المرور",
+        "forgotPasswordSubtitle": "أدخل بريد العمل وسنرسل لك رابط إعادة التعيين.",
+        "workEmail": "بريد العمل",
+        "password": "كلمة المرور",
+        "fullName": "الاسم الكامل",
+        "workspaceName": "اسم مساحة العمل",
+        "forgotPassword": "هل نسيت كلمة المرور؟",
+        "noAccount": "ليس لديك حساب؟",
+        "haveAccount": "لديك حساب بالفعل؟",
+        "signInFailed": "فشل تسجيل الدخول",
+        "signUpFailed": "تعذر إنشاء مساحة العمل",
+        "sendResetLink": "إرسال رابط إعادة التعيين",
+        "sending": "جارٍ الإرسال...",
+        "resetLinkSent": "تم إرسال رابط إعادة التعيين",
+        "signInEyebrow": "تسجيل دخول مساحة العمل",
+        "signUpEyebrow": "إنشاء مساحة عمل",
+        "forgotPasswordEyebrow": "إعادة تعيين كلمة المرور",
+        "emailPlaceholder": "you@company.com",
+        "namePlaceholder": "Avery North",
+        "workspacePlaceholder": "Northbeam Analytics",
+        "workspaceEmailPlaceholder": "avery@northbeam.com",
+        "passwordPlaceholder": "12 حرفًا على الأقل",
+        "confirmPasswordPlaceholder": "أعد إدخال كلمة المرور",
+        "starterTrialTitle": "تجربة خطة Starter",
+        "starterTrialDescription": "ينشئ هذا المسار مساحة عمل حقيقية وحساب مالك، ثم يفعّل تجربة Starter تجريبية لأغراض الفوترة الداخلية فقط.",
+        "resetPendingDescription": "واجهة إعادة التعيين غير مفعّلة بعد، لكن تدفق المصادقة جاهز لها.",
+        "passwordsMustMatch": "يجب أن تتطابق كلمتا المرور."
     },
-    "features": {
-      "eyebrow": "المنصة",
-      "title": "مصممة للفرق التي تحتاج إلى تبرير كل قرار.",
-      "description": "أربع واجهات مترابطة: الاكتشاف، والإثراء، والتقييم، والتواصل، تحت حوكمة سجل أدلة حتمي.",
-      "cards": [
-        {
-          "title": "مهام اكتشاف، لا مجرد ملفات spreadsheet",
-          "body": "شغّل مهام بحث بإصدارات ومعلمات مهيكلة. كل تشغيل ينتج مجموعة مرشحين قابلة لإعادة الإنتاج والمقارنة."
+    "dashboard": {
+        "title": "لوحة التحكم",
+        "subtitle": "نظرة عامة مباشرة على مساحة العمل",
+        "totalLeads": "إجمالي العملاء",
+        "qualifiedLeads": "العملاء المؤهلون",
+        "activeJobs": "المهام النشطة",
+        "avgScore": "متوسط الدرجة",
+        "highBand": "الشريحة العليا",
+        "mediumBand": "الشريحة المتوسطة",
+        "lowBand": "الشريحة المنخفضة",
+        "unscored": "غير مقيّم",
+        "recentActivity": "النشاط الأخير",
+        "scoreDistribution": "توزيع الدرجات",
+        "jobThroughput": "معدل إنجاز المهام",
+        "cityCoverage": "التغطية الجغرافية",
+        "discovered": "تم اكتشافه",
+        "qualified": "مؤهل",
+        "noLeadsYet": "لا يوجد عملاء بعد",
+        "noLeadsDescription": "ابدأ مهمة بحث لاكتشاف العملاء وتقييمهم.",
+        "startSearch": "بدء بحث",
+        "leads": "عميل",
+        "jobs": "مهمة"
+    },
+    "leads": {
+        "title": "العملاء المحتملون",
+        "subtitle": "إدارة العملاء المكتشفين وتأهيلهم",
+        "table": "جدول",
+        "cards": "بطاقات",
+        "map": "خريطة",
+        "search": "ابحث في العملاء...",
+        "filterBy": "تصفية حسب",
+        "sortBy": "ترتيب حسب",
+        "status": "الحالة",
+        "band": "شريحة التقييم",
+        "city": "المدينة",
+        "category": "الفئة",
+        "hasWebsite": "لديه موقع إلكتروني",
+        "qualified": "مؤهل",
+        "assignedTo": "مُعيّن إلى",
+        "scoreRange": "نطاق الدرجة",
+        "companyName": "اسم الشركة",
+        "address": "العنوان",
+        "phone": "الهاتف",
+        "website": "الموقع الإلكتروني",
+        "rating": "التقييم",
+        "reviews": "المراجعات",
+        "score": "الدرجة",
+        "confidence": "الثقة",
+        "assignee": "المسؤول",
+        "lastUpdated": "آخر تحديث",
+        "noLeads": "لم يتم العثور على عملاء",
+        "noLeadsFiltered": "لا يوجد عملاء يطابقون الفلاتر الحالية.",
+        "clearFilters": "مسح الفلاتر",
+        "selectLead": "اختر عميلاً لعرض التفاصيل",
+        "updateStatus": "تحديث الحالة",
+        "assignLead": "تعيين العميل",
+        "generateAnalysis": "إنشاء تحليل",
+        "generateOutreach": "إنشاء رسالة تواصل",
+        "refreshLead": "تحديث بيانات العميل",
+        "addNote": "إضافة ملاحظة",
+        "outreachReady": "جاهز للتواصل",
+        "needsReview": "يحتاج إلى مراجعة",
+        "statusNew": "جديد",
+        "statusContacted": "تم التواصل",
+        "statusQualified": "مؤهل",
+        "statusDisqualified": "غير مؤهل",
+        "statusArchived": "مؤرشف",
+        "exportCsv": "تصدير CSV",
+        "exportingCsv": "جارٍ التصدير...",
+        "generating": "جارٍ الإنشاء...",
+        "refreshing": "جارٍ التحديث...",
+        "noWebsite": "لم يتم اكتشاف موقع إلكتروني",
+        "locationUnavailable": "الموقع غير متاح",
+        "unscored": "غير مقيّم",
+        "evidence": "الأدلة",
+        "scoreBreakdown": "تفصيل الدرجة",
+        "activity": "النشاط"
+    },
+    "searches": {
+        "title": "مهام البحث",
+        "subtitle": "اكتشف عملاء جددًا عبر عمليات بحث مدعومة بـ SerpAPI",
+        "newSearch": "بحث جديد",
+        "businessType": "نوع النشاط",
+        "businessTypePlaceholder": "مثلاً: عيادة أسنان، مكتب محاماة، مطعم...",
+        "city": "المدينة",
+        "cityPlaceholder": "مثلاً: نيويورك، لندن، دبي...",
+        "region": "المنطقة / الولاية",
+        "regionPlaceholder": "مثلاً: نيويورك، كاليفورنيا...",
+        "radiusKm": "نطاق البحث (كم)",
+        "maxResults": "الحد الأقصى للنتائج",
+        "minRating": "الحد الأدنى للتقييم",
+        "maxRating": "الحد الأعلى للتقييم",
+        "minReviews": "الحد الأدنى للمراجعات",
+        "maxReviews": "الحد الأعلى للمراجعات",
+        "keywordFilter": "فلتر الكلمات المفتاحية",
+        "keywordFilterPlaceholder": "مثلاً: مفتوح الآن، توصيل...",
+        "websitePreference": "تفضيل الموقع الإلكتروني",
+        "websiteAny": "الكل",
+        "websiteRequired": "مع موقع",
+        "websiteNone": "بدون موقع",
+        "startSearch": "بدء البحث",
+        "starting": "جارٍ البدء...",
+        "status": "الحالة",
+        "statusQueued": "في الانتظار",
+        "statusRunning": "قيد التشغيل",
+        "statusCompleted": "مكتمل",
+        "statusFailed": "فشل",
+        "statusPartial": "جزئي",
+        "created": "تاريخ الإنشاء",
+        "completed": "تاريخ الاكتمال",
+        "candidates": "المرشحون",
+        "leadsUpserted": "العملاء",
+        "enriched": "المُثرى",
+        "noJobs": "لا توجد مهام بحث بعد",
+        "noJobsDescription": "أنشئ أول عملية بحث لبدء اكتشاف العملاء.",
+        "jobDetails": "تفاصيل المهمة",
+        "viewLeads": "عرض العملاء",
+        "discoveryRuntime": "المدة",
+        "errorCount": "الأخطاء"
+    },
+    "outreach": {
+        "title": "مسودات التواصل",
+        "subtitle": "رسائل تواصل مولدة بالذكاء الاصطناعي للعملاء المؤهلين",
+        "toneLabel": "الأسلوب",
+        "toneFormal": "رسمي",
+        "toneFriendly": "ودّي",
+        "toneConsultative": "استشاري",
+        "toneShortPitch": "عرض مختصر",
+        "generate": "إنشاء",
+        "regenerate": "إعادة الإنشاء",
+        "generating": "جارٍ الإنشاء...",
+        "copyDraft": "نسخ المسودة",
+        "copied": "تم النسخ!",
+        "noDraft": "لا توجد مسودة بعد",
+        "generateFirst": "اختر أسلوبًا ثم اضغط على إنشاء لصياغة رسالة تواصل.",
+        "noLeads": "لا يوجد عملاء مؤهلون بعد",
+        "noLeadsDescription": "قم بتأهيل العملاء أولاً لإنشاء رسائل التواصل.",
+        "selectLead": "اختر عميلاً لإنشاء رسالة تواصل",
+        "draftFor": "مسودة لـ",
+        "totalDrafts": "إجمالي المسودات",
+        "avgLength": "متوسط الطول",
+        "tonesUsed": "الأساليب المستخدمة",
+        "latestDraft": "أحدث مسودة",
+        "chars": "حرف"
+    },
+    "ai": {
+        "title": "تحليل الذكاء الاصطناعي",
+        "subtitle": "تحليل تفصيلي مدعوم بالذكاء الاصطناعي لأهم العملاء",
+        "generateAnalysis": "إنشاء تحليل",
+        "generating": "جارٍ الإنشاء...",
+        "latestAnalysis": "أحدث تحليل",
+        "noAnalysis": "لا يوجد تحليل بعد",
+        "generateFirst": "اضغط على إنشاء تحليل لإعداد تقييم مدعوم بالذكاء الاصطناعي.",
+        "strengths": "نقاط القوة",
+        "weaknesses": "نقاط الضعف",
+        "opportunities": "الفرص",
+        "recommendation": "التوصية",
+        "filterBand": "تصفية حسب الشريحة",
+        "allBands": "كل الشرائح",
+        "highBand": "مرتفع",
+        "mediumBand": "متوسط",
+        "lowBand": "منخفض",
+        "noLeads": "لا يوجد عملاء للتحليل",
+        "searchLeads": "ابحث في الشركات...",
+        "leadsAnalyzed": "العملاء المحللون",
+        "avgConfidence": "متوسط الثقة",
+        "recommendOutreach": "يُوصى بالتواصل",
+        "needsAttention": "يحتاج إلى مراجعة",
+        "recommendedCount": "{{count}} موصى به",
+        "acrossAllLeads": "عبر جميع العملاء",
+        "highBandQualified": "شريحة عالية مؤهلة",
+        "lowSignalStrength": "قوة إشارة منخفضة",
+        "filterAll": "الكل",
+        "filterRecommended": "موصى به",
+        "filterWatch": "قيد المتابعة",
+        "filterAttention": "يحتاج مراجعة",
+        "noRecommendationsMatch": "لا توجد توصيات تطابق الفلاتر",
+        "noRecommendationsHint": "جرّب شريحة أخرى أو امسح بحثك.",
+        "showing": "عرض {{visible}} من {{total}}"
+    },
+    "assistant": {
+        "eyebrow": "المساعد الذكي",
+        "title": "مساحة عمل محادثة مرتبطة بالعملاء",
+        "description": "اطرح أسئلة متابعة على أدلة العميل المحفوظة والتقييم الحتمي وأحدث التحليلات المساعدة.",
+        "clearThread": "مسح المحادثة",
+        "groundingContext": "سياق الاستناد",
+        "groundingContextDescription": "يبقى المساعد مقيدًا بمساحة العمل ولا يجيب إلا من الحقائق المخزنة وسياق العميل النشط.",
+        "loadingContext": "جارٍ تحميل سياق العميل",
+        "loadingContextDescription": "جارٍ جلب سجل العميل النشط للردود المستندة إلى الأدلة.",
+        "contextUnavailable": "سياق العميل غير متاح",
+        "contextAttached": "تم إرفاق سياق العميل",
+        "noLeadSelected": "لم يتم اختيار عميل",
+        "noLeadSelectedDescription": "افتح المساعد من صفحة تفاصيل العميل لإرفاق سياق التقييم والأدلة تلقائيًا.",
+        "suggestedPrompts": "اقتراحات الأسئلة",
+        "conversation": "المحادثة",
+        "conversationDescription": "ردود markdown متدفقة مُعرضة عبر AI Elements.",
+        "replyFailed": "فشل رد المساعد",
+        "noRepliesYet": "لا توجد ردود بعد",
+        "noRepliesWithLead": "اسأل عن محركات الدرجة أو المخاطر أو زوايا التواصل للعميل المرفق.",
+        "noRepliesWorkspace": "أرفق سياق عميل أو ابدأ بسؤال عام حول مساحة العمل.",
+        "placeholderWithLead": "اسأل عن درجة هذا العميل أو أدلته أو استراتيجية التواصل...",
+        "placeholderWorkspace": "اسأل عن مساحة عملك أو أرفق سياق عميل من صفحة التفاصيل...",
+        "scopeLabel": "مساعد مقيّد بالعميل",
+        "scopeLabelWorkspace": "مساعد مقيّد بمساحة العمل",
+        "starterPrompt1": "لخّص أقوى الأدلة المتاحة لهذا العميل.",
+        "starterPrompt2": "ما أوضح زاوية تواصل من الإشارات المخزنة؟",
+        "starterPrompt3": "اشرح الأسباب الرئيسية وراء درجة هذا العميل الحالية."
+    },
+    "billing": {
+        "title": "الفوترة",
+        "subtitle": "إدارة الاشتراك وتفاصيل الدفع",
+        "currentPlan": "الخطة الحالية",
+        "changePlan": "تغيير الخطة",
+        "cancelSubscription": "إلغاء الاشتراك",
+        "renewSubscription": "تجديد الاشتراك",
+        "invoices": "الفواتير",
+        "invoiceDate": "التاريخ",
+        "invoiceAmount": "المبلغ",
+        "invoiceStatus": "الحالة",
+        "invoiceDownload": "تنزيل",
+        "usage": "الاستخدام",
+        "usageCredits": "الأرصدة المستخدمة",
+        "usageLeads": "العملاء المكتشفون",
+        "usageJobs": "مهام البحث المنفذة",
+        "planFree": "مجاني",
+        "planStarter": "Starter",
+        "planGrowth": "Growth",
+        "planPro": "Pro",
+        "planEnterprise": "Enterprise",
+        "monthly": "شهري",
+        "annual": "سنوي",
+        "perMonth": "/شهر",
+        "perYear": "/سنة",
+        "mostPopular": "الأكثر شيوعًا",
+        "currentPlanBadge": "الخطة الحالية",
+        "upgradeNow": "الترقية الآن",
+        "downgradeConfirm": "تأكيد خفض الخطة",
+        "cancelConfirm": "إلغاء الاشتراك",
+        "cancelWarning": "سينتهي اشتراكك بنهاية دورة الفوترة الحالية.",
+        "statusActive": "نشط",
+        "statusCancelled": "ملغى",
+        "statusPastDue": "متأخر السداد",
+        "statusTrialing": "تجريبي",
+        "noPermission": "ليست لديك صلاحية إدارة الفوترة.",
+        "noInvoices": "لا توجد فواتير بعد"
+    },
+    "team": {
+        "title": "الفريق",
+        "subtitle": "إدارة أعضاء مساحة العمل وأدوارهم",
+        "inviteMember": "دعوة عضو",
+        "memberName": "الاسم",
+        "memberEmail": "البريد الإلكتروني",
+        "memberRole": "الدور",
+        "memberStatus": "الحالة",
+        "memberActions": "الإجراءات",
+        "resetPassword": "إعادة تعيين كلمة المرور",
+        "updateRole": "تحديث الدور",
+        "roleOwner": "مالك الحساب",
+        "roleAdmin": "مسؤول",
+        "roleManager": "مدير",
+        "roleMember": "عضو",
+        "statusActive": "نشط",
+        "statusInactive": "غير نشط",
+        "noMembers": "لا يوجد أعضاء فريق بعد",
+        "inviteFirst": "ادعُ أول عضو في فريقك.",
+        "noPermission": "ليست لديك صلاحية إدارة الفريق.",
+        "createMember": "إنشاء عضو",
+        "creating": "جارٍ الإنشاء...",
+        "passwordLabel": "كلمة المرور الجديدة",
+        "resetting": "جارٍ إعادة التعيين..."
+    },
+    "admin": {
+        "title": "الإدارة",
+        "subtitle": "إعدادات مساحة العمل والصحة التشغيلية",
+        "scoringConfig": "إعدادات التقييم",
+        "activeConfig": "الإعداد النشط",
+        "configVersions": "إصدارات الإعداد",
+        "createVersion": "إنشاء إصدار",
+        "activateVersion": "تفعيل",
+        "providerSettings": "إعدادات المزود",
+        "serpApiKey": "مفتاح SerpAPI",
+        "aiProvider": "مزود الذكاء الاصطناعي",
+        "promptTemplates": "قوالب التعليمات",
+        "createTemplate": "إنشاء قالب",
+        "activateTemplate": "تفعيل",
+        "operationalHealth": "الصحة التشغيلية",
+        "dbStatus": "قاعدة البيانات",
+        "workerStatus": "المعالجة الخلفية",
+        "healthy": "سليم",
+        "degraded": "متراجع",
+        "unhealthy": "غير سليم",
+        "workspaceSettings": "إعدادات مساحة العمل",
+        "workspaceName": "اسم مساحة العمل",
+        "workspaceSlug": "المعرف المختصر",
+        "saveSettings": "حفظ الإعدادات",
+        "saving": "جارٍ الحفظ..."
+    },
+    "settings": {
+        "title": "الإعدادات",
+        "subtitle": "ملفك الشخصي وتفضيلات مساحة العمل",
+        "profile": "الملف الشخصي",
+        "fullName": "الاسم الكامل",
+        "email": "البريد الإلكتروني",
+        "jobTitle": "المسمى الوظيفي",
+        "avatarUrl": "رابط الصورة الشخصية",
+        "saveProfile": "حفظ الملف الشخصي",
+        "saving": "جارٍ الحفظ...",
+        "changePassword": "تغيير كلمة المرور",
+        "currentPassword": "كلمة المرور الحالية",
+        "newPassword": "كلمة المرور الجديدة",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "updatePassword": "تحديث كلمة المرور"
+    },
+    "audit": {
+        "title": "سجلات التدقيق",
+        "subtitle": "تتبع جميع الإجراءات والتغييرات داخل مساحة العمل",
+        "actor": "المنفّذ",
+        "action": "الإجراء",
+        "resource": "المورد",
+        "timestamp": "الوقت",
+        "details": "التفاصيل",
+        "noLogs": "لا توجد سجلات تدقيق بعد",
+        "noLogsDescription": "ستظهر هنا جميع الإجراءات التي تتم داخل مساحة العمل.",
+        "filterAction": "تصفية حسب الإجراء",
+        "allActions": "كل الإجراءات"
+    },
+    "exports": {
+        "title": "التصديرات",
+        "subtitle": "نزّل بيانات العملاء بصيغة CSV",
+        "exportLeads": "تصدير العملاء",
+        "exporting": "جارٍ التصدير...",
+        "preview": "معاينة",
+        "filterBand": "شريحة الدرجة",
+        "filterStatus": "الحالة",
+        "allBands": "كل الشرائح",
+        "allStatuses": "كل الحالات",
+        "noLeads": "لا يوجد عملاء للتصدير",
+        "downloadCsv": "تنزيل CSV",
+        "previewRows": "عرض صفوف المعاينة"
+    },
+    "empty": {
+        "noResults": "لا توجد نتائج",
+        "noResultsDescription": "حاول تعديل الفلاتر أو عبارة البحث.",
+        "noData": "لا توجد بيانات متاحة",
+        "getStarted": "ابدأ الآن"
+    },
+    "landing": {
+        "documentTitle": "LeadScope AI",
+        "nav": {
+            "links": [
+                { "label": "المنصة", "href": "#platform" },
+                { "label": "سجل الأدلة", "href": "#evidence" },
+                { "label": "سير العمل", "href": "#workflow" },
+                { "label": "الأسعار", "href": "#pricing" },
+                { "label": "الأسئلة الشائعة", "href": "#docs" }
+            ],
+            "signIn": "تسجيل الدخول",
+            "requestAccess": "طلب الوصول",
+            "toggleMenu": "فتح أو إغلاق القائمة"
         },
-        {
-          "title": "توحيد بيانات المزوّدين",
-          "body": "دمج بيانات Clearbit وApollo وZoomInfo وBuiltWith في سجل موحّد واحد."
+        "hero": {
+            "pill": "LeadScope Intelligence 12.4 مع تقييم حتمي v4",
+            "titlePrefix": "ذكاء العملاء",
+            "titleHighlight": "القائم على الأدلة",
+            "titleSuffix": "للفرق الجادة في التشغيل.",
+            "description": "اكتشف العملاء المحتملين ونسّق بياناتهم وقم بتقييمهم عبر خط معالجة حتمي. كل ترتيب يستند إلى حقائق مزوّدين، ومدخلات تقييم، وأدلة محفوظة بدل التخمينات غير الشفافة.",
+            "watchTour": "شاهد جولة المنتج في 90 ثانية",
+            "trust": [
+                "SOC 2 Type II",
+                "جاهز لـ GDPR و CCPA",
+                "اتفاقية إتاحة 99.98%",
+                "تستخدمه أكثر من 1,400 وكالة"
+            ]
         },
-        {
-          "title": "إعادة تقييم خلال أقل من ثانية",
-          "body": "عدّل الأوزان وشاهد إعادة ترتيب كل العملاء فورًا."
+        "logoCloud": {
+            "title": "فرق التشغيل في أكثر من 1,400 وكالة تدير الاكتشاف عبر LeadScope"
         },
-        {
-          "title": "سجل تدقيق غير قابل للتغيير",
-          "body": "من غيّر ماذا ومتى ولماذا، ضمن سلسلة موثقة تشفيريًا."
+        "features": {
+            "eyebrow": "المنصة",
+            "title": "مصممة للفرق التي تحتاج إلى تبرير كل قرار.",
+            "description": "أربع واجهات مترابطة: الاكتشاف، والإثراء، والتقييم، والتواصل، تحت حوكمة سجل أدلة حتمي.",
+            "cards": [{
+                    "title": "مهام اكتشاف، لا مجرد ملفات spreadsheet",
+                    "body": "شغّل مهام بحث بإصدارات ومعلمات مهيكلة. كل تشغيل ينتج مجموعة مرشحين قابلة لإعادة الإنتاج والمقارنة."
+                },
+                {
+                    "title": "توحيد بيانات المزوّدين",
+                    "body": "دمج بيانات Clearbit وApollo وZoomInfo وBuiltWith في سجل موحّد واحد."
+                },
+                {
+                    "title": "إعادة تقييم خلال أقل من ثانية",
+                    "body": "عدّل الأوزان وشاهد إعادة ترتيب كل العملاء فورًا."
+                },
+                {
+                    "title": "سجل تدقيق غير قابل للتغيير",
+                    "body": "من غيّر ماذا ومتى ولماذا، ضمن سلسلة موثقة تشفيريًا."
+                },
+                {
+                    "title": "تقييم بإصدارات",
+                    "body": "ثبّت نموذج التقييم على commit واستعد أي قرار اتُّخذ في أي وقت."
+                },
+                {
+                    "title": "بنية أدلة مهيكلة",
+                    "body": "كل حقيقة موسومة بالمصدر والتاريخ ودرجة الثقة."
+                },
+                {
+                    "title": "تواصل مساعد، لا ذاتي",
+                    "body": "مسودات ذكاء اصطناعي مع استشهادات بالأدلة داخل النص، والموافقة النهائية لك."
+                }
+            ],
+            "visual": {
+                "searchTitle": "بحث | SaaS فئة Series B | نيويورك",
+                "searchMeta": "218 عميلًا | 12 ثانية",
+                "draftTitle": "مسودة | LinkedIn",
+                "draftCopyPrefix": "لاحظت أن Northbeam أغلقت جولة",
+                "draftHighlightFunding": "Series B",
+                "draftMiddle": "مؤخرًا ونشرت",
+                "draftHighlightHiring": "15 وظيفة نمو",
+                "draftSuffix": "فهل يناسبكم اتصال سريع لمدة 15 دقيقة حول عائد الاستثمار في الإعلانات المدفوعة؟",
+                "citationsTitle": "الاستشهادات",
+                "citations": [
+                    "Clearbit | Series B بقيمة 42 مليون دولار | مارس 2026",
+                    "LinkedIn | 15 توظيفًا | 90 يومًا",
+                    "نتائج الأعمال | تصريح المدير المالي | الربع الأول"
+                ]
+            }
         },
-        {
-          "title": "تقييم بإصدارات",
-          "body": "ثبّت نموذج التقييم على commit واستعد أي قرار اتُّخذ في أي وقت."
+        "evidence": {
+            "eyebrow": "سجل الأدلة",
+            "titleLine1": "قابل للتتبع بحكم التصميم.",
+            "titleLine2": "وقابل للدفاع عنه افتراضيًا.",
+            "description": "معظم منصات العملاء المحتملين عبارة عن صندوق أسود. أما LeadScope فهو سجل أدلة: كل إشارة، وكل درجة، وكل قرار يمكن الاستشهاد به. ما لا يمكن تتبعه، لا نعرضه.",
+            "points": [{
+                    "title": "كل حقل له مصدر",
+                    "body": "لا توجد بيانات معزولة. كل سمة في العميل ترتبط بمزوّد محدد، وطابع زمني، ودرجة ثقة."
+                },
+                {
+                    "title": "كل درجة قابلة لإعادة الإنتاج",
+                    "body": "نماذج التقييم مرتبطة بإصدارات commit. يمكنك إعادة تنفيذ أي قرار تاريخي والحصول على النتيجة نفسها حرفيًا."
+                },
+                {
+                    "title": "كل تغيير دائم",
+                    "body": "سجل أحداث مشفّر ومترابط. التصديرات والتعديلات والموافقات والإرسالات كلها مثبتة وقابلة للإثبات."
+                }
+            ],
+            "ledgerTitle": "سجل العميل | ld_01hpn",
+            "ledgerRoot": "جذر السلسلة: 0x8f2a...c1b9",
+            "verified": "تم التحقق",
+            "events": [
+                "تم إثراء سجل الشركة",
+                "تمت مزامنة إشارات التوظيف | 15 دور نمو",
+                "تم تحديد البصمة التقنية | 38 أداة",
+                "تم تطبيق النموذج v4.2.1 | التقدير A | 87",
+                "قام avery@ بالموافقة على إدراج العميل في طابور التواصل",
+                "تم إنشاء مسودة مع 4 استشهادات"
+            ]
         },
-        {
-          "title": "بنية أدلة مهيكلة",
-          "body": "كل حقيقة موسومة بالمصدر والتاريخ ودرجة الثقة."
+        "workflow": {
+            "eyebrow": "سير العمل",
+            "title": "من استعلام فارغ إلى رسالة تواصل معتمدة ضمن خط تشغيل واحد محكوم.",
+            "stepLabel": "الخطوة",
+            "steps": [{
+                    "title": "اكتشف",
+                    "body": "عرّف مهمة بحث مهيكلة: ICP، والجغرافيا، والتمويل، والتقنية. شغّلها لتحصل على مجموعة مرشحين قابلة لإعادة الإنتاج، لا ملف CSV بلا سياق."
+                },
+                {
+                    "title": "وحّد",
+                    "body": "تندمج بيانات المزوّدين في مخطط موحّد. تظهر التعارضات للمراجعة، وتبقى مؤشرات الاكتمال والحداثة واضحة."
+                },
+                {
+                    "title": "قيّم",
+                    "body": "تقييم حتمي ومرجّح وقابل للتفسير. غيّر وزنًا واحدًا وسترى إعادة ترتيب كل العملاء مع فرق قابل للتدقيق."
+                },
+                {
+                    "title": "تواصل",
+                    "body": "ينشئ الذكاء الاصطناعي مسودات مدعومة بالأدلة، لكن الموافقة النهائية تبقى للبشر دائمًا."
+                }
+            ]
         },
-        {
-          "title": "تواصل مساعد، لا ذاتي",
-          "body": "مسودات ذكاء اصطناعي مع استشهادات بالأدلة داخل النص، والموافقة النهائية لك."
+        "metrics": {
+            "items": [
+                { "value": "3.2x", "label": "زيادة في معدل الرد مقارنة بالتواصل التقليدي" },
+                { "value": "87%", "label": "خفض في الاجتماعات غير المؤهلة" },
+                { "value": "12s", "label": "المدة الوسيطة لإنجاز مهمة الاكتشاف" },
+                { "value": "99.98%", "label": "إتاحة المنصة المقاسة" }
+            ],
+            "person": "Maya Rostov",
+            "role": "نائبة الرئيس للنمو، Brightwave",
+            "quote": "LeadScope هو أول أداة استخدمناها تمنح كل ترتيب عميل مستندًا واضحًا. توقّف فريقي عن الجدل مع المبيعات حول الأولويات منذ الأسبوع الأول. سجل الأدلة ميزة فارقة فعلًا."
+        },
+        "pricing": {
+            "eyebrow": "الأسعار",
+            "title": "تسعير لكل مقعد للفرق التي تتعامل مع الاكتشاف بجدية.",
+            "description": "فوترة سنوية مع إثراء يعتمد على الاستخدام. كل خطة تشمل سجل الأدلة ومحرك التقييم الحتمي.",
+            "featuredBadge": "الأكثر اختيارًا",
+            "tiers": [{
+                    "name": "Operator",
+                    "price": "$480",
+                    "suffix": "/مقعد / شهر",
+                    "description": "للمشغلين الذين يديرون الاكتشاف من البداية إلى النهاية.",
+                    "cta": "ابدأ بخطة Operator",
+                    "features": [
+                        "5,000 عميل مُثرى شهريًا",
+                        "3 نماذج تقييم",
+                        "إعادة تقييم حتمية",
+                        "سجل أدلة قياسي",
+                        "طابور مسودات البريد وLinkedIn",
+                        "SOC 2 Type II"
+                    ]
+                },
+                {
+                    "name": "Team",
+                    "price": "$1,850",
+                    "suffix": "/مقعد / شهر",
+                    "description": "لفرق النمو التي تحتاج إلى موافقات وحوكمة ومسار تدقيق مشترك.",
+                    "cta": "تواصل مع المبيعات",
+                    "features": [
+                        "50,000 عميل مُثرى شهريًا",
+                        "نماذج تقييم غير محدودة",
+                        "مسارات موافقة وصلاحيات RBAC",
+                        "سجل أدلة غير قابل للتغيير",
+                        "سياسات احتفاظ بالتصدير",
+                        "توفير SSO وSCIM",
+                        "موصلات مزوّدين مخصصة",
+                        "دعم أولوية واتفاقية مستوى خدمة"
+                    ]
+                },
+                {
+                    "name": "Enterprise",
+                    "price": "مخصص",
+                    "suffix": "",
+                    "description": "للوكالات التي لديها متطلبات شراء ومراجعة أمنية وإقامة بيانات مخصصة.",
+                    "cta": "اطلب عرضًا",
+                    "features": [
+                        "مقاعد واستخدام غير محدودين",
+                        "منطقة نشر مخصصة",
+                        "ربط مستودع بياناتك الخاص",
+                        "استضافة خاصة للنماذج",
+                        "مهندس أمن مخصص",
+                        "DPA وMSA مخصصان"
+                    ]
+                }
+            ]
+        },
+        "faq": {
+            "eyebrow": "الأسئلة الشائعة",
+            "title": "أسئلة نسمعها من فرق تشغيل جادة.",
+            "items": [{
+                    "q": "ما الذي يميز LeadScope عن أدوات الإثراء التقليدية؟",
+                    "a": "LeadScope ليس مجرد أداة إثراء، بل سجل أدلة مبني فوقه الاكتشاف والتقييم والتواصل. كل سمة في العميل لها مصدر وتاريخ ودرجة ثقة، وكل ترتيب قابل لإعادة الإنتاج."
+                },
+                {
+                    "q": "هل ترسلون رسائل التواصل بشكل ذاتي؟",
+                    "a": "لا. ينشئ LeadScope مسودات مع استشهادات بالأدلة داخل النص، لكن كل إرسال يحتاج إلى موافقة بشرية. التواصل الذاتي يعرّض العلامة التجارية ومعدلات التسليم للخطر."
+                },
+                {
+                    "q": "هل يمكنني إعادة إنتاج ترتيب عميل من ربع سابق؟",
+                    "a": "نعم. نماذج التقييم مثبتة على commits. أعطنا معرّف العميل وإصدار النموذج في ذلك الوقت، وسنعيد تشغيل السجل وننتج الدرجة نفسها."
+                },
+                {
+                    "q": "ما مزوّدو البيانات الذين تتكاملون معهم؟",
+                    "a": "تتضمن القائمة الافتراضية Clearbit وApollo وZoomInfo وBuiltWith ونقاط LinkedIn المصرح بها وCrunchbase وHarmonic إضافة إلى ملفات الشركات المعتمدة. تدعم خطة Team وما فوقها موصلات مخصصة."
+                },
+                {
+                    "q": "كيف تتعاملون مع GDPR وCCPA؟",
+                    "a": "نوفر تتبعًا مهيكلًا للموافقات، وإقامة بيانات حسب المنطقة في Team وEnterprise، واتفاقية DPA مضمنة، ومسارات حذف مدمجة داخل لوحة الإدارة. نحن معتمدون وفق SOC 2 Type II ونشارك وثائق الأمان عند الطلب."
+                },
+                {
+                    "q": "هل يمكننا إدخال بياناتنا الخاصة؟",
+                    "a": "نعم. يمكن لعملاء Enterprise ربط مستودع بياناتهم بطبقة التوحيد وتقييم إشاراتهم الخاصة بجانب مزودينا. نحن لا نعيد بيع بيانات العملاء ولا نستخدمها في تدريب النماذج."
+                }
+            ]
+        },
+        "cta": {
+            "eyebrow": "إعداد خلال أقل من 72 ساعة",
+            "titleLine1": "توقف عن تصدير الجداول.",
+            "titleLine2": "وابدأ ببناء سجل أدلة.",
+            "description": "اطلب الوصول وسنجهّز مساحة العمل، ونحمّل ICP الخاص بك، ونرافقك مباشرة في أول مهمة اكتشاف.",
+            "requestAccess": "طلب الوصول",
+            "existingWorkspace": "الدخول إلى مساحة عمل قائمة"
+        },
+        "footer": {
+            "description": "منصة ذكاء عملاء قائمة على الأدلة للفرق الجادة في التشغيل.",
+            "groups": [{
+                    "label": "المنتج",
+                    "links": [
+                        { "label": "المنصة", "href": "#platform" },
+                        { "label": "سجل الأدلة", "href": "#evidence" },
+                        { "label": "سير العمل", "href": "#workflow" },
+                        { "label": "الأسعار", "href": "#pricing" },
+                        { "label": "سجل التحديثات", "href": "#" }
+                    ]
+                },
+                {
+                    "label": "الشركة",
+                    "links": [
+                        { "label": "من نحن", "href": "#" },
+                        { "label": "العملاء", "href": "#" },
+                        { "label": "الوظائف", "href": "#" },
+                        { "label": "الصحافة", "href": "#" }
+                    ]
+                },
+                {
+                    "label": "الموارد",
+                    "links": [
+                        { "label": "الوثائق", "href": "#" },
+                        { "label": "مرجع API", "href": "#" },
+                        { "label": "الأمان", "href": "#" },
+                        { "label": "الحالة", "href": "#" },
+                        { "label": "مركز الثقة", "href": "#" }
+                    ]
+                },
+                {
+                    "label": "القانوني",
+                    "links": [
+                        { "label": "الخصوصية", "href": "#" },
+                        { "label": "الشروط", "href": "#" },
+                        { "label": "DPA", "href": "#" },
+                        { "label": "الاستخدام المسؤول", "href": "#" }
+                    ]
+                }
+            ],
+            "copyright": "حقوق النشر 2026 LeadScope, Inc. جميع الحقوق محفوظة.",
+            "status": "جميع الأنظمة تعمل بشكل طبيعي"
         }
-      ],
-      "visual": {
-        "searchTitle": "بحث | SaaS فئة Series B | نيويورك",
-        "searchMeta": "218 عميلًا | 12 ثانية",
-        "draftTitle": "مسودة | LinkedIn",
-        "draftCopyPrefix": "لاحظت أن Northbeam أغلقت جولة",
-        "draftHighlightFunding": "Series B",
-        "draftMiddle": "مؤخرًا ونشرت",
-        "draftHighlightHiring": "15 وظيفة نمو",
-        "draftSuffix": "فهل يناسبكم اتصال سريع لمدة 15 دقيقة حول عائد الاستثمار في الإعلانات المدفوعة؟",
-        "citationsTitle": "الاستشهادات",
-        "citations": [
-          "Clearbit | Series B بقيمة 42 مليون دولار | مارس 2026",
-          "LinkedIn | 15 توظيفًا | 90 يومًا",
-          "نتائج الأعمال | تصريح المدير المالي | الربع الأول"
-        ]
-      }
     },
-    "evidence": {
-      "eyebrow": "سجل الأدلة",
-      "titleLine1": "قابل للتتبع بحكم التصميم.",
-      "titleLine2": "وقابل للدفاع عنه افتراضيًا.",
-      "description": "معظم منصات العملاء المحتملين عبارة عن صندوق أسود. أما LeadScope فهو سجل أدلة: كل إشارة، وكل درجة، وكل قرار يمكن الاستشهاد به. ما لا يمكن تتبعه، لا نعرضه.",
-      "points": [
-        {
-          "title": "كل حقل له مصدر",
-          "body": "لا توجد بيانات معزولة. كل سمة في العميل ترتبط بمزوّد محدد، وطابع زمني، ودرجة ثقة."
-        },
-        {
-          "title": "كل درجة قابلة لإعادة الإنتاج",
-          "body": "نماذج التقييم مرتبطة بإصدارات commit. يمكنك إعادة تنفيذ أي قرار تاريخي والحصول على النتيجة نفسها حرفيًا."
-        },
-        {
-          "title": "كل تغيير دائم",
-          "body": "سجل أحداث مشفّر ومترابط. التصديرات والتعديلات والموافقات والإرسالات كلها مثبتة وقابلة للإثبات."
-        }
-      ],
-      "ledgerTitle": "سجل العميل | ld_01hpn",
-      "ledgerRoot": "جذر السلسلة: 0x8f2a...c1b9",
-      "verified": "تم التحقق",
-      "events": [
-        "تم إثراء سجل الشركة",
-        "تمت مزامنة إشارات التوظيف | 15 دور نمو",
-        "تم تحديد البصمة التقنية | 38 أداة",
-        "تم تطبيق النموذج v4.2.1 | التقدير A | 87",
-        "قام avery@ بالموافقة على إدراج العميل في طابور التواصل",
-        "تم إنشاء مسودة مع 4 استشهادات"
-      ]
+    "shell": {
+        "workspaceFallbackSlug": "isolated-account",
+        "scoringVersion": "التقييم | v12",
+        "scoringSummary": "تم نشر الأوزان الحتمية قبل يومين. سرعة المراجعة +0.05.",
+        "viewChangelog": "عرض سجل التحديثات"
     },
-    "workflow": {
-      "eyebrow": "سير العمل",
-      "title": "من استعلام فارغ إلى رسالة تواصل معتمدة ضمن خط تشغيل واحد محكوم.",
-      "stepLabel": "الخطوة",
-      "steps": [
-        {
-          "title": "اكتشف",
-          "body": "عرّف مهمة بحث مهيكلة: ICP، والجغرافيا، والتمويل، والتقنية. شغّلها لتحصل على مجموعة مرشحين قابلة لإعادة الإنتاج، لا ملف CSV بلا سياق."
-        },
-        {
-          "title": "وحّد",
-          "body": "تندمج بيانات المزوّدين في مخطط موحّد. تظهر التعارضات للمراجعة، وتبقى مؤشرات الاكتمال والحداثة واضحة."
-        },
-        {
-          "title": "قيّم",
-          "body": "تقييم حتمي ومرجّح وقابل للتفسير. غيّر وزنًا واحدًا وسترى إعادة ترتيب كل العملاء مع فرق قابل للتدقيق."
-        },
-        {
-          "title": "تواصل",
-          "body": "ينشئ الذكاء الاصطناعي مسودات مدعومة بالأدلة، لكن الموافقة النهائية تبقى للبشر دائمًا."
-        }
-      ]
+    "authSidebar": {
+        "compliance": "SOC 2 | Type II",
+        "title": "منصة ذكاء عملاء قائمة على الأدلة للفرق الجادة في التشغيل.",
+        "description": "اكتشف العملاء، ووحّد بيانات المزوّدين، وقيّمهم بشكل حتمي، وأطلق تواصلًا مساعدًا مع إمكانية تتبّع كل قرار إلى مصدره.",
+        "proofPoints": [{
+                "title": "ذكاء عملاء مدعوم بالأدلة",
+                "body": "كل درجة تعود إلى حقائق مزودين موحّدة، بلا إشارات مفترضة أو مختلقة."
+            },
+            {
+                "title": "خط تقييم حتمي",
+                "body": "أوزان بإصدارات، ومراحل قابلة لإعادة الإنتاج، ورؤية كاملة للتدقيق."
+            },
+            {
+                "title": "حوكمة بمستوى تشغيلي احترافي",
+                "body": "صلاحيات حسب الدور، وتصديرات تراعي سياسات الاحتفاظ، وسجل أحداث غير قابل للتغيير."
+            }
+        ],
+        "trust": "موثوق به لدى أكثر من 1,400 فريق وكالة",
+        "region": "us-west"
     },
-    "metrics": {
-      "items": [
-        { "value": "3.2x", "label": "زيادة في معدل الرد مقارنة بالتواصل التقليدي" },
-        { "value": "87%", "label": "خفض في الاجتماعات غير المؤهلة" },
-        { "value": "12s", "label": "المدة الوسيطة لإنجاز مهمة الاكتشاف" },
-        { "value": "99.98%", "label": "إتاحة المنصة المقاسة" }
-      ],
-      "person": "Maya Rostov",
-      "role": "نائبة الرئيس للنمو، Brightwave",
-      "quote": "LeadScope هو أول أداة استخدمناها تمنح كل ترتيب عميل مستندًا واضحًا. توقّف فريقي عن الجدل مع المبيعات حول الأولويات منذ الأسبوع الأول. سجل الأدلة ميزة فارقة فعلًا."
+    "leadDetail": {
+        "activityTimeline": "جدول النشاط",
+        "activityTimelineDescription": "الملاحظات وتغييرات سير العمل وأحداث التدقيق في جدول تشغيلي واحد.",
+        "activityEvents": "{{count}} حدث",
+        "notePlaceholder": "دوّن سياق التأهيل أو ملاحظات التسليم أو تفاصيل الخطوة التالية.",
+        "saveNote": "حفظ الملاحظة",
+        "saveNoteError": "تعذّر حفظ الملاحظة",
+        "aiAnalysis": "تحليل الذكاء الاصطناعي",
+        "aiAnalysisDescription": "توصيات مساعدة مستندة إلى أدلة العميل المحفوظة.",
+        "askAssistant": "اسأل المساعد عن هذا العميل",
+        "analysisUnavailable": "التحليل غير متاح",
+        "analysisOpportunitiesTitle": "لماذا يوصي النموذج بهذا العميل",
+        "analysisWeaknessesTitle": "المخاطر والإشارات الناقصة",
+        "recommendedServices": "الخدمات الموصى بها",
+        "noAnalysisYet": "لا يوجد تحليل بعد",
+        "noAnalysisDescription": "أنشئ ملخصًا مستندًا إلى الأدلة لملء هذه المساحة.",
+        "confidencePct": "{{pct}}% ثقة",
+        "outreachWorkspace": "مساحة عمل التواصل",
+        "outreachDescription": "تُنشأ المسودات من نفس سياق الأدلة المعيارية والتقييم.",
+        "outreachUnavailable": "التواصل غير متاح",
+        "drafting": "جارٍ الصياغة...",
+        "editedDraft": "مسودة محررة",
+        "generatedDraft": "مسودة منشأة",
+        "outreachSubject": "الموضوع",
+        "saveEdits": "حفظ التعديلات",
+        "couldNotLoadLeads": "تعذّر تحميل العملاء",
+        "loadingLeadDetail": "جارٍ تحميل تفاصيل العميل",
+        "loadingLeadDetailDescription": "جارٍ جلب سجل العميل والأدلة والنشاط وأحدث المخرجات المساعدة.",
+        "leadStatusUpdated": "تم تحديث حالة العميل.",
+        "leadOwnerUpdated": "تم تحديث مالك العميل.",
+        "leadOwnerCleared": "تم مسح مالك العميل.",
+        "analysisGenerated": "تم إنشاء التحليل المساعد.",
+        "outreachGenerated": "تم إنشاء مسودة التواصل.",
+        "leadRefreshed": "تم الانتهاء من تحديث العميل.",
+        "noteSaved": "تم حفظ الملاحظة.",
+        "outreachSaved": "تم حفظ مسودة التواصل.",
+        "actionCompleted": "تم إنجاز الإجراء"
     },
-    "pricing": {
-      "eyebrow": "الأسعار",
-      "title": "تسعير لكل مقعد للفرق التي تتعامل مع الاكتشاف بجدية.",
-      "description": "فوترة سنوية مع إثراء يعتمد على الاستخدام. كل خطة تشمل سجل الأدلة ومحرك التقييم الحتمي.",
-      "featuredBadge": "الأكثر اختيارًا",
-      "tiers": [
-        {
-          "name": "Operator",
-          "price": "$480",
-          "suffix": "/مقعد / شهر",
-          "description": "للمشغلين الذين يديرون الاكتشاف من البداية إلى النهاية.",
-          "cta": "ابدأ بخطة Operator",
-          "features": [
-            "5,000 عميل مُثرى شهريًا",
-            "3 نماذج تقييم",
-            "إعادة تقييم حتمية",
-            "سجل أدلة قياسي",
-            "طابور مسودات البريد وLinkedIn",
-            "SOC 2 Type II"
-          ]
-        },
-        {
-          "name": "Team",
-          "price": "$1,850",
-          "suffix": "/مقعد / شهر",
-          "description": "لفرق النمو التي تحتاج إلى موافقات وحوكمة ومسار تدقيق مشترك.",
-          "cta": "تواصل مع المبيعات",
-          "features": [
-            "50,000 عميل مُثرى شهريًا",
-            "نماذج تقييم غير محدودة",
-            "مسارات موافقة وصلاحيات RBAC",
-            "سجل أدلة غير قابل للتغيير",
-            "سياسات احتفاظ بالتصدير",
-            "توفير SSO وSCIM",
-            "موصلات مزوّدين مخصصة",
-            "دعم أولوية واتفاقية مستوى خدمة"
-          ]
-        },
-        {
-          "name": "Enterprise",
-          "price": "مخصص",
-          "suffix": "",
-          "description": "للوكالات التي لديها متطلبات شراء ومراجعة أمنية وإقامة بيانات مخصصة.",
-          "cta": "اطلب عرضًا",
-          "features": [
-            "مقاعد واستخدام غير محدودين",
-            "منطقة نشر مخصصة",
-            "ربط مستودع بياناتك الخاص",
-            "استضافة خاصة للنماذج",
-            "مهندس أمن مخصص",
-            "DPA وMSA مخصصان"
-          ]
-        }
-      ]
-    },
-    "faq": {
-      "eyebrow": "الأسئلة الشائعة",
-      "title": "أسئلة نسمعها من فرق تشغيل جادة.",
-      "items": [
-        {
-          "q": "ما الذي يميز LeadScope عن أدوات الإثراء التقليدية؟",
-          "a": "LeadScope ليس مجرد أداة إثراء، بل سجل أدلة مبني فوقه الاكتشاف والتقييم والتواصل. كل سمة في العميل لها مصدر وتاريخ ودرجة ثقة، وكل ترتيب قابل لإعادة الإنتاج."
-        },
-        {
-          "q": "هل ترسلون رسائل التواصل بشكل ذاتي؟",
-          "a": "لا. ينشئ LeadScope مسودات مع استشهادات بالأدلة داخل النص، لكن كل إرسال يحتاج إلى موافقة بشرية. التواصل الذاتي يعرّض العلامة التجارية ومعدلات التسليم للخطر."
-        },
-        {
-          "q": "هل يمكنني إعادة إنتاج ترتيب عميل من ربع سابق؟",
-          "a": "نعم. نماذج التقييم مثبتة على commits. أعطنا معرّف العميل وإصدار النموذج في ذلك الوقت، وسنعيد تشغيل السجل وننتج الدرجة نفسها."
-        },
-        {
-          "q": "ما مزوّدو البيانات الذين تتكاملون معهم؟",
-          "a": "تتضمن القائمة الافتراضية Clearbit وApollo وZoomInfo وBuiltWith ونقاط LinkedIn المصرح بها وCrunchbase وHarmonic إضافة إلى ملفات الشركات المعتمدة. تدعم خطة Team وما فوقها موصلات مخصصة."
-        },
-        {
-          "q": "كيف تتعاملون مع GDPR وCCPA؟",
-          "a": "نوفر تتبعًا مهيكلًا للموافقات، وإقامة بيانات حسب المنطقة في Team وEnterprise، واتفاقية DPA مضمنة، ومسارات حذف مدمجة داخل لوحة الإدارة. نحن معتمدون وفق SOC 2 Type II ونشارك وثائق الأمان عند الطلب."
-        },
-        {
-          "q": "هل يمكننا إدخال بياناتنا الخاصة؟",
-          "a": "نعم. يمكن لعملاء Enterprise ربط مستودع بياناتهم بطبقة التوحيد وتقييم إشاراتهم الخاصة بجانب مزودينا. نحن لا نعيد بيع بيانات العملاء ولا نستخدمها في تدريب النماذج."
-        }
-      ]
-    },
-    "cta": {
-      "eyebrow": "إعداد خلال أقل من 72 ساعة",
-      "titleLine1": "توقف عن تصدير الجداول.",
-      "titleLine2": "وابدأ ببناء سجل أدلة.",
-      "description": "اطلب الوصول وسنجهّز مساحة العمل، ونحمّل ICP الخاص بك، ونرافقك مباشرة في أول مهمة اكتشاف.",
-      "requestAccess": "طلب الوصول",
-      "existingWorkspace": "الدخول إلى مساحة عمل قائمة"
-    },
-    "footer": {
-      "description": "منصة ذكاء عملاء قائمة على الأدلة للفرق الجادة في التشغيل.",
-      "groups": [
-        {
-          "label": "المنتج",
-          "links": [
-            { "label": "المنصة", "href": "#platform" },
-            { "label": "سجل الأدلة", "href": "#evidence" },
-            { "label": "سير العمل", "href": "#workflow" },
-            { "label": "الأسعار", "href": "#pricing" },
-            { "label": "سجل التحديثات", "href": "#" }
-          ]
-        },
-        {
-          "label": "الشركة",
-          "links": [
-            { "label": "من نحن", "href": "#" },
-            { "label": "العملاء", "href": "#" },
-            { "label": "الوظائف", "href": "#" },
-            { "label": "الصحافة", "href": "#" }
-          ]
-        },
-        {
-          "label": "الموارد",
-          "links": [
-            { "label": "الوثائق", "href": "#" },
-            { "label": "مرجع API", "href": "#" },
-            { "label": "الأمان", "href": "#" },
-            { "label": "الحالة", "href": "#" },
-            { "label": "مركز الثقة", "href": "#" }
-          ]
-        },
-        {
-          "label": "القانوني",
-          "links": [
-            { "label": "الخصوصية", "href": "#" },
-            { "label": "الشروط", "href": "#" },
-            { "label": "DPA", "href": "#" },
-            { "label": "الاستخدام المسؤول", "href": "#" }
-          ]
-        }
-      ],
-      "copyright": "حقوق النشر 2026 LeadScope, Inc. جميع الحقوق محفوظة.",
-      "status": "جميع الأنظمة تعمل بشكل طبيعي"
+    "errors": {
+        "generic": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+        "network": "خطأ في الشبكة. تحقق من اتصالك.",
+        "unauthorized": "ليست لديك صلاحية تنفيذ هذا الإجراء.",
+        "notFound": "المورد المطلوب غير موجود.",
+        "validation": "يرجى التحقق من أخطاء النموذج.",
+        "sessionExpired": "انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجددًا.",
+        "internal_server_error": "حدث خطأ غير متوقع على الخادم. يرجى الاتصال بالدعم إذا استمرت المشكلة.",
+        "service_unavailable": "الخدمة غير متاحة حاليًا. يرجى المحاولة لاحقًا.",
+        "validation.invalid_payload": "الطلب يحتوي على بيانات غير صحيحة. يرجى التحقق من البيانات والمحاولة مرة أخرى.",
+        "feature.not_ready": "هذه الميزة غير متوفرة حاليًا. يرجى المحاولة لاحقًا.",
+        "auth.invalid_credentials": "بريد إلكتروني أو كلمة مرور غير صحيحة. يرجى المحاولة مرة أخرى.",
+        "auth.unauthorized": "أنت غير مصرح بإجراء هذا الإجراء.",
+        "auth.forbidden": "تم رفض الوصول. ليس لديك إذن للوصول إلى هذا المورد.",
+        "auth.token_expired": "انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى.",
+        "auth.invalid_token": "جلستك غير صحيحة. يرجى تسجيل الدخول مرة أخرى.",
+        "workspace.not_found": "لم يتم العثور على مساحة العمل.",
+        "workspace.conflict": "مساحة عمل بهذا الاسم موجودة بالفعل.",
+        "user.not_found": "لم يتم العثور على المستخدم.",
+        "user.already_exists": "مستخدم بهذا البريد الإلكتروني موجود بالفعل.",
+        "user.inactive": "هذا الحساب غير نشط. يرجى الاتصال بمسؤول مساحة العمل.",
+        "leads.not_found": "لم يتم العثور على عملاء متطابقين مع معاييرك.",
+        "leads.conflict": "هذا العميل موجود بالفعل أو يتعارض مع البيانات الموجودة.",
+        "leads.invalid_status": "حالة عميل غير صحيحة. يرجى التحقق والمحاولة مرة أخرى.",
+        "leads.bulk_operation_partial": "لم يتمكن من تحديث بعض العملاء. يرجى المراجعة والمحاولة مرة أخرى.",
+        "search_jobs.not_found": "لم يتم العثور على وظيفة البحث.",
+        "search_jobs.in_progress": "وظيفة البحث هذه لا تزال قيد التنفيذ. يرجى الانتظار حتى تكتمل.",
+        "search_jobs.conflict": "وظيفة البحث هذه تتعارض مع البيانات الموجودة.",
+        "provider.unavailable": "خدمة المزود غير متاحة. يرجى تكوين إعدادات المزود والمحاولة مرة أخرى.",
+        "provider.error": "حدث خطأ أثناء الاستعلام من المزود. يرجى المحاولة مرة أخرى.",
+        "provider.quota_exceeded": "تم تجاوز حصة المزود. يرجى المحاولة لاحقًا.",
+        "provider.invalid_credentials": "بيانات اعتماد المزود غير صحيحة. يرجى التحقق من الإعدادات.",
+        "ai_analysis.not_found": "لم يتم العثور على تحليل الذكاء الاصطناعي.",
+        "ai_analysis.generation_failed": "فشل إنشاء تحليل الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.",
+        "ai_analysis.provider_unavailable": "تحليل الذكاء الاصطناعي غير متاح لأن المزود لم يتم تكوينه.",
+        "assistant.not_found": "لم يتم العثور على المساعد.",
+        "assistant.conversation_not_found": "لم يتم العثور على المحادثة.",
+        "assistant.message_not_found": "لم يتم العثور على الرسالة.",
+        "assistant.generation_failed": "فشل إنشاء الرسالة. يرجى المحاولة مرة أخرى.",
+        "billing.account_not_found": "لم يتم العثور على حساب الفواتير.",
+        "billing.subscription_not_found": "لم يتم العثور على الاشتراك.",
+        "billing.invoice_not_found": "لم يتم العثور على الفاتورة.",
+        "billing.payment_failed": "فشل الدفع. يرجى التحقق من طريقة الدفع والمحاولة مرة أخرى.",
+        "billing.insufficient_credits": "رصيد غير كافٍ لهذه العملية. يرجى إضافة رصيد والمحاولة مرة أخرى.",
+        "admin.audit_log_not_found": "لم يتم العثور على إدخال سجل التدقيق.",
+        "admin.operation_forbidden": "هذه العملية الإدارية غير مسموحة.",
+        "outreach.not_found": "لم يتم العثور على مسودة الاتصال.",
+        "export.not_found": "لم يتم العثور على التصدير.",
+        "export.generation_failed": "فشل إنشاء التصدير. يرجى المحاولة مرة أخرى.",
+        "validation.invalid_email": "يرجى إدخال عنوان بريد إلكتروني صحيح.",
+        "validation.invalid_url": "يرجى إدخال عنوان URL صحيح.",
+        "validation.invalid_phone": "يرجى إدخال رقم هاتف صحيح.",
+        "validation.invalid_coordinates": "الإحداثيات غير صحيحة. يرجى التحقق والمحاولة مرة أخرى.",
+        "validation.missing_required_field": "هذا الحقل مطلوب. يرجى ملؤه.",
+        "validation.invalid_enum_value": "يرجى اختيار خيار صحيح."
     }
-  },
-  "shell": {
-    "workspaceFallbackSlug": "isolated-account",
-    "scoringVersion": "التقييم | v12",
-    "scoringSummary": "تم نشر الأوزان الحتمية قبل يومين. سرعة المراجعة +0.05.",
-    "viewChangelog": "عرض سجل التحديثات"
-  },
-  "authSidebar": {
-    "compliance": "SOC 2 | Type II",
-    "title": "منصة ذكاء عملاء قائمة على الأدلة للفرق الجادة في التشغيل.",
-    "description": "اكتشف العملاء، ووحّد بيانات المزوّدين، وقيّمهم بشكل حتمي، وأطلق تواصلًا مساعدًا مع إمكانية تتبّع كل قرار إلى مصدره.",
-    "proofPoints": [
-      {
-        "title": "ذكاء عملاء مدعوم بالأدلة",
-        "body": "كل درجة تعود إلى حقائق مزودين موحّدة، بلا إشارات مفترضة أو مختلقة."
-      },
-      {
-        "title": "خط تقييم حتمي",
-        "body": "أوزان بإصدارات، ومراحل قابلة لإعادة الإنتاج، ورؤية كاملة للتدقيق."
-      },
-      {
-        "title": "حوكمة بمستوى تشغيلي احترافي",
-        "body": "صلاحيات حسب الدور، وتصديرات تراعي سياسات الاحتفاظ، وسجل أحداث غير قابل للتغيير."
-      }
-    ],
-    "trust": "موثوق به لدى أكثر من 1,400 فريق وكالة",
-    "region": "us-west"
-  }
 }

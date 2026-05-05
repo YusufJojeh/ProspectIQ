@@ -154,7 +154,7 @@ export function SignUpPage() {
           />
 
           {mutation.error ? (
-            <QueryStateNotice tone="error" title={t("auth.signUpFailed")} description={mutation.error.message} />
+            <QueryStateNotice tone="error" title={t("auth.signUpFailed")} description={mutation.error} />
           ) : (
             <QueryStateNotice tone="info" title={t("auth.starterTrialTitle")} description={t("auth.starterTrialDescription")} />
           )}

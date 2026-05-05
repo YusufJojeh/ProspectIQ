@@ -13,13 +13,11 @@ def test_assistant_chat_streams_grounded_response(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
 
-    monkeypatch.setattr(
-        AssistantService,
-        "generate_response",
-        lambda self, db, workspace_id, messages, lead_public_id: (
-            f"## Assistant\n\nLead: {lead_public_id}\n\nQuestion: {messages[-1].parts[0].text}"
-        ),
-    )
+    def _fake_stream(self, db, *, workspace_id, messages, lead):
+        lead_id = lead.public_id if lead is not None else "no-lead"
+        yield f"## Assistant\n\nLead: {lead_id}\n\nQuestion: {messages[-1].parts[0].text}"
+
+    monkeypatch.setattr(AssistantService, "stream_response", _fake_stream)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)

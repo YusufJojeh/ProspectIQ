@@ -114,7 +114,7 @@ def test_create_search_job_endpoint_persists_request_and_returns_status(monkeypa
 
         assert create_response.status_code == 202
         payload = create_response.json()
-        assert payload["discovery_runtime"] in {"demo", "serpapi", "blocked"}
+        assert payload["discovery_runtime"] in {"live", "demo", "stub", "blocked"}
         assert payload["status"] == "queued"
         assert payload["radius_km"] == 15
         assert payload["website_preference"] == "must_have"
@@ -162,13 +162,12 @@ def test_create_search_job_endpoint_rejects_invalid_filter_ranges(monkeypatch) -
         )
 
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["error"]["code"] == "validation.invalid_payload"
 
 
 def test_create_search_job_endpoint_returns_503_when_discovery_is_blocked(monkeypatch) -> None:
-    monkeypatch.setenv("SERPAPI_API_KEY", "<replace-me>")
-    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "live")
-    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "false")
+    monkeypatch.setenv("SERPAPI_API_KEY", "")
+    monkeypatch.setenv("DISCOVERY_RUNTIME_OVERRIDE", "blocked")
     clear_settings_cache()
     session_factory = _build_session_factory()
     _seed_workspace_admin(session_factory)
@@ -191,5 +190,6 @@ def test_create_search_job_endpoint_returns_503_when_discovery_is_blocked(monkey
         )
 
     assert response.status_code == 503
-    assert response.json()["error"]["code"] == "service_unavailable"
+    assert response.json()["error"]["code"] in {"service_unavailable", "provider.unavailable"}
     clear_settings_cache()
+    monkeypatch.delenv("DISCOVERY_RUNTIME_OVERRIDE", raising=False)

@@ -25,13 +25,34 @@ from app.shared.responses import DatabaseHealthResponse, HealthCheckResponse
 logger = logging.getLogger(__name__)
 
 
+def _safe_join_origins(origins: object) -> str:
+    if origins is None:
+        return ""
+
+    if isinstance(origins, str):
+        return origins
+
+    try:
+        return ", ".join(str(origin) for origin in origins)
+    except TypeError:
+        return str(origins)
+
+
 @asynccontextmanager
 async def app_lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+
     logger.info("app.startup")
-    logger.info("cors.allowed_origins %s", ", ".join(settings.allowed_web_origins))
-    for warning in settings.runtime_warnings:
-        logger.warning("config.runtime_warning %s", warning)
+
+    allowed_origins = getattr(settings, "allowed_web_origins", [])
+    logger.info("cors.allowed_origins %s", _safe_join_origins(allowed_origins))
+
+    runtime_warnings = getattr(settings, "runtime_warnings", [])
+
+    if runtime_warnings:
+        for warning in runtime_warnings:
+            logger.warning("config.runtime_warning %s", warning)
+
     try:
         yield
     finally:
@@ -56,10 +77,12 @@ def build_core_router() -> APIRouter:
     def database_healthcheck() -> DatabaseHealthResponse:
         if not settings.enable_db_healthcheck:
             return DatabaseHealthResponse(status="ok", database="disabled")
+
         try:
             check_database_connection()
         except Exception as exc:
             raise ServiceUnavailableError("Database connectivity check failed.") from exc
+
         return DatabaseHealthResponse(status="ok", database="connected")
 
     return router
@@ -82,18 +105,26 @@ def register_application_routers(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
     setup_logging(settings)
+
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         summary="Backend foundation for the LeadScope AI lead intelligence platform.",
         lifespan=app_lifespan,
+        docs_url="/docs" if settings.enable_api_docs else None,
+        redoc_url="/redoc" if settings.enable_api_docs else None,
+        openapi_url="/openapi.json" if settings.enable_api_docs else None,
     )
+
     app.state.settings = settings
+
     add_cors_middleware(app)
     add_http_middleware(app)
     register_exception_handlers(app)
     register_application_routers(app)
+
     return app
 
 

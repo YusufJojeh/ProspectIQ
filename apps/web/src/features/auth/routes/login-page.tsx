@@ -87,7 +87,7 @@ export function LoginPage() {
             )}
           />
 
-          {mutation.error ? <QueryStateNotice tone="error" title={t("auth.signInFailed")} description={mutation.error.message} /> : null}
+          {mutation.error ? <QueryStateNotice tone="error" title={t("auth.signInFailed")} description={mutation.error} /> : null}
 
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? t("auth.signingIn") : t("auth.openWorkspace")}

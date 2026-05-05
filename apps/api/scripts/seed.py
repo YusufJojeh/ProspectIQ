@@ -1138,15 +1138,10 @@ def _seed_demo_workspace(db) -> None:
     db.commit()
 
 
-def seed(*, demo_data: bool = False, reset_demo_data: bool = False) -> None:
+def seed() -> None:
     with SessionLocal() as db:
         workspace, admin = seed_default_workspace_and_admin(db)
-        if reset_demo_data:
-            _reset_workspace_demo_data(db, workspace_id=workspace.id)
-            workspace, admin = seed_default_workspace_and_admin(db)
         ensure_base_workspace_configuration(db, workspace_id=workspace.id, admin_id=admin.id)
-        if demo_data:
-            _seed_demo_workspace(db)
 
 
 def main() -> None:
@@ -1156,21 +1151,11 @@ def main() -> None:
         action="store_true",
         help="Run alembic migrations before seeding.",
     )
-    parser.add_argument(
-        "--demo-data",
-        action="store_true",
-        help="Seed presentation-ready demo users, jobs, leads, scores, recommendations, and outreach.",
-    )
-    parser.add_argument(
-        "--reset-demo-data",
-        action="store_true",
-        help="Clear workspace operational data before reseeding. Intended for reproducible demos.",
-    )
     args = parser.parse_args()
 
     if args.migrate:
         run_migrations()
-    seed(demo_data=args.demo_data, reset_demo_data=args.reset_demo_data)
+    seed()
     print("Seed completed.")
 
 

@@ -66,7 +66,7 @@ export function TeamPage() {
   }
 
   if (usersQuery.isError) {
-    return <QueryStateNotice tone="error" title="Team unavailable" description={usersQuery.error.message} />;
+    return <QueryStateNotice tone="error" title="Team unavailable" error={usersQuery.error} />;
   }
 
   const getDraft = (userId: string, currentRole: UserRole, currentStatus: UserStatus, currentJobTitle?: string | null) =>
@@ -141,7 +141,7 @@ export function TeamPage() {
                 {createMutation.isPending ? "Creating user..." : "Create team user"}
               </Button>
               {createMutation.error ? (
-                <QueryStateNotice tone="error" title="Team user not created" description={createMutation.error.message} />
+                <QueryStateNotice tone="error" title="Team user not created" error={createMutation.error} />
               ) : (
                 <QueryStateNotice
                   tone="info"

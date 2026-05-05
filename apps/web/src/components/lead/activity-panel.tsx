@@ -1,9 +1,11 @@
 import { MessageSquareText, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { formatDate } from "@/lib/presenters";
+import type { ApiError } from "@/lib/api-client";
 
 export function LeadActivityPanel({
   items,
@@ -18,35 +20,36 @@ export function LeadActivityPanel({
   onNoteChange: (value: string) => void;
   onSaveNote: () => void;
   saving?: boolean;
-  error?: string | null;
+  error?: ApiError | Error | null;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="rounded-2xl border border-border bg-card/95">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
         <div>
-          <h2 className="text-sm font-semibold">Activity timeline</h2>
+          <h2 className="text-sm font-semibold">{t("leadDetail.activityTimeline")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Notes, workflow changes, and audit events stay on one operational timeline.
+            {t("leadDetail.activityTimelineDescription")}
           </p>
         </div>
-        <Badge tone="neutral">{items.length} events</Badge>
+        <Badge tone="neutral">{t("leadDetail.activityEvents", { count: items.length })}</Badge>
       </header>
 
       <div className="space-y-4 p-4">
         <div className="rounded-xl border border-border bg-muted/20 p-4">
-          <p className="text-sm font-medium">Add note</p>
+          <p className="text-sm font-medium">{t("leads.addNote")}</p>
           <Textarea
             value={noteDraft}
             onChange={(event) => onNoteChange(event.target.value)}
             className="mt-3 min-h-[110px]"
-            placeholder="Capture qualification context, handoff notes, or next-step detail."
+            placeholder={t("leadDetail.notePlaceholder")}
           />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button onClick={onSaveNote} disabled={saving || noteDraft.trim().length === 0}>
               <MessageSquareText className="size-3.5" />
-              {saving ? "Saving..." : "Save note"}
+              {saving ? t("common.loading") : t("leadDetail.saveNote")}
             </Button>
-            {error ? <QueryStateNotice tone="error" title="Could not save note" description={error} /> : null}
+            {error ? <QueryStateNotice tone="error" title={t("leadDetail.saveNoteError")} error={error} /> : null}
           </div>
         </div>
 

@@ -103,7 +103,7 @@ def test_authenticate_rejects_inactive_user() -> None:
                 ),
             )
         except InactiveUserError as exc:
-            assert exc.code == "inactive_user"
+            assert exc.code == "user.inactive"
         else:
             raise AssertionError("Expected InactiveUserError for inactive user.")
 
@@ -112,7 +112,7 @@ def test_get_token_claims_rejects_missing_credentials() -> None:
     try:
         get_token_claims(None)
     except UnauthorizedError as exc:
-        assert exc.code == "unauthorized"
+        assert exc.code == "auth.unauthorized"
     else:
         raise AssertionError("Expected UnauthorizedError for missing credentials.")
 
@@ -159,6 +159,6 @@ def test_require_role_raises_forbidden_for_disallowed_role() -> None:
     try:
         require_role("account_owner", "admin")(user)
     except ForbiddenError as exc:
-        assert exc.code == "forbidden"
+        assert exc.code == "auth.forbidden"
     else:
         raise AssertionError("Expected ForbiddenError for insufficient role.")

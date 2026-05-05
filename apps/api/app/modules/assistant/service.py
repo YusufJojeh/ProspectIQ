@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterator
 
 import httpx
 from sqlalchemy.orm import Session
@@ -25,17 +25,45 @@ class AssistantService:
         self.lead_intelligence = LeadIntelligenceService()
         self.analysis_repository = AIAnalysisRepository()
 
-    def generate_response(
+    def resolve_lead(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_public_id: str | None,
+    ) -> Lead | None:
+        """Validate and fetch the lead before streaming starts.
+
+        Raises NotFoundError synchronously so the HTTP layer can return 404
+        before the StreamingResponse headers are committed.
+        """
+        if not lead_public_id:
+            return None
+        lead = self.leads_repository.get_by_public_id_for_workspace(
+            db,
+            workspace_id=workspace_id,
+            public_id=lead_public_id,
+        )
+        if lead is None:
+            raise NotFoundError("Lead was not found.")
+        return lead
+
+    def stream_response(
         self,
         db: Session,
         *,
         workspace_id: int,
         messages: list[AssistantMessageInput],
-        lead_public_id: str | None,
-    ) -> str:
-        lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
+        lead: Lead | None,
+    ) -> Iterator[str]:
+        """Yield raw text tokens from the LLM or the deterministic fallback.
+
+        The lead must already be resolved (via resolve_lead) so that
+        NotFoundError is raised before the stream starts.
+        """
         if lead is None:
-            return self._build_workspace_response(messages)
+            yield self._build_workspace_response(messages)
+            return
 
         context = self.lead_intelligence.build(db, lead=lead)
         latest_analysis = self.analysis_repository.get_latest_snapshot_for_lead(db, lead_id=lead.id)
@@ -48,73 +76,43 @@ class AssistantService:
         settings = get_settings()
         runtime = settings.analysis_runtime
 
+        llm_messages = self._build_llm_messages(
+            lead=lead,
+            messages=messages,
+            facts=context.facts.model_dump(mode="json"),
+            score_context=context.score_context.model_dump(mode="json") if context.score_context else None,
+            latest_analysis=latest_analysis_result.model_dump(mode="json") if latest_analysis_result else None,
+        )
+
         if runtime == "openai" and settings.has_openai_configured:
             try:
-                return self._complete_with_openai(
-                    settings=settings,
-                    lead=lead,
-                    messages=messages,
-                    facts=context.facts.model_dump(mode="json"),
-                    score_context=context.score_context.model_dump(mode="json")
-                    if context.score_context
-                    else None,
-                    latest_analysis=latest_analysis_result.model_dump(mode="json")
-                    if latest_analysis_result is not None
-                    else None,
-                )
+                yield from self._stream_with_openai(settings=settings, llm_messages=llm_messages)
+                return
             except Exception:
-                logger.warning("assistant.openai_failed", exc_info=True)
-        elif runtime == "ollama":
+                logger.warning("assistant.openai_stream_failed", exc_info=True)
+
+        elif runtime == "ollama" and settings.has_ollama_configured:
             try:
-                return self._complete_with_ollama(
-                    settings=settings,
-                    lead=lead,
-                    messages=messages,
-                    facts=context.facts.model_dump(mode="json"),
-                    score_context=context.score_context.model_dump(mode="json")
-                    if context.score_context
-                    else None,
-                    latest_analysis=latest_analysis_result.model_dump(mode="json")
-                    if latest_analysis_result is not None
-                    else None,
-                )
+                yield from self._stream_with_ollama(settings=settings, llm_messages=llm_messages)
+                return
             except Exception:
-                logger.warning("assistant.ollama_failed", exc_info=True)
+                logger.warning("assistant.ollama_stream_failed", exc_info=True)
+
         elif runtime == "blocked":
             raise ServiceUnavailableError(
                 "Assistant replies are unavailable because the configured AI provider is blocked."
             )
 
-        return self._build_lead_response(
+        yield self._build_lead_response(
             lead=lead,
             messages=messages,
             facts=context.facts.model_dump(mode="json"),
-            score_context=context.score_context.model_dump(mode="json")
-            if context.score_context
-            else None,
+            score_context=context.score_context.model_dump(mode="json") if context.score_context else None,
             latest_analysis=latest_analysis_result,
         )
 
-    def _get_lead_or_raise(
-        self,
-        db: Session,
-        *,
-        workspace_id: int,
-        lead_public_id: str | None,
-    ) -> Lead | None:
-        if not lead_public_id:
-            return None
-        lead = self.leads_repository.get_by_public_id_for_workspace(
-            db,
-            workspace_id=workspace_id,
-            public_id=lead_public_id,
-        )
-        if lead is None:
-            raise NotFoundError("Lead was not found.")
-        return lead
-
-    def _latest_user_message(self, messages: Iterable[AssistantMessageInput]) -> str:
-        for message in reversed(list(messages)):
+    def _latest_user_message(self, messages: list[AssistantMessageInput]) -> str:
+        for message in reversed(messages):
             if message.role != "user":
                 continue
             text = self._message_text(message)
@@ -193,7 +191,7 @@ class AssistantService:
         lines = [
             f"## {company_name} brief",
             "",
-            f"I’m answering with the stored lead evidence for **{company_name}** in **{city}**.",
+            f"I'm answering with the stored lead evidence for **{company_name}** in **{city}**.",
             "",
             "### Direct answer",
             f"Your request was: **{user_need}**",
@@ -260,6 +258,7 @@ class AssistantService:
                 "Reply in concise markdown with direct recommendations.",
                 "When the evidence is incomplete, say so explicitly.",
                 "Never mention internal JSON keys or implementation details.",
+                "Support Arabic and English: reply in the same language the user writes in.",
             ]
         )
         context_payload = {
@@ -292,27 +291,12 @@ class AssistantService:
             chat_messages.append({"role": "user", "content": "Summarize this lead and recommend the next best action."})
         return chat_messages
 
-    def _complete_with_openai(
+    def _stream_with_openai(
         self,
         *,
         settings,
-        lead: Lead,
-        messages: list[AssistantMessageInput],
-        facts: dict[str, object],
-        score_context: dict[str, object] | None,
-        latest_analysis: dict[str, object] | None,
-    ) -> str:
-        payload = {
-            "model": settings.openai_model,
-            "temperature": 0.3,
-            "messages": self._build_llm_messages(
-                lead=lead,
-                messages=messages,
-                facts=facts,
-                score_context=score_context,
-                latest_analysis=latest_analysis,
-            ),
-        }
+        llm_messages: list[dict[str, str]],
+    ) -> Iterator[str]:
         with httpx.Client(
             timeout=httpx.Timeout(30.0, connect=10.0),
             headers={
@@ -320,46 +304,63 @@ class AssistantService:
                 "Content-Type": "application/json",
             },
         ) as client:
-            response = client.post("https://api.openai.com/v1/chat/completions", json=payload)
-            response.raise_for_status()
-            content = (
-                response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            )
-        if not isinstance(content, str) or not content.strip():
-            raise ValueError("OpenAI assistant response was empty.")
-        return content.strip()
+            with client.stream(
+                "POST",
+                "https://api.openai.com/v1/chat/completions",
+                json={
+                    "model": settings.openai_model,
+                    "temperature": 0.3,
+                    "stream": True,
+                    "messages": llm_messages,
+                },
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data.strip() == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            delta = (
+                                chunk.get("choices", [{}])[0]
+                                .get("delta", {})
+                                .get("content", "")
+                            )
+                            if delta:
+                                yield delta
+                        except json.JSONDecodeError:
+                            continue
 
-    def _complete_with_ollama(
+    def _stream_with_ollama(
         self,
         *,
         settings,
-        lead: Lead,
-        messages: list[AssistantMessageInput],
-        facts: dict[str, object],
-        score_context: dict[str, object] | None,
-        latest_analysis: dict[str, object] | None,
-    ) -> str:
-        prompt = "\n\n".join(
-            message["content"]
-            for message in self._build_llm_messages(
-                lead=lead,
-                messages=messages,
-                facts=facts,
-                score_context=score_context,
-                latest_analysis=latest_analysis,
-            )
-        )
+        llm_messages: list[dict[str, str]],
+    ) -> Iterator[str]:
+        prompt = "\n\n".join(msg["content"] for msg in llm_messages)
         with httpx.Client(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
-            response = client.post(
+            with client.stream(
+                "POST",
                 f"{settings.ollama_base_url.rstrip('/')}/api/generate",
                 json={
                     "model": settings.ollama_model,
                     "prompt": prompt,
-                    "stream": False,
+                    "stream": True,
                 },
-            )
-            response.raise_for_status()
-            content = response.json().get("response", "")
-        if not isinstance(content, str) or not content.strip():
-            raise ValueError("Ollama assistant response was empty.")
-        return content.strip()
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        token = chunk.get("response", "")
+                        if token:
+                            yield token
+                        if chunk.get("done"):
+                            break
+                    except json.JSONDecodeError:
+                        continue

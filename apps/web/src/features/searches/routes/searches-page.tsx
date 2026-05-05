@@ -256,7 +256,7 @@ export function SearchesPage() {
                 <QueryStateNotice
                   tone="error"
                   title="Search job could not be queued"
-                  description={createMutation.error.message}
+                  error={createMutation.error}
                 />
               ) : null}
             </form>

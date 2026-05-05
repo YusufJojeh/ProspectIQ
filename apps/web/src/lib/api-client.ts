@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import i18n from "@/lib/i18n";
 import type { AuthenticatedUser, TokenResponse } from "@/types/api";
 
 const AUTH_SESSION_KEY = "prospectiq-auth-session";
@@ -13,6 +14,7 @@ type ApiErrorPayload = {
     code?: string;
     detail?: string;
   };
+  
 } | null;
 
 export interface AuthSession {
@@ -96,6 +98,7 @@ export async function request<T>(path: string, init: RequestInit = {}, body?: Js
     ...init,
     headers: {
       "Content-Type": "application/json",
+      "Accept-Language": i18n.language,
       ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {}),
       ...(init.headers ?? {}),
     },

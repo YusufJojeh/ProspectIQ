@@ -1,15 +1,16 @@
+from app.core.error_codes import ErrorCodes
 from app.core.errors import ApiError
 
 
 class ProviderError(ApiError):
     status_code = 502
-    code = "provider_error"
+    code = ErrorCodes.PROVIDER_ERROR
 
 
 class ProviderConfigError(ApiError):
     status_code = 500
-    code = "provider_config_error"
+    code = ErrorCodes.PROVIDER_INVALID_CREDENTIALS
 
 
 class RetryableProviderError(ProviderError):
-    code = "retryable_provider_error"
+    code = ErrorCodes.PROVIDER_ERROR

@@ -170,7 +170,7 @@ export function ExportsPage() {
             <QueryStateNotice tone="loading" title="Loading preview" description="Fetching sample rows…" />
           )}
           {leadsQuery.isError && (
-            <QueryStateNotice tone="error" title="Could not load preview" description={leadsQuery.error.message} />
+            <QueryStateNotice tone="error" title="Could not load preview" error={leadsQuery.error} />
           )}
 
           {leadsQuery.isSuccess && (

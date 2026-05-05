@@ -33,7 +33,7 @@ export function InvoicesPage() {
   }
 
   if (invoicesQuery.isError) {
-    return <QueryStateNotice tone="error" title="Invoices unavailable" description={invoicesQuery.error.message} />;
+    return <QueryStateNotice tone="error" title="Invoices unavailable" error={invoicesQuery.error} />;
   }
 
   return (

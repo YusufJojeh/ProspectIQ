@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 from app.core.config import get_settings
+from app.core.error_codes import ErrorCodes
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.adapters import (
-    DeterministicLLMAdapter,
     FallbackAnalysisBuilder,
     LLMClient,
     OllamaLLMAdapter,
@@ -203,43 +203,33 @@ class AIAnalysisService:
         if self.llm_client is not None:
             return self.llm_client, "custom", "custom-client"
         settings = get_settings()
-        provider = settings.ai_provider.strip().casefold()
-        if provider in {"stub", "demo"}:
-            return DeterministicLLMAdapter(), "demo", "deterministic-rules-v1"
-        if provider == "openai":
-            if settings.has_openai_configured:
-                return (
-                    OpenAILLMAdapter(
-                        api_key=settings.openai_api_key,
-                        model=settings.openai_model,
-                    ),
-                    "openai",
-                    settings.openai_model,
-                )
-            if settings.allow_demo_fallbacks:
-                return DeterministicLLMAdapter(), "demo-fallback", "deterministic-rules-v1"
-            raise ServiceUnavailableError(
-                "AI analysis is unavailable because OPENAI_API_KEY is not configured and demo fallbacks are disabled."
+
+        # Try OpenAI first
+        if settings.has_openai_configured:
+            return (
+                OpenAILLMAdapter(
+                    api_key=settings.openai_api_key,
+                    model=settings.openai_model,
+                ),
+                "openai",
+                settings.openai_model,
             )
-        if provider == "ollama":
-            if settings.ollama_base_url.strip() and settings.ollama_model.strip():
-                return (
-                    OllamaLLMAdapter(
-                        base_url=settings.ollama_base_url,
-                        model=settings.ollama_model,
-                    ),
-                    "ollama",
-                    settings.ollama_model,
-                )
-            if settings.allow_demo_fallbacks:
-                return DeterministicLLMAdapter(), "demo-fallback", "deterministic-rules-v1"
-            raise ServiceUnavailableError(
-                "AI analysis is unavailable because the Ollama runtime is not configured and demo fallbacks are disabled."
+
+        # Try Ollama
+        if settings.has_ollama_configured:
+            return (
+                OllamaLLMAdapter(
+                    base_url=settings.ollama_base_url,
+                    model=settings.ollama_model,
+                ),
+                "ollama",
+                settings.ollama_model,
             )
-        if settings.allow_demo_fallbacks:
-            return DeterministicLLMAdapter(), "demo-fallback", "deterministic-rules-v1"
+
+        # No provider available
         raise ServiceUnavailableError(
-            f"AI analysis is unavailable because ai_provider '{settings.ai_provider}' is unsupported."
+            detail="AI analysis is unavailable because no LLM provider is configured. "
+            "Please set either OPENAI_API_KEY or OLLAMA_BASE_URL."
         )
 
     def _run_analysis(

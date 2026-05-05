@@ -72,7 +72,7 @@ export function AuditLogsPage() {
 
   if (logsQuery.isError) {
     return (
-      <QueryStateNotice tone="error" title="Could not load audit logs" description={logsQuery.error.message} />
+      <QueryStateNotice tone="error" title="Could not load audit logs" error={logsQuery.error} />
     );
   }
 

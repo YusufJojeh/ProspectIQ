@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterator
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends
@@ -22,19 +22,15 @@ def _to_sse(data: dict[str, object] | str) -> str:
     return f"data: {payload}\n\n"
 
 
-def _chunk_text(value: str, size: int = 36) -> Iterable[str]:
-    for index in range(0, len(value), size):
-        yield value[index : index + size]
-
-
-def _ui_message_stream(markdown: str) -> Iterable[str]:
+def _to_ui_message_stream(token_iter: Iterator[str]) -> Iterator[str]:
+    """Wrap a token iterator in the Vercel AI SDK UI-message-stream SSE protocol."""
     message_id = f"msg_{uuid4().hex}"
     text_id = f"text_{uuid4().hex}"
 
     yield _to_sse({"type": "start", "messageId": message_id})
     yield _to_sse({"type": "text-start", "id": text_id})
-    for chunk in _chunk_text(markdown):
-        yield _to_sse({"type": "text-delta", "id": text_id, "delta": chunk})
+    for token in token_iter:
+        yield _to_sse({"type": "text-delta", "id": text_id, "delta": token})
     yield _to_sse({"type": "text-end", "id": text_id})
     yield _to_sse({"type": "finish"})
     yield _to_sse("[DONE]")
@@ -47,14 +43,17 @@ def chat_with_assistant(
     _: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ):
-    markdown = AssistantService().generate_response(
+    service = AssistantService()
+    # Validate the lead before starting the stream so errors return proper HTTP codes.
+    lead = service.resolve_lead(db, workspace_id=workspace_id, lead_public_id=payload.lead_id)
+    token_stream = service.stream_response(
         db,
         workspace_id=workspace_id,
         messages=payload.messages,
-        lead_public_id=payload.lead_id,
+        lead=lead,
     )
     return StreamingResponse(
-        _ui_message_stream(markdown),
+        _to_ui_message_stream(token_stream),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

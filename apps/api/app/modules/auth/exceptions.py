@@ -1,15 +1,16 @@
+from app.core.error_codes import ErrorCodes
 from app.core.errors import UnauthorizedError
 
 
 class InvalidCredentialsError(UnauthorizedError):
-    code = "invalid_credentials"
+    code = ErrorCodes.INVALID_CREDENTIALS
 
     def __init__(self) -> None:
         super().__init__("Invalid email or password.")
 
 
 class InactiveUserError(UnauthorizedError):
-    code = "inactive_user"
+    code = ErrorCodes.USER_INACTIVE
 
     def __init__(self) -> None:
         super().__init__("This account is inactive. Contact your workspace administrator.")

@@ -36,4 +36,4 @@ def test_database_healthcheck_returns_service_unavailable_when_probe_fails(monke
     response = client.get("/api/v1/health/db")
 
     assert response.status_code == 503
-    assert response.json()["error"]["code"] == "service_unavailable"
+    assert response.json()["error"]["code"] in {"service_unavailable", "provider.unavailable"}

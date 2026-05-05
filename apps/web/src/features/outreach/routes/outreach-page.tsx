@@ -186,7 +186,7 @@ export function OutreachPage() {
 
   if (leadsQuery.isError) {
     return (
-      <QueryStateNotice tone="error" title="Could not load leads" description={leadsQuery.error.message} />
+      <QueryStateNotice tone="error" title="Could not load leads" error={leadsQuery.error} />
     );
   }
 

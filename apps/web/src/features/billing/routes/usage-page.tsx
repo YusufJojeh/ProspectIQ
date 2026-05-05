@@ -14,7 +14,7 @@ export function UsagePage() {
   }
 
   if (usageQuery.isError) {
-    return <QueryStateNotice tone="error" title="Usage unavailable" description={usageQuery.error.message} />;
+    return <QueryStateNotice tone="error" title="Usage unavailable" error={usageQuery.error} />;
   }
 
   return (

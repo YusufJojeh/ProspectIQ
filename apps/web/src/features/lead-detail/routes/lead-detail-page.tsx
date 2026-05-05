@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { LeadActivityPanel } from "@/components/lead/activity-panel";
@@ -29,6 +30,7 @@ import { buildBreakdownSummary, buildEvidenceSummary, buildLeadHealth, mergeActi
 import { generateLeadOutreach, getLatestOutreach, updateOutreachDraft } from "@/features/outreach/api";
 import { listUsers } from "@/features/users/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { hasCoordinates } from "@/lib/maps";
 import { formatPercent, formatScore, titleCaseLabel } from "@/lib/presenters";
 import { LazyLeadMap } from "@/features/leads/components/lazy-lead-map";
@@ -36,6 +38,7 @@ import type { LeadStatus, OutreachTone } from "@/types/api";
 
 export function LeadDetailPage() {
   const { leadId = "" } = useParams();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [statusDraft, setStatusDraft] = useState<LeadStatus>("new");
   const [statusNote, setStatusNote] = useState("");
@@ -110,35 +113,35 @@ export function LeadDetailPage() {
     onSuccess: () => {
       refreshQueries();
       setStatusNote("");
-      setActionSuccess("Lead status updated.");
+      setActionSuccess(t("leadDetail.leadStatusUpdated"));
     },
   });
   const assignMutation = useMutation({
     mutationFn: (assigneeId: string | null) => assignLead(leadId, assigneeId),
     onSuccess: (_payload, assigneeId) => {
       refreshQueries();
-      setActionSuccess(assigneeId ? "Lead owner updated." : "Lead owner cleared.");
+      setActionSuccess(assigneeId ? t("leadDetail.leadOwnerUpdated") : t("leadDetail.leadOwnerCleared"));
     },
   });
   const analysisMutation = useMutation({
     mutationFn: () => generateLeadAnalysis(leadId),
     onSuccess: () => {
       refreshQueries();
-      setActionSuccess("Assistive analysis generated.");
+      setActionSuccess(t("leadDetail.analysisGenerated"));
     },
   });
   const outreachMutation = useMutation({
     mutationFn: (regenerate: boolean) => generateLeadOutreach(leadId, { tone: outreachTone, regenerate }),
     onSuccess: () => {
       refreshQueries();
-      setActionSuccess("Outreach draft generated.");
+      setActionSuccess(t("leadDetail.outreachGenerated"));
     },
   });
   const refreshMutation = useMutation({
     mutationFn: () => refreshLead(leadId),
     onSuccess: () => {
       refreshQueries();
-      setActionSuccess("Lead refresh completed.");
+      setActionSuccess(t("leadDetail.leadRefreshed"));
     },
   });
   const noteMutation = useMutation({
@@ -146,7 +149,7 @@ export function LeadDetailPage() {
     onSuccess: () => {
       refreshQueries();
       setNoteDraft("");
-      setActionSuccess("Note saved.");
+      setActionSuccess(t("leadDetail.noteSaved"));
     },
   });
   const saveOutreachMutation = useMutation({
@@ -157,20 +160,20 @@ export function LeadDetailPage() {
       }),
     onSuccess: () => {
       refreshQueries();
-      setActionSuccess("Outreach draft saved.");
+      setActionSuccess(t("leadDetail.outreachSaved"));
     },
   });
 
   if (leadQuery.isError) {
-    return <EmptyState title="Lead detail is unavailable" description={leadQuery.error.message} />;
+    return <EmptyState title="Lead detail is unavailable" description={resolveErrorMessage(leadQuery.error, t)} />;
   }
 
   if (leadQuery.isPending || !leadQuery.data) {
     return (
       <QueryStateNotice
         tone="loading"
-        title="Loading lead detail"
-        description="Fetching the live lead record, evidence, activity, and latest assistive outputs."
+        title={t("leadDetail.loadingLeadDetail")}
+        description={t("leadDetail.loadingLeadDetailDescription")}
       />
     );
   }
@@ -198,7 +201,7 @@ export function LeadDetailPage() {
         generatingAnalysis={analysisMutation.isPending}
       />
 
-      {actionSuccess ? <QueryStateNotice tone="success" title="Action completed" description={actionSuccess} /> : null}
+      {actionSuccess ? <QueryStateNotice tone="success" title={t("leadDetail.actionCompleted")} description={actionSuccess} /> : null}
 
       <section className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-4">
@@ -231,7 +234,7 @@ export function LeadDetailPage() {
           {evidenceQuery.isPending ? (
             <QueryStateNotice tone="loading" title="Loading evidence" description="Fetching normalized provider facts for this lead." />
           ) : evidenceQuery.isError ? (
-            <QueryStateNotice tone="error" title="Evidence rows are unavailable" description={evidenceQuery.error.message} />
+            <QueryStateNotice tone="error" title={t("leads.evidence")} error={evidenceQuery.error} />
           ) : evidenceItems.length > 0 ? (
             <LeadEvidenceTimeline items={evidenceItems} summary={evidenceSummary} />
           ) : (
@@ -334,7 +337,7 @@ export function LeadDetailPage() {
             onGenerate={() => analysisMutation.mutate()}
             leadId={leadId}
             generating={analysisMutation.isPending}
-            error={latestAnalysisQuery.isError ? latestAnalysisQuery.error.message : null}
+            error={latestAnalysisQuery.isError ? latestAnalysisQuery.error : null}
           />
 
           <LeadOutreachPanel
@@ -355,7 +358,7 @@ export function LeadDetailPage() {
               outreachMessageDraft.trim().length > 0 &&
               outreachDraftChanged
             }
-            error={latestOutreachQuery.isError ? latestOutreachQuery.error.message : null}
+            error={latestOutreachQuery.isError ? latestOutreachQuery.error : null}
           />
         </div>
       </section>
@@ -366,7 +369,7 @@ export function LeadDetailPage() {
         onNoteChange={setNoteDraft}
         onSaveNote={() => noteMutation.mutate(noteDraft.trim())}
         saving={noteMutation.isPending}
-        error={noteMutation.isError ? noteMutation.error.message : null}
+        error={noteMutation.isError ? noteMutation.error : null}
       />
     </div>
   );

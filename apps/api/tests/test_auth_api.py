@@ -165,7 +165,7 @@ def test_login_invalid_credentials_returns_unauthorized() -> None:
         )
 
     assert response.status_code == 401
-    assert response.json()["error"]["code"] == "invalid_credentials"
+    assert response.json()["error"]["code"] == "auth.invalid_credentials"
 
 
 def test_protected_route_requires_bearer_token() -> None:
@@ -176,7 +176,7 @@ def test_protected_route_requires_bearer_token() -> None:
         response = client.get("/api/v1/auth/me")
 
     assert response.status_code == 401
-    assert response.json()["error"]["code"] == "unauthorized"
+    assert response.json()["error"]["code"] == "auth.unauthorized"
 
 
 def test_member_can_export_leads_csv() -> None:

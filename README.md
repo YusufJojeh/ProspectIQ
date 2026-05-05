@@ -69,62 +69,55 @@ Frontend URL: `http://localhost:5173`
 
 For local development, the backend accepts both `http://localhost:5173` and `http://127.0.0.1:5173` by default. Set `WEB_ORIGINS` explicitly when you need a tighter origin list.
 
-## Demo Setup
+## Production Environment Setup
 
-For a graduation-project or presentation demo, use the explicit demo-safe runtime instead of relying on live providers:
+LeadScope AI enforces strict production configuration to ensure security and reliability. When deploying with `APP_ENV=production`, the following variables **must** be configured:
 
-1. In `apps/api/.env`, set `SERPAPI_RUNTIME_MODE=demo` and keep `AI_PROVIDER=stub`.
-2. Seed the presentation dataset:
+### Required Production Variables
+
+- `JWT_SECRET`: A cryptographically random string of at least 32 characters (not the default placeholder)
+- `DEFAULT_ADMIN_PASSWORD`: A strong password different from the default `ChangeMe123!` (minimum 12 characters)
+- `WEB_ORIGINS`: Explicitly set to your production domain(s), e.g., `https://leadscope.example.com`
+- `SERPAPI_API_KEY`: Real SerpAPI credentials (demo fallbacks are removed; provider is required)
+- `OPENAI_API_KEY` or `OLLAMA_BASE_URL` + `OLLAMA_MODEL`: At least one real LLM provider must be configured
+
+### Automatic Validation
+
+On startup with `APP_ENV=production`, the backend validates all the above. If any requirement is not met, the application will refuse to boot with a clear error message. This is by design to prevent accidental deployment with unsafe defaults.
+
+### Example Production Environment
+
+```powershell
+APP_ENV=production
+JWT_SECRET=<generate-with-openssl-rand-hex-or-similar>
+DEFAULT_ADMIN_PASSWORD=<strong-random-password>
+WEB_ORIGINS=https://leadscope.example.com,https://www.leadscope.example.com
+SERPAPI_API_KEY=<real-serpapi-key>
+OPENAI_API_KEY=<real-openai-key>
+ENABLE_API_DOCS=false
+```
+
+For Docker deployment, see the [Deployment](#deployment) section below and use `infra/deploy.env.example` as a template.
+
+## Testing & Quality Assurance
+
+### Local API Tests
 
 ```powershell
 cd apps/api
-py -3.12 scripts/seed.py --migrate --demo-data --reset-demo-data
+py -3.12 -m pytest -q
 ```
 
-3. Start the API and frontend normally.
-
-This gives you:
-
-- one admin account plus manager and sales demo accounts
-- pre-seeded search jobs, leads, scores, recommendations, outreach drafts, and activity
-- visible map coordinates for presentation
-- a reproducible fallback path where new searches use demo provider data unless live SerpAPI is explicitly enabled
-
-See [`docs/demo-flow.md`](docs/demo-flow.md) for the presentation script, demo accounts, and reset commands.
-
-## Real Visual QA
-
-Use the seeded demo-safe runtime when you want browser screenshots from the real stack instead of the mock Playwright suite.
-
-1. Start MariaDB.
-2. In `apps/api/.env`, keep `SERPAPI_RUNTIME_MODE=demo` and `AI_PROVIDER=stub`.
-3. Reset the demo dataset:
-
-```powershell
-cd apps/api
-py -3.12 scripts/seed.py --migrate --demo-data --reset-demo-data
-```
-
-4. Start the API on `http://127.0.0.1:8000`.
-5. Run the real visual suite:
+### Frontend E2E Tests (Mock-backed)
 
 ```powershell
 cd apps/web
-npm run test:e2e:real
+npm run test:e2e
 ```
 
 Artifacts:
 
-- screenshots: `apps/web/test-artifacts/visual-qa/screenshots`
-- Playwright HTML report: `apps/web/test-artifacts/visual-qa/playwright-report/index.html`
-- markdown summary: `docs/visual-qa-report.md`
-
-Important:
-
-- `npm run test:e2e` is still the mock-backed Playwright path used for fast CI coverage.
-- `npm run test:e2e:real` is the real-stack visual QA path and expects the backend and seeded MariaDB runtime to already be available.
-
-## Deployment
+- Playwright HTML report: `apps/web/test-artifacts/playwright-report/index.html`
 
 ### Container Images
 
