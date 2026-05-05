@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 from app.shared.utils.identifiers import new_public_id
 
@@ -102,55 +102,57 @@ def upgrade() -> None:
         """
     )
 
-    bind = op.get_bind()
-    workspaces = list(bind.execute(sa.text("SELECT id, public_id, name FROM workspaces")).mappings())
-    for row in workspaces:
-        slug = row["name"].strip().lower().replace(" ", "-")
-        bind.execute(
-            sa.text(
-                """
-                UPDATE workspaces
-                SET slug=:slug, settings_json=:settings_json
-                WHERE id=:workspace_id
-                """
-            ),
-            {
-                "slug": slug[:120] or row["public_id"],
-                "settings_json": '{"locale":"en-US","theme":"dark"}',
-                "workspace_id": row["id"],
-            },
-        )
-        owner = bind.execute(
-            sa.text(
-                """
-                SELECT id FROM users
-                WHERE workspace_id=:workspace_id
-                ORDER BY created_at ASC, id ASC
-                LIMIT 1
-                """
-            ),
-            {"workspace_id": row["id"]},
-        ).scalar()
-        if owner is not None:
-            bind.execute(
-                sa.text(
-                    """
-                    UPDATE users SET role='account_owner'
-                    WHERE id=:owner_id
-                    """
-                ),
-                {"owner_id": owner},
-            )
+    # --- Data migration: only runs online (needs live DB to read rows) ---
+    if not context.is_offline_mode():
+        bind = op.get_bind()
+        workspaces = list(bind.execute(sa.text("SELECT id, public_id, name FROM workspaces")).mappings())
+        for row in workspaces:
+            slug = row["name"].strip().lower().replace(" ", "-")
             bind.execute(
                 sa.text(
                     """
                     UPDATE workspaces
-                    SET owner_user_id=:owner_id
+                    SET slug=:slug, settings_json=:settings_json
                     WHERE id=:workspace_id
                     """
                 ),
-                {"owner_id": owner, "workspace_id": row["id"]},
+                {
+                    "slug": slug[:120] or row["public_id"],
+                    "settings_json": '{"locale":"en-US","theme":"dark"}',
+                    "workspace_id": row["id"],
+                },
             )
+            owner = bind.execute(
+                sa.text(
+                    """
+                    SELECT id FROM users
+                    WHERE workspace_id=:workspace_id
+                    ORDER BY created_at ASC, id ASC
+                    LIMIT 1
+                    """
+                ),
+                {"workspace_id": row["id"]},
+            ).scalar()
+            if owner is not None:
+                bind.execute(
+                    sa.text(
+                        """
+                        UPDATE users SET role='account_owner'
+                        WHERE id=:owner_id
+                        """
+                    ),
+                    {"owner_id": owner},
+                )
+                bind.execute(
+                    sa.text(
+                        """
+                        UPDATE workspaces
+                        SET owner_user_id=:owner_id
+                        WHERE id=:workspace_id
+                        """
+                    ),
+                    {"owner_id": owner, "workspace_id": row["id"]},
+                )
 
     with op.batch_alter_table("users") as batch_op:
         try:
@@ -228,102 +230,104 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
 
-    plan_rows = [
-        (
-            "starter",
-            "Starter",
-            Decimal("49.00"),
-            Decimal("490.00"),
-            '{"searches_per_month":50,"exports_per_month":25,"ai_scoring_runs_per_month":100,"outreach_generations_per_month":150,"max_team_users":3}',
-        ),
-        (
-            "growth",
-            "Growth",
-            Decimal("149.00"),
-            Decimal("1490.00"),
-            '{"searches_per_month":250,"exports_per_month":100,"ai_scoring_runs_per_month":500,"outreach_generations_per_month":700,"max_team_users":10}',
-        ),
-        (
-            "pro",
-            "Pro",
-            Decimal("399.00"),
-            Decimal("3990.00"),
-            '{"searches_per_month":1000,"exports_per_month":500,"ai_scoring_runs_per_month":2000,"outreach_generations_per_month":3000,"max_team_users":30}',
-        ),
-        (
-            "enterprise",
-            "Enterprise",
-            Decimal("999.00"),
-            Decimal("9990.00"),
-            '{"searches_per_month":5000,"exports_per_month":2500,"ai_scoring_runs_per_month":10000,"outreach_generations_per_month":15000,"max_team_users":200}',
-        ),
-    ]
-    for code, name, monthly, yearly, limits_json in plan_rows:
-        bind.execute(
-            sa.text(
-                """
-                INSERT INTO plans (code, name, monthly_price, yearly_price, limits_json, is_active, created_at)
-                VALUES (:code, :name, :monthly_price, :yearly_price, :limits_json, true, :created_at)
-                """
+    # --- Seed plan data and create subscriptions: only online ---
+    if not context.is_offline_mode():
+        plan_rows = [
+            (
+                "starter",
+                "Starter",
+                Decimal("49.00"),
+                Decimal("490.00"),
+                '{"searches_per_month":50,"exports_per_month":25,"ai_scoring_runs_per_month":100,"outreach_generations_per_month":150,"max_team_users":3}',
             ),
-            {
-                "code": code,
-                "name": name,
-                "monthly_price": monthly,
-                "yearly_price": yearly,
-                "limits_json": limits_json,
-                "created_at": datetime.now(tz=UTC),
-            },
-        )
+            (
+                "growth",
+                "Growth",
+                Decimal("149.00"),
+                Decimal("1490.00"),
+                '{"searches_per_month":250,"exports_per_month":100,"ai_scoring_runs_per_month":500,"outreach_generations_per_month":700,"max_team_users":10}',
+            ),
+            (
+                "pro",
+                "Pro",
+                Decimal("399.00"),
+                Decimal("3990.00"),
+                '{"searches_per_month":1000,"exports_per_month":500,"ai_scoring_runs_per_month":2000,"outreach_generations_per_month":3000,"max_team_users":30}',
+            ),
+            (
+                "enterprise",
+                "Enterprise",
+                Decimal("999.00"),
+                Decimal("9990.00"),
+                '{"searches_per_month":5000,"exports_per_month":2500,"ai_scoring_runs_per_month":10000,"outreach_generations_per_month":15000,"max_team_users":200}',
+            ),
+        ]
+        for code, name, monthly, yearly, limits_json in plan_rows:
+            bind.execute(
+                sa.text(
+                    """
+                    INSERT INTO plans (code, name, monthly_price, yearly_price, limits_json, is_active, created_at)
+                    VALUES (:code, :name, :monthly_price, :yearly_price, :limits_json, true, :created_at)
+                    """
+                ),
+                {
+                    "code": code,
+                    "name": name,
+                    "monthly_price": monthly,
+                    "yearly_price": yearly,
+                    "limits_json": limits_json,
+                    "created_at": datetime.now(tz=UTC),
+                },
+            )
 
-    starter_id = bind.execute(sa.text("SELECT id FROM plans WHERE code='starter'")).scalar()
-    now = datetime.now(tz=UTC)
-    trial_ends_at = now + timedelta(days=14)
-    for row in workspaces:
-        bind.execute(
-            sa.text(
-                """
-                INSERT INTO subscriptions (
-                    public_id, workspace_id, plan_id, status, billing_cycle, started_at, renews_at,
-                    trial_ends_at, created_at, updated_at
-                ) VALUES (
-                    :public_id, :workspace_id, :plan_id, 'trialing', 'monthly', :started_at,
-                    :renews_at, :trial_ends_at, :created_at, :updated_at
-                )
-                """
-            ),
-            {
-                "public_id": new_public_id("sub"),
-                "workspace_id": row["id"],
-                "plan_id": starter_id,
-                "started_at": now,
-                "renews_at": trial_ends_at,
-                "trial_ends_at": trial_ends_at,
-                "created_at": now,
-                "updated_at": now,
-            },
-        )
-        subscription_id = bind.execute(
-            sa.text("SELECT id FROM subscriptions WHERE workspace_id=:workspace_id ORDER BY id DESC LIMIT 1"),
-            {"workspace_id": row["id"]},
-        ).scalar()
-        bind.execute(
-            sa.text(
-                """
-                INSERT INTO invoices (public_id, workspace_id, subscription_id, amount, currency, status, issued_at, due_at, paid_at)
-                VALUES (:public_id, :workspace_id, :subscription_id, :amount, 'USD', 'paid', :issued_at, :due_at, :paid_at)
-                """
-            ),
-            {
-                "public_id": new_public_id("inv"),
-                "workspace_id": row["id"],
-                "subscription_id": subscription_id,
-                "amount": Decimal("49.00"),
-                "issued_at": now,
-                "due_at": trial_ends_at,
-                "paid_at": now,
-            },
-        )
+        starter_id = bind.execute(sa.text("SELECT id FROM plans WHERE code='starter'")).scalar()
+        now = datetime.now(tz=UTC)
+        trial_ends_at = now + timedelta(days=14)
+        for row in workspaces:
+            bind.execute(
+                sa.text(
+                    """
+                    INSERT INTO subscriptions (
+                        public_id, workspace_id, plan_id, status, billing_cycle, started_at, renews_at,
+                        trial_ends_at, created_at, updated_at
+                    ) VALUES (
+                        :public_id, :workspace_id, :plan_id, 'trialing', 'monthly', :started_at,
+                        :renews_at, :trial_ends_at, :created_at, :updated_at
+                    )
+                    """
+                ),
+                {
+                    "public_id": new_public_id("sub"),
+                    "workspace_id": row["id"],
+                    "plan_id": starter_id,
+                    "started_at": now,
+                    "renews_at": trial_ends_at,
+                    "trial_ends_at": trial_ends_at,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+            subscription_id = bind.execute(
+                sa.text("SELECT id FROM subscriptions WHERE workspace_id=:workspace_id ORDER BY id DESC LIMIT 1"),
+                {"workspace_id": row["id"]},
+            ).scalar()
+            bind.execute(
+                sa.text(
+                    """
+                    INSERT INTO invoices (public_id, workspace_id, subscription_id, amount, currency, status, issued_at, due_at, paid_at)
+                    VALUES (:public_id, :workspace_id, :subscription_id, :amount, 'USD', 'paid', :issued_at, :due_at, :paid_at)
+                    """
+                ),
+                {
+                    "public_id": new_public_id("inv"),
+                    "workspace_id": row["id"],
+                    "subscription_id": subscription_id,
+                    "amount": Decimal("49.00"),
+                    "issued_at": now,
+                    "due_at": trial_ends_at,
+                    "paid_at": now,
+                },
+            )
 
     op.alter_column("workspaces", "slug", existing_type=sa.String(length=120), nullable=False)
     op.alter_column("workspaces", "status", existing_type=sa.String(length=32), server_default=None)
