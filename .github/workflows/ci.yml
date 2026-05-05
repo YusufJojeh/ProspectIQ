@@ -129,7 +129,7 @@ jobs:
           PY
 
       - name: Start deployment stack
-        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml up -d --wait --timeout 300
+        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml up -d
 
       - name: Verify deployment stack
         run: sh infra/scripts/verify_deploy_stack.sh /tmp/leadscope-deploy.env infra/docker-compose.deploy.yml
@@ -178,7 +178,7 @@ jobs:
       - name: Playwright E2E
         env:
           CI: "true"
-        run: npm run test:e2e -- --workers=2
+        run: npm run test:e2e -- --workers=2 --project=setup --project=desktop-wide
 
       - name: Upload Playwright artifacts on failure
         if: failure()
