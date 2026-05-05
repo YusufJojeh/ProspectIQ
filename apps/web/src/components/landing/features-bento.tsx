@@ -92,7 +92,6 @@ function DiscoveryVisual() {
     { name: "Parallax HQ", score: 55, tone: "oklch(var(--risk))" },
   ];
   const { t } = useTranslation();
-  const citations = t("landing.features.visual.citations", { returnObjects: true }) as string[];
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl border border-border bg-background/60 p-4">

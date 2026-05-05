@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 from app.core.database import get_session_factory
-from app.core.error_codes import ErrorCodes
 from app.core.errors import ServiceUnavailableError
 from app.modules.leads.models import Lead
+from app.modules.provider_serpapi.demo_service import DemoSerpApiService
 from app.modules.provider_serpapi.models import (
     ProviderFetch,
     ProviderNormalizedFact,
@@ -25,7 +25,6 @@ from app.modules.provider_serpapi.schemas import (
     PlaceLookupKey,
     WebsiteDiscoveryResult,
 )
-from app.modules.provider_serpapi.demo_service import DemoSerpApiService
 from app.modules.provider_serpapi.service import SerpApiService
 from app.modules.scoring.fact_builder import EvidenceFactBuilder
 from app.modules.scoring.schemas import ScoringThresholds, ScoringWeights

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { Bot, CornerDownRight, MessageSquareText, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -34,7 +34,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { createAssistantTransport, type AssistantChatRequestBody } from "@/features/assistant/api";
 import { getLead } from "@/features/leads/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
-import { buildRequestUrl, readToken } from "@/lib/api-client";
 import { formatScore } from "@/lib/presenters";
 
 export function AssistantPage() {

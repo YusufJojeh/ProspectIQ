@@ -6,10 +6,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
-
 from app.core.config import get_settings
-from app.core.error_codes import ErrorCodes
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.adapters import (
     FallbackAnalysisBuilder,
@@ -36,6 +33,8 @@ from app.modules.leads.repository import LeadsRepository
 from app.modules.users.models import User
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.services.lead_intelligence import LeadIntelligenceService
+
+logger = logging.getLogger(__name__)
 
 
 class AIAnalysisService:

@@ -12,7 +12,14 @@ from app.core.errors import NotFoundError
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.auth.permissions import assert_workspace_permission
 from app.modules.billing.exceptions import PlanLimitExceededError, SubscriptionAccessError
-from app.modules.billing.models import Invoice, InvoiceItem, PaymentAttempt, Plan, Subscription, UsageCounter
+from app.modules.billing.models import (
+    Invoice,
+    InvoiceItem,
+    PaymentAttempt,
+    Plan,
+    Subscription,
+    UsageCounter,
+)
 from app.modules.billing.repository import BillingRepository
 from app.modules.billing.schemas import (
     InvoiceItemResponse,
@@ -28,7 +35,6 @@ from app.modules.billing.schemas import (
 )
 from app.modules.users.models import User, Workspace
 from app.modules.users.repository import UsersRepository
-
 
 DEFAULT_PLAN_DEFINITIONS = [
     {

@@ -29,7 +29,6 @@ from app.modules.users.schemas import (
     WorkspaceSettingsUpdateRequest,
 )
 
-
 ROLE_ORDER = {
     "account_owner": 4,
     "admin": 3,

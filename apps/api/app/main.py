@@ -10,8 +10,8 @@ from app.core.errors import ServiceUnavailableError, register_exception_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import add_cors_middleware, add_http_middleware
 from app.modules.admin.api import router as admin_router
-from app.modules.assistant.api import router as assistant_router
 from app.modules.ai_analysis.api import router as ai_analysis_router
+from app.modules.assistant.api import router as assistant_router
 from app.modules.audit_logs.api import router as audit_logs_router
 from app.modules.auth.api import router as auth_router
 from app.modules.billing.api import router as billing_router

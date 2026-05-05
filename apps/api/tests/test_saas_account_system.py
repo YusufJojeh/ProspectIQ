@@ -164,7 +164,7 @@ def test_workspace_isolation_blocks_cross_account_user_and_billing_access() -> N
             admin_email="admin@alpha.com",
             manager_email="manager@alpha.com",
         )
-        beta = _create_workspace_with_users(
+        _create_workspace_with_users(
             db,
             name="Beta",
             slug="beta",
