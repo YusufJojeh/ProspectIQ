@@ -25,4 +25,4 @@ EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 CMD python -c "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).read()"
 
-CMD ["sh", "-c", "if [ \"${RUN_MIGRATIONS}\" = \"1\" ]; then alembic upgrade head; fi && uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WEB_CONCURRENCY} --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "if [ \"${RUN_MIGRATIONS}\" = \"1\" ]; then i=1; until alembic upgrade head; do echo \"Migration attempt $i failed — retrying in 5s...\"; i=$((i+1)); [ $i -gt 10 ] && exit 1; sleep 5; done; fi && uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WEB_CONCURRENCY} --proxy-headers --forwarded-allow-ips='*'"]

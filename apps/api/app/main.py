@@ -25,17 +25,14 @@ from app.shared.responses import DatabaseHealthResponse, HealthCheckResponse
 logger = logging.getLogger(__name__)
 
 
-def _safe_join_origins(origins: object) -> str:
+def _safe_join_origins(origins: list[str] | str | None) -> str:
     if origins is None:
         return ""
 
     if isinstance(origins, str):
         return origins
 
-    try:
-        return ", ".join(str(origin) for origin in origins)
-    except TypeError:
-        return str(origins)
+    return ", ".join(str(origin) for origin in origins)
 
 
 @asynccontextmanager

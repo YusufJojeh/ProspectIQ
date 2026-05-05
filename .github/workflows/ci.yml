@@ -127,10 +127,14 @@ jobs:
           PY
 
       - name: Start deployment stack
-        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml up -d
+        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml up -d --wait --timeout 300
 
       - name: Verify deployment stack
         run: sh infra/scripts/verify_deploy_stack.sh /tmp/leadscope-deploy.env infra/docker-compose.deploy.yml
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml logs --no-color
 
       - name: Tear down deployment stack
         if: always()

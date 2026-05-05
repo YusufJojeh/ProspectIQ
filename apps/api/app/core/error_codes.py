@@ -88,5 +88,6 @@ def get_error_code(code: str) -> str:
     Returns the code if it's a known constant, otherwise returns a generic code.
     """
     if hasattr(ErrorCodes, code.upper()):
-        return getattr(ErrorCodes, code.upper())
+        value: str = getattr(ErrorCodes, code.upper())
+        return value
     return ErrorCodes.INTERNAL_SERVER_ERROR

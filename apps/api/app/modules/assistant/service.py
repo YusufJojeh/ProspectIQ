@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
+from typing import Any
 
 import httpx
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import LeadAnalysisResult
@@ -161,15 +162,15 @@ class AssistantService:
         *,
         lead: Lead,
         messages: list[AssistantMessageInput],
-        facts: dict[str, object],
-        score_context: dict[str, object] | None,
+        facts: dict[str, Any],
+        score_context: dict[str, Any] | None,
         latest_analysis: LeadAnalysisResult | None,
     ) -> str:
         user_need = self._latest_user_message(messages)
-        local_business = facts.get("local_business", {})
-        web_visibility = facts.get("web_visibility", {})
-        place_enrichment = facts.get("place_enrichment", {})
-        score = score_context or {}
+        local_business: dict[str, Any] = facts.get("local_business") or {}
+        web_visibility: dict[str, Any] = facts.get("web_visibility") or {}
+        place_enrichment: dict[str, Any] = facts.get("place_enrichment") or {}
+        score: dict[str, Any] = score_context or {}
 
         company_name = str(local_business.get("company_name") or lead.company_name)
         city = str(local_business.get("city") or lead.city or "the target market")
@@ -183,10 +184,11 @@ class AssistantService:
             else "unknown"
         )
         official_site_found = bool(place_enrichment.get("official_website_found") or lead.has_website)
-        qualified = bool(score.get("qualified") or lead.latest_qualified)
-        score_total = score.get("total_score") or lead.latest_score
-        score_band = score.get("band") or lead.latest_band or "unscored"
-        top_reasons = score.get("reasons") if isinstance(score.get("reasons"), list) else []
+        qualified = bool(score.get("qualified"))
+        score_total: float | int | None = score.get("total_score")
+        score_band: str = score.get("band") or "unscored"
+        raw_reasons = score.get("reasons")
+        top_reasons: list[Any] = list(raw_reasons) if isinstance(raw_reasons, list) else []
 
         lines = [
             f"## {company_name} brief",
@@ -246,9 +248,9 @@ class AssistantService:
         *,
         lead: Lead,
         messages: list[AssistantMessageInput],
-        facts: dict[str, object],
-        score_context: dict[str, object] | None,
-        latest_analysis: dict[str, object] | None,
+        facts: dict[str, Any],
+        score_context: dict[str, Any] | None,
+        latest_analysis: dict[str, Any] | None,
     ) -> list[dict[str, str]]:
         system_prompt = "\n".join(
             [
@@ -261,7 +263,7 @@ class AssistantService:
                 "Support Arabic and English: reply in the same language the user writes in.",
             ]
         )
-        context_payload = {
+        context_payload: dict[str, Any] = {
             "lead": {
                 "company_name": lead.company_name,
                 "category": lead.category,
@@ -269,9 +271,6 @@ class AssistantService:
                 "website_domain": lead.website_domain,
                 "review_count": lead.review_count,
                 "rating": lead.rating,
-                "latest_score": lead.latest_score,
-                "latest_band": lead.latest_band,
-                "latest_qualified": lead.latest_qualified,
             },
             "facts": facts,
             "score_context": score_context,
@@ -294,7 +293,7 @@ class AssistantService:
     def _stream_with_openai(
         self,
         *,
-        settings,
+        settings: Settings,
         llm_messages: list[dict[str, str]],
     ) -> Iterator[str]:
         with httpx.Client(
@@ -337,7 +336,7 @@ class AssistantService:
     def _stream_with_ollama(
         self,
         *,
-        settings,
+        settings: Settings,
         llm_messages: list[dict[str, str]],
     ) -> Iterator[str]:
         prompt = "\n\n".join(msg["content"] for msg in llm_messages)

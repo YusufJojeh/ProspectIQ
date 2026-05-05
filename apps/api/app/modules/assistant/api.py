@@ -42,7 +42,7 @@ def chat_with_assistant(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
-):
+) -> StreamingResponse:
     service = AssistantService()
     # Validate the lead before starting the stream so errors return proper HTTP codes.
     lead = service.resolve_lead(db, workspace_id=workspace_id, lead_public_id=payload.lead_id)

@@ -2,6 +2,21 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { LeadAiAnalysisPanel } from "@/components/lead/ai-analysis-panel";
+
+// i18n is not initialised in unit tests; stub useTranslation so that
+// t("key") returns the final English string rather than the bare key.
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        "leadDetail.askAssistant": "Ask assistant about this lead",
+        "leadDetail.recommendedServices": "Recommended services",
+      };
+      return map[key] ?? key;
+    },
+    i18n: { changeLanguage: vi.fn() },
+  }),
+}));
 import type { LeadAnalysisSnapshotResponse } from "@/types/api";
 
 const snapshot: LeadAnalysisSnapshotResponse = {
