@@ -118,6 +118,9 @@ jobs:
               "WEB_ORIGIN=https://leadscope.example.com": "WEB_ORIGIN=http://127.0.0.1:8080",
               "WEB_ORIGINS=https://leadscope.example.com": "WEB_ORIGINS=http://127.0.0.1:8080",
               "DEFAULT_ADMIN_PASSWORD=replace-admin-password": "DEFAULT_ADMIN_PASSWORD=CiSmokeTestPass999!",
+              "MARIADB_PASSWORD=replace-me": "MARIADB_PASSWORD=prospectiq",
+              "MARIADB_ROOT_PASSWORD=replace-root-me": "MARIADB_ROOT_PASSWORD=root",
+              "DATABASE_URL=mysql+pymysql://prospectiq:replace-me@db:3306/prospectiq": "DATABASE_URL=mysql+pymysql://prospectiq:prospectiq@db:3306/prospectiq",
               "JWT_SECRET=replace-with-a-long-random-secret": "JWT_SECRET=ci-super-secret-jwt-key-at-least-32-bytes",
               "SERPAPI_API_KEY=replace-with-serpapi-key": "SERPAPI_API_KEY=ci-serpapi-placeholder",
               "OPENAI_API_KEY=replace-with-openai-key": "OPENAI_API_KEY=ci-openai-placeholder",
@@ -134,9 +137,24 @@ jobs:
       - name: Verify deployment stack
         run: sh infra/scripts/verify_deploy_stack.sh /tmp/leadscope-deploy.env infra/docker-compose.deploy.yml
 
-      - name: Dump container logs on failure
+      - name: Collect deployment diagnostics on failure
         if: failure()
-        run: docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml logs --no-color
+        run: |
+          mkdir -p /tmp/deploy-artifacts
+          docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml ps > /tmp/deploy-artifacts/compose-ps.txt || true
+          docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml logs --no-color > /tmp/deploy-artifacts/compose-logs.txt || true
+          docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml logs --no-color api > /tmp/deploy-artifacts/api.log || true
+          docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml logs --no-color db > /tmp/deploy-artifacts/db.log || true
+          docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml logs --no-color web > /tmp/deploy-artifacts/web.log || true
+          docker inspect "$(docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml ps -q api)" > /tmp/deploy-artifacts/api-inspect.json || true
+          docker compose --env-file /tmp/leadscope-deploy.env -f infra/docker-compose.deploy.yml exec -T api sh -c 'alembic current && alembic history --verbose' > /tmp/deploy-artifacts/alembic.txt || true
+
+      - name: Upload deployment diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: deploy-smoke-diagnostics
+          path: /tmp/deploy-artifacts
 
       - name: Tear down deployment stack
         if: always()
@@ -178,13 +196,16 @@ jobs:
       - name: Playwright E2E
         env:
           CI: "true"
-        run: npm run test:e2e -- --workers=2 --project=setup --project=desktop-wide
+        run: |
+          mkdir -p /tmp/frontend-artifacts
+          npx playwright test --workers=2 --project=setup --project=desktop-wide 2>&1 | tee /tmp/frontend-artifacts/playwright.log
 
-      - name: Upload Playwright artifacts on failure
+      - name: Upload frontend diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-test-results
+          name: frontend-e2e-diagnostics
           path: |
-            apps/web/test-results
-            apps/web/playwright-report
+            apps/web/test-artifacts/playwright/test-results
+            apps/web/test-artifacts/playwright/report
+            /tmp/frontend-artifacts/playwright.log

@@ -84,10 +84,12 @@ export default defineConfig({
   ],
   globalTimeout: process.env.CI ? 300_000 : 0,
   webServer: {
-    command: "npm run dev:e2e",
+    command: process.env.CI ? "npm run build && npm run preview:e2e" : "npm run dev:e2e",
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    reuseExistingServer: false,
+    timeout: process.env.CI ? 180_000 : 60_000,
+    stdout: "pipe",
+    stderr: "pipe",
     env: {
       VITE_API_BASE_URL: apiBaseURL,
     },

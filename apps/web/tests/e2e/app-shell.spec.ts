@@ -33,9 +33,10 @@ test("dashboard and shell render through authenticated route flow", async ({ pag
     await expect(page).toHaveURL(/\/app\/searches$/);
 
     await page.goto(routes.dashboard);
-    await page.getByRole("button", { name: /open command menu/i }).click();
-    await expect(page.getByPlaceholder(/search leads, jobs, evidence/i)).toBeVisible();
-    await page.getByRole("option", { name: "Audit Logs" }).click();
+    await page.getByRole("button", { name: /search leads, jobs, evidence/i }).click();
+    const commandDialog = page.getByRole("dialog");
+    await expect(commandDialog.getByPlaceholder(/search leads, jobs, evidence/i)).toBeVisible();
+    await commandDialog.getByText(/audit logs/i).click();
     await expect(page).toHaveURL(/\/app\/audit-logs$/);
   }
 

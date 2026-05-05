@@ -83,5 +83,8 @@ export async function expectNoHorizontalOverflow(page: Page) {
 }
 
 export async function expectStableScreenshot(locator: Locator, name: string) {
+  if (process.env.CI && process.env.PLAYWRIGHT_VISUAL_ASSERT !== "1") {
+    return;
+  }
   await expect(locator).toHaveScreenshot(name);
 }

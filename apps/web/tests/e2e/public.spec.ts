@@ -59,11 +59,11 @@ test("signup page creates a workspace on all breakpoints", async ({ page }) => {
   await expect(page.getByText(/create your leadscope workspace/i)).toBeVisible();
 
   await page.getByLabel(/full name/i).fill("Avery North");
-  await page.getByLabel(/company \/ workspace name/i).fill("Northbeam Analytics");
+  await page.getByLabel(/workspace name/i).fill("Northbeam Analytics");
   await page.getByLabel(/work email/i).fill("avery@northbeam.com");
   await page.getByLabel(/^password$/i).fill("LongPassword123!");
   await page.getByLabel(/confirm password/i).fill("LongPassword123!");
-  await page.getByRole("button", { name: /create workspace/i }).click();
+  await page.getByRole("button", { name: /request access/i }).click();
   await expect(page).toHaveURL(/\/app$/);
   await expectNoHorizontalOverflow(page);
 });
@@ -81,7 +81,9 @@ test("forgot-password request flow renders and remains stable", async ({ page })
 
   await expect(page.getByText(/reset your password/i)).toBeVisible();
   await page.getByLabel(/work email/i).fill("admin@prospectiq.dev");
-  await page.getByRole("button", { name: /send recovery link/i }).click();
-  await expect(page.getByText(/recovery link (queued|dispatched)/i)).toBeVisible();
+  await page.getByRole("button", { name: /send reset link/i }).click();
+  await expect(page.getByRole("status")).toContainText(/(reset link sent|تم إرسال رابط إعادة التعيين)/i);
+  await expect(page.getByRole("status")).toContainText(/(reset api is not live yet|واجهة إعادة التعيين غير مفعّلة بعد)/i);
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });

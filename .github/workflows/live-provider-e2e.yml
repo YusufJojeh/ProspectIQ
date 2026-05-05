@@ -1,0 +1,168 @@
+name: Live Provider E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 2 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-provider-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-provider-e2e:
+    name: Live Provider E2E (Budgeted)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      LIVE_PROVIDER_TESTS: "true"
+      APP_ENV: ci-live
+      FIXED_TEST_QUERY: "dentist istanbul"
+      MAX_LIVE_JOB_POLLS: "12"
+      LIVE_JOB_POLL_SECONDS: "10"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Build API image
+        run: docker build -t leadscope-live-api:${{ github.sha }} ./apps/api
+
+      - name: Build web image
+        run: docker build --build-arg VITE_API_BASE_URL= -t leadscope-live-web:${{ github.sha }} ./apps/web
+
+      - name: Prepare live deployment env
+        shell: bash
+        run: |
+          cp infra/deploy.env.example /tmp/leadscope-live.env
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("/tmp/leadscope-live.env")
+          replacements = {
+              "API_IMAGE=ghcr.io/yusufjojeh/prospectiq-api:latest": "API_IMAGE=leadscope-live-api:${{ github.sha }}",
+              "WEB_IMAGE=ghcr.io/yusufjojeh/prospectiq-web:latest": "WEB_IMAGE=leadscope-live-web:${{ github.sha }}",
+              "APP_ENV=production": "APP_ENV=ci-live",
+              "WEB_PORT=80": "WEB_PORT=8080",
+              "WEB_ORIGIN=https://leadscope.example.com": "WEB_ORIGIN=http://127.0.0.1:8080",
+              "WEB_ORIGINS=https://leadscope.example.com": "WEB_ORIGINS=http://127.0.0.1:8080",
+              "DEFAULT_ADMIN_PASSWORD=replace-admin-password": "DEFAULT_ADMIN_PASSWORD=LiveE2eAdminPass999!",
+              "MARIADB_PASSWORD=replace-me": "MARIADB_PASSWORD=prospectiq",
+              "MARIADB_ROOT_PASSWORD=replace-root-me": "MARIADB_ROOT_PASSWORD=root",
+              "DATABASE_URL=mysql+pymysql://prospectiq:replace-me@db:3306/prospectiq": "DATABASE_URL=mysql+pymysql://prospectiq:prospectiq@db:3306/prospectiq",
+              "JWT_SECRET=replace-with-a-long-random-secret": "JWT_SECRET=live-provider-ci-secret-key-at-least-32",
+              "SERPAPI_API_KEY=replace-with-serpapi-key": "SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}",
+              "OPENAI_API_KEY=replace-with-openai-key": "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}",
+          }
+          content = path.read_text()
+          for old, new in replacements.items():
+              content = content.replace(old, new)
+          path.write_text(content)
+          PY
+
+      - name: Start deployment stack
+        run: docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml up -d
+
+      - name: Verify deployment stack
+        run: sh infra/scripts/verify_deploy_stack.sh /tmp/leadscope-live.env infra/docker-compose.deploy.yml
+
+      - name: Run live-provider smoke journey (single low-cost run)
+        shell: bash
+        run: |
+          mkdir -p /tmp/live-provider-artifacts
+          python - <<'PY' 2>&1 | tee /tmp/live-provider-artifacts/live-provider-smoke.log
+          import json
+          import os
+          import time
+          from urllib import request
+
+          base = "http://127.0.0.1:8000/api/v1"
+          workspace = "ws_default"
+          email = "admin@example.com"
+          password = "LiveE2eAdminPass999!"
+          max_polls = int(os.getenv("MAX_LIVE_JOB_POLLS", "12"))
+          poll_sleep = int(os.getenv("LIVE_JOB_POLL_SECONDS", "10"))
+
+          def post(path, payload, token=None):
+            data = json.dumps(payload).encode("utf-8")
+            req = request.Request(
+              f"{base}{path}",
+              data=data,
+              method="POST",
+              headers={
+                "Content-Type": "application/json",
+                **({"Authorization": f"Bearer {token}"} if token else {}),
+              },
+            )
+            with request.urlopen(req, timeout=30) as resp:
+              return resp.status, json.loads(resp.read().decode("utf-8"))
+
+          def get(path, token):
+            req = request.Request(
+              f"{base}{path}",
+              method="GET",
+              headers={"Authorization": f"Bearer {token}"},
+            )
+            with request.urlopen(req, timeout=30) as resp:
+              return resp.status, json.loads(resp.read().decode("utf-8"))
+
+          status, login = post("/auth/login", {"workspace": workspace, "email": email, "password": password})
+          assert status == 200, f"login failed with status={status}"
+          token = login["access_token"]
+
+          create_payload = {
+            "business_type": "Dentist",
+            "city": "Istanbul",
+            "region": "Kadikoy",
+            "max_results": 3,
+            "website_preference": "must_have",
+            "keyword_filter": "implant",
+          }
+          status, created = post("/search-jobs", create_payload, token=token)
+          assert status == 202, f"search job create failed with status={status}"
+          job_id = created["public_id"]
+          print(f"Created search job: {job_id}")
+
+          last = None
+          for _ in range(max_polls):
+            status, detail = get(f"/search-jobs/{job_id}", token=token)
+            assert status == 200, f"search job fetch failed with status={status}"
+            last = detail
+            state = detail.get("status")
+            print(f"Job status: {state}")
+            if state in {"completed", "partially_completed", "failed"}:
+              break
+            time.sleep(poll_sleep)
+
+          assert last is not None
+          assert last.get("status") in {"completed", "partially_completed"}, f"live job did not complete successfully: {last.get('status')}"
+
+          status, leads = get(f"/leads?search_job_public_id={job_id}&page=1&page_size=10", token=token)
+          assert status == 200, f"leads fetch failed with status={status}"
+          assert isinstance(leads.get("items"), list), "leads response missing items list"
+          print(f"Leads returned: {len(leads.get('items', []))}")
+          PY
+
+      - name: Collect live-provider diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/live-provider-artifacts
+          docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml ps > /tmp/live-provider-artifacts/compose-ps.txt || true
+          docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml logs --no-color > /tmp/live-provider-artifacts/compose-logs.txt || true
+          docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml logs --no-color api > /tmp/live-provider-artifacts/api.log || true
+          docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml logs --no-color db > /tmp/live-provider-artifacts/db.log || true
+          docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml logs --no-color web > /tmp/live-provider-artifacts/web.log || true
+          docker inspect "$(docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml ps -q api)" > /tmp/live-provider-artifacts/api-inspect.json || true
+
+      - name: Upload live-provider diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: live-provider-e2e-diagnostics
+          path: /tmp/live-provider-artifacts
+
+      - name: Tear down deployment stack
+        if: always()
+        run: docker compose --env-file /tmp/leadscope-live.env -f infra/docker-compose.deploy.yml down -v

@@ -66,7 +66,20 @@ wait_for_service web
 
 compose exec -T api python scripts/seed.py
 
-compose exec -T api python -c "from urllib.request import urlopen; response = urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5); print(response.status)"
+ready_deadline=$(( $(date +%s) + TIMEOUT_SECONDS ))
+while [ "$(date +%s)" -lt "$ready_deadline" ]; do
+  if compose exec -T api python -c "from urllib.request import urlopen; response = urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=5); print(response.status)" >/tmp/api-ready.log 2>&1; then
+    cat /tmp/api-ready.log
+    break
+  fi
+  sleep 3
+done
+if [ "$(date +%s)" -ge "$ready_deadline" ]; then
+  echo "Timed out waiting for API readiness endpoint." >&2
+  compose logs --no-color api >&2 || true
+  exit 1
+fi
+
 compose exec -T \
   -e BOOTSTRAP_WORKSPACE="$DEFAULT_WORKSPACE_PUBLIC_ID" \
   -e BOOTSTRAP_EMAIL="$DEFAULT_ADMIN_EMAIL" \

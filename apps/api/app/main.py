@@ -70,6 +70,14 @@ def build_core_router() -> APIRouter:
             version="0.1.0",
         )
 
+    @router.get("/health/live", response_model=HealthCheckResponse, tags=["health"])
+    def liveness_healthcheck() -> HealthCheckResponse:
+        return healthcheck()
+
+    @router.get("/health/ready", response_model=DatabaseHealthResponse, tags=["health"])
+    def readiness_healthcheck() -> DatabaseHealthResponse:
+        return database_healthcheck()
+
     @router.get("/health/db", response_model=DatabaseHealthResponse, tags=["health"])
     def database_healthcheck() -> DatabaseHealthResponse:
         if not settings.enable_db_healthcheck:
