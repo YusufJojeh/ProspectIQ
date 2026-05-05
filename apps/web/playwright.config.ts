@@ -83,9 +83,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev:e2e",
+    command: process.env.CI ? "npm run preview:e2e" : "npm run dev:e2e",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
     env: {
       VITE_API_BASE_URL: apiBaseURL,
     },
