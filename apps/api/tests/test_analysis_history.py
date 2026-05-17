@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from test_workspace_e2e import (
     _build_session_factory,
+    _E2EAnalysisAdapter,
     _login,
     _override_client,
     _seed_workspace,
 )
+
+from app.modules.ai_analysis.service import RuntimeCandidate
 
 
 def test_history_endpoint_returns_empty_list_when_no_snapshots() -> None:
@@ -25,9 +28,19 @@ def test_history_endpoint_returns_empty_list_when_no_snapshots() -> None:
     assert data["items"] == []
 
 
-def test_history_endpoint_returns_snapshot_after_analysis() -> None:
+def test_history_endpoint_returns_snapshot_after_analysis(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
+    )
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)
@@ -49,9 +62,19 @@ def test_history_endpoint_returns_snapshot_after_analysis() -> None:
     assert items[0]["analysis"]["summary"]
 
 
-def test_history_deduplication_returns_one_snapshot_for_same_facts() -> None:
+def test_history_deduplication_returns_one_snapshot_for_same_facts(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
+    )
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)

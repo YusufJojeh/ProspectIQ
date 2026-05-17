@@ -3,12 +3,14 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from test_workspace_e2e import (
     _build_session_factory,
+    _E2EAnalysisAdapter,
     _login,
     _override_client,
     _seed_workspace,
 )
 
 from app.modules.ai_analysis.models import AIAnalysisSnapshot
+from app.modules.ai_analysis.service import RuntimeCandidate
 
 
 def _get_template_id(client, token) -> str:
@@ -22,9 +24,23 @@ def _get_template_id(client, token) -> str:
     return items[0]["public_id"]
 
 
-def test_template_test_endpoint_returns_preview_snapshot() -> None:
+def _stub_analysis_runtime(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
+    )
+
+
+def test_template_test_endpoint_returns_preview_snapshot(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    _stub_analysis_runtime(monkeypatch)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from test_workspace_e2e import (
     _build_session_factory,
+    _E2EAnalysisAdapter,
     _login,
     _override_client,
     _seed_workspace,
 )
+
+from app.modules.ai_analysis.service import RuntimeCandidate
 
 
 def _generate_outreach(client, token, lead_id, *, language=None, regenerate=False):
@@ -26,9 +29,23 @@ def _get_latest_outreach(client, token, lead_id):
     )
 
 
-def test_outreach_default_language_is_english() -> None:
+def _stub_analysis_runtime(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
+    )
+
+
+def test_outreach_default_language_is_english(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    _stub_analysis_runtime(monkeypatch)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)
@@ -41,9 +58,10 @@ def test_outreach_default_language_is_english() -> None:
     assert message["language"] == "en"
 
 
-def test_outreach_arabic_language_is_accepted_and_persisted() -> None:
+def test_outreach_arabic_language_is_accepted_and_persisted(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    _stub_analysis_runtime(monkeypatch)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)
@@ -56,9 +74,10 @@ def test_outreach_arabic_language_is_accepted_and_persisted() -> None:
     assert message["language"] == "ar"
 
 
-def test_outreach_arabic_message_contains_translation_instruction() -> None:
+def test_outreach_arabic_message_contains_translation_instruction(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    _stub_analysis_runtime(monkeypatch)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from test_workspace_e2e import (
     _build_session_factory,
+    _E2EAnalysisAdapter,
     _login,
     _override_client,
     _seed_workspace,
 )
 
 from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder
+from app.modules.ai_analysis.service import RuntimeCandidate
 from app.modules.ai_analysis.validator import LLMOutputValidator
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 
@@ -96,9 +98,19 @@ def test_validator_strips_invalid_tone_value() -> None:
     assert result.recommended_tone is None
 
 
-def test_analysis_snapshot_response_includes_recommended_tone() -> None:
+def test_analysis_snapshot_response_includes_recommended_tone(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
+    )
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)

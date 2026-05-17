@@ -2,15 +2,32 @@ from __future__ import annotations
 
 from test_workspace_e2e import (
     _build_session_factory,
+    _E2EAnalysisAdapter,
     _login,
     _override_client,
     _seed_workspace,
 )
 
+from app.modules.ai_analysis.service import RuntimeCandidate
 
-def test_batch_analysis_succeeds_for_known_lead() -> None:
+
+def _stub_analysis_runtime(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
+    )
+
+
+def test_batch_analysis_succeeds_for_known_lead(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    _stub_analysis_runtime(monkeypatch)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)
@@ -50,9 +67,10 @@ def test_batch_analysis_returns_error_entry_for_unknown_lead() -> None:
     assert result["error"] is not None
 
 
-def test_batch_analysis_mixes_success_and_error() -> None:
+def test_batch_analysis_mixes_success_and_error(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
+    _stub_analysis_runtime(monkeypatch)
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)
