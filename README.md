@@ -50,11 +50,19 @@ py -3.12 -m pip install --upgrade pip
 py -3.12 -m pip install -e .[dev]
 Copy-Item .env.local-live.example .env
 py -3.12 -m alembic upgrade head
-py -3.12 scripts/seed.py
+py -3.12 scripts/seed.py --demo-data
 py -3.12 -m uvicorn app.main:app --reload
 ```
 
 Backend URL: `http://localhost:8000`
+
+Demo credentials use email login:
+
+- Super Admin equivalent: `admin@example.test` / `password`
+- Tenant Manager: `manager@example.test` / `password`
+- Team User: `user1@example.test` / `password`
+
+The current auth model is workspace-scoped, so the “Super Admin” demo account is seeded as the strongest available workspace role: `account_owner`.
 
 ### 3. Run the frontend
 
@@ -278,6 +286,22 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_local_prod_like.ps1
 ```
 
 This checks Docker availability, API import, database connectivity, Alembic upgrade, and the frontend production build.
+
+For a database integrity and growth audit:
+
+```powershell
+cd apps/api
+py -3.12 scripts/db_maintenance.py
+```
+
+To repair only `lead_source_records.current_for_lead_id` marker drift:
+
+```powershell
+cd apps/api
+py -3.12 scripts/db_maintenance.py --apply-current-marker-repair
+```
+
+See [docs/database-maintenance.md](docs/database-maintenance.md) for the full safety notes and output details.
 
 ## Local vs Production-Style Defaults
 

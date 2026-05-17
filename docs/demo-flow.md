@@ -2,10 +2,12 @@
 
 ## Demo Accounts
 
-- Admin: `admin@prospectiq.dev` / value of `DEFAULT_ADMIN_PASSWORD` in `apps/api/.env`
-- Manager: `manager@prospectiq.dev` / `ManagerPass123!`
-- Sales: `sales@prospectiq.dev` / `SalesPass123!`
+- Super Admin equivalent: `admin@example.test` / `password`
+- Manager: `manager@example.test` / `password`
+- Team User: `user1@example.test` / `password`
 - Workspace slug: `ws_default`
+
+The current auth model is email-based and workspace-scoped. The seeded “Super Admin” demo account is the workspace `account_owner` role because the product does not currently define a separate global `super_admin` role.
 
 ## Preferred Local-Live Runtime
 
@@ -26,7 +28,7 @@ From a normal local setup:
 
 ```powershell
 cd apps/api
-py -3.12 scripts/seed.py --migrate --demo-data --reset-demo-data
+py -3.12 scripts/seed.py --migrate --demo-data
 ```
 
 If you want a full infrastructure reset as well:
@@ -35,7 +37,7 @@ If you want a full infrastructure reset as well:
 docker compose -f infra/docker-compose.yml down -v
 docker compose -f infra/docker-compose.yml up -d
 cd apps/api
-py -3.12 scripts/seed.py --migrate --demo-data --reset-demo-data
+py -3.12 scripts/seed.py --migrate --demo-data
 ```
 
 ## Presentation Flow
