@@ -70,9 +70,19 @@ class RecentProviderFailureResponse(BaseModel):
 class OperationalHealthResponse(BaseModel):
     database_ok: bool
     serpapi_configured: bool
+    serpapi_live_reachable: bool
     serpapi_runtime_mode: str
     discovery_runtime: str
+    discovery_execution_mode: str
+    discovery_kill_switch: bool
+    discovery_multi_engine_enabled: bool
+    current_ai_runtime: str
     analysis_runtime: str
+    analysis_fallback_runtime: str | None
+    ollama_configured: bool
+    ollama_reachable: bool
+    openai_configured: bool
+    openai_fallback_configured: bool
     demo_fallbacks_enabled: bool
     runtime_warnings: list[str]
     failed_jobs_last_7_days: int

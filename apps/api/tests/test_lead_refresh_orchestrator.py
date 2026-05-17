@@ -297,7 +297,7 @@ def test_refresh_orchestrator_runs_web_validation_when_website_is_still_missing(
 
 def test_refresh_orchestrator_uses_demo_provider_runtime_when_forced(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "")
-    monkeypatch.setenv("DISCOVERY_RUNTIME_OVERRIDE", "demo")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "demo")
     clear_settings_cache()
     session_factory = _build_session_factory()
     _, user_id, lead_id = _seed_refresh_target(session_factory)
@@ -326,7 +326,7 @@ def test_refresh_orchestrator_uses_demo_provider_runtime_when_forced(monkeypatch
 
 def test_refresh_orchestrator_blocks_when_live_mode_is_forced_without_key(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "")
-    monkeypatch.setenv("DISCOVERY_RUNTIME_OVERRIDE", "blocked")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")
     clear_settings_cache()
     session_factory = _build_session_factory()
     _, user_id, lead_id = _seed_refresh_target(session_factory)

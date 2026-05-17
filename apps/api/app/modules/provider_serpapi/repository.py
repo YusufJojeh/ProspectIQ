@@ -83,21 +83,28 @@ class ProviderEvidenceRepository:
 
         existing_statement = select(LeadIdentity).where(
             LeadIdentity.workspace_id == workspace_id,
-            LeadIdentity.lead_id == lead_id,
         )
-        existing = {
+        existing: set[tuple[str, str]] = {
             (item.identity_type, item.identity_value) for item in db.scalars(existing_statement)
         }
-        to_add = [
-            LeadIdentity(
-                workspace_id=workspace_id,
-                lead_id=lead_id,
-                identity_type=identity.identity_type,
-                identity_value=identity.identity_value,
+        to_add: list[LeadIdentity] = []
+        for identity in identities:
+            identity_type = str(identity.identity_type).strip()
+            identity_value = str(identity.identity_value).strip()
+            if not identity_type or not identity_value:
+                continue
+            key = (identity_type, identity_value)
+            if key in existing:
+                continue
+            to_add.append(
+                LeadIdentity(
+                    workspace_id=workspace_id,
+                    lead_id=lead_id,
+                    identity_type=identity_type,
+                    identity_value=identity_value,
+                )
             )
-            for identity in identities
-            if (identity.identity_type, identity.identity_value) not in existing
-        ]
+            existing.add(key)
         if to_add:
             db.add_all(to_add)
             db.commit()

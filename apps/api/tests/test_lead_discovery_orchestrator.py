@@ -31,6 +31,9 @@ from app.workers.orchestration.lead_discovery import (
 @dataclass
 class _ProviderSettings:
     enrich_top_n: int = 0
+    hl: str = "en"
+    gl: str = "us"
+    google_domain: str = "google.com"
 
 
 class _FakeProviderService:
@@ -278,9 +281,9 @@ def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failur
         assert db.scalar(select(func.count(LeadScore.id))) == 1
 
 
-def test_orchestrator_uses_demo_provider_when_live_provider_is_unconfigured(monkeypatch) -> None:
-    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
-    monkeypatch.setenv("ALLOW_DEMO_FALLBACKS", "true")
+def test_orchestrator_marks_job_failed_when_live_provider_is_unconfigured(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_API_KEY", "")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")
     clear_settings_cache()
     session_factory = _build_session_factory()
     job_public_id = _seed_job(session_factory)
@@ -290,10 +293,10 @@ def test_orchestrator_uses_demo_provider_when_live_provider_is_unconfigured(monk
     with session_factory() as db:
         job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
         assert job is not None
-        assert job.status == SearchJobStatus.COMPLETED.value
-        assert job.leads_upserted > 0
-        assert db.scalar(select(func.count(ProviderFetch.id))) >= 1
-        assert db.scalar(select(func.count(LeadScore.id))) >= 1
+        assert job.status == SearchJobStatus.FAILED.value
+        assert job.leads_upserted == 0
+        assert db.scalar(select(func.count(ProviderFetch.id))) == 0
+        assert db.scalar(select(func.count(LeadScore.id))) == 0
 
     clear_settings_cache()
 
@@ -476,3 +479,76 @@ def test_validate_web_presence_skips_web_search_when_deadline_elapsed() -> None:
 
 def test_orchestration_timeout_constant_is_five_minutes() -> None:
     assert ORCHESTRATION_TIMEOUT_SECONDS == 300
+
+
+def test_pipeline_mode_runs_arabic_and_english_without_breaking(monkeypatch) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "4")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(
+        search_payload={
+            "local_results": [
+                {
+                    "title": "التطوير العقاري",
+                    "address": "Riyadh",
+                    "phone": "+966 11 555 1000",
+                    "rating": 4.8,
+                    "reviews": 30,
+                    "gps_coordinates": {"latitude": 24.71, "longitude": 46.67},
+                    "data_id": "maps-ar-1",
+                    "type": "Real Estate",
+                }
+            ]
+        },
+        web_payload={"knowledge_graph": {"website": "https://arabic-example.test"}},
+    )
+    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(
+        job_public_id
+    )
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status in {SearchJobStatus.COMPLETED.value, SearchJobStatus.PARTIALLY_COMPLETED.value}
+        assert job.leads_upserted >= 1
+    clear_settings_cache()
+
+
+def test_single_path_mode_keeps_regression_equivalence(monkeypatch) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "single_path")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(
+        search_payload={
+            "local_results": [
+                {
+                    "title": "Acme Dental",
+                    "address": "Bagdat Avenue, Istanbul, Turkey",
+                    "phone": "+90 555 111 2233",
+                    "rating": 4.5,
+                    "reviews": 12,
+                    "gps_coordinates": {"latitude": 41.01, "longitude": 29.05},
+                    "data_id": "maps-acme-1",
+                    "type": "Dentist",
+                }
+            ]
+        },
+        web_payload={"knowledge_graph": {"website": "https://acme.example"}},
+    )
+
+    LeadDiscoveryOrchestrator(session_factory=session_factory, provider_service=provider).run(
+        job_public_id
+    )
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        lead = db.scalar(select(Lead).where(Lead.search_job_id == job.id)) if job else None
+        assert job is not None
+        assert job.candidates_found == 1
+        assert job.leads_upserted == 1
+        assert lead is not None
+        assert lead.company_name == "Acme Dental"
+    clear_settings_cache()

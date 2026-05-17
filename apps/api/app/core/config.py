@@ -1,10 +1,13 @@
-﻿from functools import lru_cache
+from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 DiscoveryRuntime = Literal["live", "demo", "stub", "blocked"]
+AnalysisRuntime = Literal["ollama", "openai", "demo", "blocked"]
+AIProviderPreference = Literal["ollama", "openai", "auto", "stub"]
+DiscoveryMode = Literal["single_path", "multi_query_single_engine", "multi_engine_multi_query"]
 
 
 class Settings(BaseSettings):
@@ -41,13 +44,38 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
+    ai_provider: AIProviderPreference = Field(
+        default="ollama",
+        validation_alias=AliasChoices("AI_PROVIDER"),
+    )
 
     # Runtime control:
     # - live: use SerpAPI
-    # - demo: local/demo mode
+    # - demo: explicit demo mode
     # - stub: deterministic test mode
     # - blocked: production-safe block
-    discovery_runtime_override: DiscoveryRuntime | None = None
+    discovery_runtime_override: DiscoveryRuntime | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SERPAPI_RUNTIME_MODE", "DISCOVERY_RUNTIME_OVERRIDE"),
+    )
+    discovery_kill_switch: bool = False
+    discovery_mode: DiscoveryMode = "multi_engine_multi_query"
+    discovery_multi_engine_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("DISCOVERY_MULTI_ENGINE_ENABLED"),
+    )
+    discovery_enabled_engines: str = Field(
+        default="google_maps_search,google_maps_place,google_web",
+        validation_alias=AliasChoices("DISCOVERY_ENABLED_ENGINES", "DISCOVERY_ENGINE_LIST"),
+    )
+    discovery_max_concurrency: int = Field(default=4, ge=1, le=32)
+    discovery_max_calls_per_job: int = Field(default=24, ge=1, le=200)
+    discovery_max_candidates_after_merge: int = Field(default=100, ge=1, le=2000)
+    discovery_max_enrichments_per_job: int = Field(default=20, ge=0, le=500)
+    discovery_global_job_deadline_seconds: int = Field(default=300, ge=1, le=3600)
+    discovery_bilingual_expansion_enabled: bool = True
+    discovery_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=20)
+    discovery_circuit_breaker_cooldown_seconds: int = Field(default=60, ge=1, le=3600)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -104,6 +132,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "APP_ENV=production requires DEFAULT_ADMIN_PASSWORD to be changed from the default value."
             )
+        if self.default_admin_password == "local-dev-admin-password-rotate-before-sharing":
+            raise ValueError(
+                "APP_ENV=production requires DEFAULT_ADMIN_PASSWORD to be changed from the local development default value."
+            )
 
         if len(self.default_admin_password.strip()) < 12:
             raise ValueError(
@@ -127,12 +159,16 @@ class Settings(BaseSettings):
 
         if self.discovery_runtime == "demo":
             raise ValueError(
-                "APP_ENV=production must not run with DISCOVERY_RUNTIME_OVERRIDE=demo."
+                "APP_ENV=production must not run with SERPAPI_RUNTIME_MODE=demo."
             )
 
         if self.discovery_runtime == "stub":
             raise ValueError(
-                "APP_ENV=production must not run with DISCOVERY_RUNTIME_OVERRIDE=stub."
+                "APP_ENV=production must not run with SERPAPI_RUNTIME_MODE=stub."
+            )
+        if self.ai_provider == "stub":
+            raise ValueError(
+                "APP_ENV=production must not run with AI_PROVIDER=stub."
             )
 
         return self
@@ -176,69 +212,109 @@ class Settings(BaseSettings):
         if self.has_serpapi_configured:
             return "live"
 
-        if self.is_development:
-            return "demo"
-
         return "blocked"
 
     @property
     def runtime_warnings(self) -> list[str]:
         warnings: list[str] = []
 
-        if self.discovery_runtime in {"demo", "stub"}:
-            warnings.append(
-                "Discovery is not using a live provider. Search jobs may use demo/stub discovery only if the worker supports it."
-            )
+        if self.discovery_runtime == "stub":
+            warnings.append("Discovery is running in stub mode for tests only.")
 
         if self.discovery_runtime == "blocked":
             warnings.append(
-                "Discovery runtime is blocked because no live provider key is configured."
+                "Discovery runtime is blocked because no live SerpAPI key is configured."
+            )
+        if self.discovery_kill_switch:
+            warnings.append("Discovery kill switch is enabled; discovery always runs in single_path mode.")
+        if (
+            self.discovery_mode == "multi_engine_multi_query"
+            and not self.discovery_multi_engine_enabled
+        ):
+            warnings.append(
+                "DISCOVERY_MULTI_ENGINE_ENABLED=false downgrades mode to multi_query_single_engine."
             )
 
-        # Surface placeholder credential warnings for operators
         if self.jwt_secret in {"<replace-me>", ""}:
             warnings.append(
                 "JWT_SECRET is set to a placeholder value. Rotate it before sharing this environment."
             )
 
-        if self.serpapi_api_key in {"<replace-me>", ""}:
+        if self.discovery_runtime in {"live", "blocked"} and self.serpapi_api_key in {"<replace-me>", ""}:
             warnings.append(
                 "SERPAPI_API_KEY is not configured or is a placeholder. Live discovery will not work."
             )
 
-        if self.default_admin_password in {"ChangeMe123!", "local-dev-admin-password-rotate-before-sharing"}:
+        if self.default_admin_password in {
+            "ChangeMe123!",
+            "local-dev-admin-password-rotate-before-sharing",
+        }:
             warnings.append(
                 "DEFAULT_ADMIN_PASSWORD is set to a default value. Rotate it before sharing this environment."
+            )
+
+        if self.analysis_runtime == "blocked":
+            warnings.append(
+                "AI runtime is blocked because no configured Ollama or OpenAI provider is available."
+            )
+
+        if self.analysis_runtime == "ollama" and not self.has_openai_configured:
+            warnings.append(
+                "Ollama is the primary AI runtime and no OpenAI fallback key is configured."
             )
 
         return warnings
 
     @property
     def serpapi_runtime_mode(self) -> str:
-        """Discovery runtime mode label for admin API display."""
         return self.discovery_runtime
 
     @property
-    def analysis_runtime(self) -> str:
-        """LLM provider mode for AI analysis and assistant.
-        Returns: openai | ollama | demo | blocked
-        """
-        if self.discovery_runtime_override == "blocked":
-            return "blocked"
-        if self.is_testing:
+    def effective_discovery_mode(self) -> DiscoveryMode:
+        if self.discovery_kill_switch:
+            return "single_path"
+        if self.discovery_mode == "multi_engine_multi_query" and not self.discovery_multi_engine_enabled:
+            return "multi_query_single_engine"
+        return self.discovery_mode
+
+    @property
+    def analysis_runtime(self) -> AnalysisRuntime:
+        if self.ai_provider == "stub" or self.is_testing:
             return "demo"
-        if self.has_openai_configured:
-            return "openai"
+
+        if self.ai_provider == "ollama":
+            if self.has_ollama_configured:
+                return "ollama"
+            if self.has_openai_configured:
+                return "openai"
+            return "blocked"
+
+        if self.ai_provider == "openai":
+            if self.has_openai_configured:
+                return "openai"
+            if self.has_ollama_configured:
+                return "ollama"
+            return "blocked"
+
         if self.has_ollama_configured:
             return "ollama"
-        if self.is_development:
-            return "demo"
+        if self.has_openai_configured:
+            return "openai"
         return "blocked"
 
     @property
+    def analysis_fallback_runtime(self) -> AnalysisRuntime | None:
+        if self.analysis_runtime == "demo":
+            return None
+        if self.analysis_runtime == "ollama" and self.has_openai_configured:
+            return "openai"
+        if self.analysis_runtime == "openai" and self.has_ollama_configured:
+            return "ollama"
+        return None
+
+    @property
     def allow_demo_fallbacks(self) -> bool:
-        """Whether demo/fallback AI responses are permitted."""
-        return self.analysis_runtime in {"demo"} or self.is_development or self.is_testing
+        return self.analysis_runtime == "demo"
 
     @property
     def allowed_web_origins(self) -> list[str]:
@@ -266,6 +342,11 @@ class Settings(BaseSettings):
             return deduped
 
         return origins
+
+    @property
+    def enabled_discovery_engines(self) -> list[str]:
+        values = [item.strip() for item in self.discovery_enabled_engines.split(",")]
+        return [item for item in values if item]
 
 
 @lru_cache

@@ -186,10 +186,15 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_local_environment.ps1
 
 ## Environment variables reference
 
-- **API:** See `apps/api/.env.example` for all keys (JWT, database, SerpAPI, AI provider, demo vs live modes).
+- **API:** See `apps/api/.env.local-live.example` for the recommended local-live profile and `apps/api/.env.example` for the generic template.
 - **Web:** See `apps/web/.env.example` for `VITE_API_BASE_URL`.
 
-For a safe offline or demo-style run, keep `SERPAPI_RUNTIME_MODE=demo` and `AI_PROVIDER=stub` as in the examples unless you intentionally enable live providers.
+Recommended defaults for a safe first run:
+
+- `SERPAPI_RUNTIME_MODE=demo`
+- `AI_PROVIDER=stub`
+
+For real-provider validation, switch to `apps/api/.env.local-live.example` values (`SERPAPI_RUNTIME_MODE=live`, real `SERPAPI_API_KEY`, and `AI_PROVIDER=ollama|openai|auto`).
 
 ## Troubleshooting
 

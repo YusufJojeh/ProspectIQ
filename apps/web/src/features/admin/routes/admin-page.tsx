@@ -74,7 +74,10 @@ export function AdminPage() {
 
   const health = healthQuery.data;
   const isHealthy =
-    health?.database_ok && health?.serpapi_configured && health?.failed_jobs_last_7_days === 0;
+    health?.database_ok &&
+    health?.serpapi_live_reachable &&
+    health?.ollama_reachable &&
+    health?.failed_jobs_last_7_days === 0;
 
   return (
     <div>
@@ -109,7 +112,8 @@ export function AdminPage() {
             <div>
               <span className="font-medium">{isHealthy ? "All systems operational" : "Degraded service"}</span>
               <span className="ml-2 text-muted-foreground">
-                SerpAPI: {health?.serpapi_configured ? "✓" : "✗"} · DB: {health?.database_ok ? "✓" : "✗"} · Mode:{" "}
+                SerpAPI: {health?.serpapi_live_reachable ? "OK" : "Down"} · Ollama: {health?.ollama_reachable ? "OK" : "Down"} · DB:{" "}
+                {health?.database_ok ? "OK" : "Down"} · Mode:{" "}
                 {health?.discovery_runtime}
               </span>
             </div>
@@ -286,8 +290,9 @@ export function AdminPage() {
             {healthQuery.isSuccess && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {[
-                  { k: "SerpAPI", ok: health!.serpapi_configured, desc: `Mode: ${health!.discovery_runtime}` },
-                  { k: "Analysis", ok: health!.analysis_runtime !== "none", desc: `Runtime: ${health!.analysis_runtime}` },
+                  { k: "SerpAPI", ok: health!.serpapi_live_reachable, desc: `Mode: ${health!.discovery_runtime}` },
+                  { k: "Ollama", ok: health!.ollama_reachable, desc: `Primary runtime: ${health!.current_ai_runtime}` },
+                  { k: "OpenAI fallback", ok: health!.openai_fallback_configured, desc: health!.openai_fallback_configured ? "Configured" : "Not configured" },
                   { k: "Database", ok: health!.database_ok, desc: "Persistence layer" },
                 ].map((s) => (
                   <div
