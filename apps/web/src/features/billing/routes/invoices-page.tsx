@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { formatDate } from "@/lib/presenters";
 
 export function InvoicesPage() {
   useDocumentTitle("Invoices");
@@ -55,9 +56,9 @@ export function InvoicesPage() {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    ${invoice.amount} {invoice.currency} | issued {invoice.issued_at}
+                    ${invoice.amount} {invoice.currency} | issued {formatDate(invoice.issued_at)}
                   </p>
-                  <p className="text-sm text-muted-foreground">Due {invoice.due_at ?? "n/a"} | Paid {invoice.paid_at ?? "n/a"}</p>
+                  <p className="text-sm text-muted-foreground">Due {formatDate(invoice.due_at)} | Paid {formatDate(invoice.paid_at)}</p>
                 </div>
                 {canManageBilling ? (
                   <div className="flex flex-wrap gap-2">

@@ -117,3 +117,18 @@ class AIAnalysisRepository:
             .order_by(ServiceRecommendation.rank_order.asc(), ServiceRecommendation.id.asc())
         )
         return list(db.scalars(statement))
+
+    def list_snapshots_for_lead(
+        self,
+        db: Session,
+        *,
+        lead_id: int,
+        limit: int = 50,
+    ) -> list[AIAnalysisSnapshot]:
+        statement = (
+            select(AIAnalysisSnapshot)
+            .where(AIAnalysisSnapshot.lead_id == lead_id)
+            .order_by(AIAnalysisSnapshot.created_at.desc(), AIAnalysisSnapshot.id.desc())
+            .limit(limit)
+        )
+        return list(db.scalars(statement))

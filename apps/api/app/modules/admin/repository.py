@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.ai_analysis.models import PromptTemplate
+from app.modules.ai_analysis.models import PromptTemplate, WorkspaceServiceCatalogItem
 from app.modules.provider_serpapi.models import ProviderSettings
 from app.modules.scoring.models import ScoringConfigVersion
 
@@ -45,3 +45,47 @@ class AdminRepository:
         db.add(settings)
         db.commit()
         db.refresh(settings)
+
+    def list_service_catalog(
+        self, db: Session, *, workspace_id: int
+    ) -> list[WorkspaceServiceCatalogItem]:
+        return list(
+            db.scalars(
+                select(WorkspaceServiceCatalogItem)
+                .where(WorkspaceServiceCatalogItem.workspace_id == workspace_id)
+                .order_by(
+                    WorkspaceServiceCatalogItem.rank_order.asc(),
+                    WorkspaceServiceCatalogItem.id.asc(),
+                )
+            )
+        )
+
+    def get_catalog_item(
+        self, db: Session, *, workspace_id: int, public_id: str
+    ) -> WorkspaceServiceCatalogItem | None:
+        return db.scalar(
+            select(WorkspaceServiceCatalogItem).where(
+                WorkspaceServiceCatalogItem.workspace_id == workspace_id,
+                WorkspaceServiceCatalogItem.public_id == public_id,
+            )
+        )
+
+    def add_catalog_item(
+        self, db: Session, item: WorkspaceServiceCatalogItem
+    ) -> WorkspaceServiceCatalogItem:
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+
+    def save_catalog_item(
+        self, db: Session, item: WorkspaceServiceCatalogItem
+    ) -> WorkspaceServiceCatalogItem:
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+
+    def delete_catalog_item(self, db: Session, item: WorkspaceServiceCatalogItem) -> None:
+        db.delete(item)
+        db.commit()

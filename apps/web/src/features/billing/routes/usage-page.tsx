@@ -4,6 +4,7 @@ import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { formatDate } from "@/lib/presenters";
 
 export function UsagePage() {
   useDocumentTitle("Usage");
@@ -37,7 +38,7 @@ export function UsagePage() {
                 </div>
                 <Progress className="mt-3" value={percentage} />
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Current period: {item.period_start} to {item.period_end}
+                  Current period: {formatDate(item.period_start)} to {formatDate(item.period_end)}
                 </p>
               </div>
             );

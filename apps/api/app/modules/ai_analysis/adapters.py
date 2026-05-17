@@ -39,6 +39,7 @@ def _analysis_json_schema() -> dict[str, Any]:
             "outreach_subject",
             "outreach_message",
             "confidence",
+            "recommended_tone",
         ],
         "properties": {
             "summary": {"type": "string"},
@@ -57,6 +58,10 @@ def _analysis_json_schema() -> dict[str, Any]:
             "outreach_subject": {"type": "string"},
             "outreach_message": {"type": "string"},
             "confidence": {"type": "number"},
+            "recommended_tone": {
+                "type": ["string", "null"],
+                "enum": ["formal", "friendly", "consultative", "short_pitch", None],
+            },
         },
     }
 
@@ -79,6 +84,11 @@ def _build_llm_prompt(payload: LeadAnalysisInput) -> str:
             or "Use only the supplied evidence. Do not invent facts or claims.",
             "Return an evidence-first analysis using only the supplied input.",
             "If the evidence is incomplete, state that directly instead of guessing.",
+            "Return a single JSON object with keys:",
+            "summary, weaknesses, opportunities, recommended_services, outreach_subject, outreach_message, confidence, recommended_tone",
+            "weaknesses/opportunities/recommended_services must be arrays of strings.",
+            "confidence must be between 0 and 1.",
+            "recommended_tone must be one of: formal, friendly, consultative, short_pitch (or omit if unknown).",
             "Input:",
             json.dumps(
                 {
@@ -227,6 +237,21 @@ class FallbackAnalysisBuilder:
             "Local SEO Sprint",
             "Google Business Profile Optimization",
         ]
+
+        score = payload.deterministic_score
+        band = score.band if score else None
+        has_website = payload.place_enrichment.official_website_found
+        review_count = business.review_count
+
+        if band == "high":
+            recommended_tone = "consultative"
+        elif band == "medium" and review_count < 15:
+            recommended_tone = "friendly"
+        elif not has_website:
+            recommended_tone = "short_pitch"
+        else:
+            recommended_tone = "formal"
+
         return {
             "summary": (
                 f"{business.company_name} was analyzed from stored SerpAPI-derived facts only. "
@@ -244,4 +269,5 @@ class FallbackAnalysisBuilder:
                 "If useful, we can share a concise audit and proposed next steps."
             ),
             "confidence": max(0.35, round(business.data_confidence, 2)),
+            "recommended_tone": recommended_tone,
         }
