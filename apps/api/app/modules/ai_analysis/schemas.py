@@ -59,6 +59,7 @@ class LeadAnalysisResult(BaseModel):
     outreach_subject: str
     outreach_message: str
     confidence: float = Field(ge=0, le=1)
+    recommended_tone: str | None = None
 
 
 class ServiceRecommendationResponse(BaseModel):
@@ -85,12 +86,36 @@ class LatestLeadAnalysisResponse(BaseModel):
     snapshot: LeadAnalysisSnapshotResponse | None = None
 
 
+class LeadAnalysisHistoryResponse(BaseModel):
+    lead_id: str
+    items: list[LeadAnalysisSnapshotResponse]
+
+
+class BatchAnalysisRequest(BaseModel):
+    lead_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+class BatchAnalysisResult(BaseModel):
+    lead_id: str
+    snapshot: LeadAnalysisSnapshotResponse | None = None
+    error: str | None = None
+
+
+class BatchAnalysisResponse(BaseModel):
+    triggered_count: int
+    results: list[BatchAnalysisResult]
+
+
 __all__ = [
+    "BatchAnalysisRequest",
+    "BatchAnalysisResponse",
+    "BatchAnalysisResult",
+    "LatestLeadAnalysisResponse",
+    "LeadAnalysisHistoryResponse",
     "LeadAnalysisInput",
     "LeadAnalysisResult",
     "LeadAnalysisSnapshotResponse",
     "LeadScoreContext",
-    "LatestLeadAnalysisResponse",
     "LocalBusinessFactsInput",
     "PlaceEnrichmentSummary",
     "ServiceRecommendationResponse",

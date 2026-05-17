@@ -14,6 +14,7 @@ from app.core.database import Base, get_db
 from app.core.security import hash_password
 from app.main import app
 from app.modules.ai_analysis.models import PromptTemplate
+from app.modules.ai_analysis.service import RuntimeCandidate
 from app.modules.billing.service import BillingService
 from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.models import (
@@ -40,6 +41,22 @@ class _SeededWorkspace:
     admin_password: str
     manager_public_id: str
     lead_public_id: str
+
+
+class _E2EAnalysisAdapter:
+    def analyze(self, payload: object) -> dict[str, object]:
+        company_name = getattr(getattr(payload, "local_business", None), "company_name", "Lead")
+        return {
+            "summary": f"{company_name} shows strong local trust with two actionable improvements.",
+            "weaknesses": ["Official site conversion details are limited."],
+            "opportunities": ["Tighten local SEO and improve website conversion paths."],
+            "recommended_services": ["Local SEO Sprint", "GBP Optimization"],
+            "outreach_subject": f"Quick visibility ideas for {company_name}",
+            "outreach_message": (
+                f"Hi {company_name}, we found two evidence-backed visibility improvements worth discussing."
+            ),
+            "confidence": 0.84,
+        }
 
 
 def _build_session_factory() -> sessionmaker[Session]:
@@ -344,6 +361,16 @@ def test_workspace_operator_journey_e2e(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.modules.search_jobs.api.LeadDiscoveryOrchestrator.run",
         lambda self, job_public_id: None,
+    )
+    monkeypatch.setattr(
+        "app.modules.ai_analysis.service.AIAnalysisService._resolve_runtime_candidates",
+        lambda self: [
+            RuntimeCandidate(
+                adapter=_E2EAnalysisAdapter(),
+                provider_name="test",
+                model_name="test-analysis-model",
+            )
+        ],
     )
 
     with _override_client(session_factory) as client:

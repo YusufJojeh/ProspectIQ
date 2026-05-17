@@ -33,7 +33,7 @@ export async function gotoPath(page: Page, path: string) {
 export async function delayApiResponseOnce(page: Page, urlPattern: string | RegExp, delayMs = 1200) {
   const handler = async (route: Parameters<Page["route"]>[1] extends (route: infer R) => unknown ? R : never) => {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-    await route.continue();
+    await route.fallback();
     await page.unroute(urlPattern, handler);
   };
   await page.route(urlPattern, handler);

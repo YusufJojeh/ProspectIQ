@@ -49,17 +49,20 @@ export function AppTopbar() {
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-background/85 px-3 py-2 backdrop-blur-xl sm:px-4 lg:px-6">
-      <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 items-center gap-1.5 text-sm md:flex">
-        <Link to={appPaths.dashboard} className="shrink-0 text-muted-foreground hover:text-foreground">
+      <nav aria-label="Breadcrumb" className="flex min-w-[7rem] flex-1 basis-32 items-center gap-1.5 text-sm">
+        <Link to={appPaths.dashboard} className="hidden shrink-0 text-muted-foreground hover:text-foreground sm:inline">
           LeadScope
         </Link>
         {segments.map((segment, index) => (
-          <div key={segment + index} className="flex min-w-0 items-center gap-1.5">
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60 rtl:rotate-180" />
+          <div
+            key={segment + index}
+            className={index === segments.length - 1 ? "flex min-w-0 items-center gap-1.5" : "hidden min-w-0 items-center gap-1.5 sm:flex"}
+          >
+            <ChevronRight className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block rtl:rotate-180" />
             <span
               className={
                 index === segments.length - 1
-                  ? "truncate font-medium text-foreground"
+                  ? "min-w-fit truncate font-medium text-foreground"
                   : "truncate text-muted-foreground hover:text-foreground"
               }
             >

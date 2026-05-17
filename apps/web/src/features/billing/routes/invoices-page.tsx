@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { formatDate } from "@/lib/presenters";
 
 export function InvoicesPage() {
   useDocumentTitle("Invoices");
@@ -40,7 +41,9 @@ export function InvoicesPage() {
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Invoices</CardTitle>
+          <CardTitle>
+            <h1>Invoices</h1>
+          </CardTitle>
           <CardDescription>Internal invoice and payment-attempt records used to simulate SaaS billing and collections.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -55,9 +58,9 @@ export function InvoicesPage() {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    ${invoice.amount} {invoice.currency} | issued {invoice.issued_at}
+                    ${invoice.amount} {invoice.currency} | issued {formatDate(invoice.issued_at)}
                   </p>
-                  <p className="text-sm text-muted-foreground">Due {invoice.due_at ?? "n/a"} | Paid {invoice.paid_at ?? "n/a"}</p>
+                  <p className="text-sm text-muted-foreground">Due {formatDate(invoice.due_at)} | Paid {formatDate(invoice.paid_at)}</p>
                 </div>
                 {canManageBilling ? (
                   <div className="flex flex-wrap gap-2">

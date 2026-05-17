@@ -416,7 +416,7 @@ function createState(): MockState {
   const searchJobs: SearchJobResponse[] = [
     {
       public_id: "job_seed_1",
-      discovery_runtime: "serpapi",
+      discovery_runtime: "live",
       business_type: "Dentist",
       city: "Istanbul",
       region: "Kadikoy",
@@ -1166,7 +1166,7 @@ async function handleApiRoute(route: Route, state: MockState) {
     const now = nextTimestamp(state);
     const job: SearchJobResponse = {
       public_id: `job_mock_${state.counters.searchJobs}`,
-      discovery_runtime: "serpapi",
+      discovery_runtime: "live",
       business_type: String(payload.business_type ?? "Unknown"),
       city: String(payload.city ?? "Unknown"),
       region: (payload.region as string | undefined) ?? null,
@@ -1432,10 +1432,17 @@ async function handleApiRoute(route: Route, state: MockState) {
     await fulfillJson(route, {
       database_ok: true,
       serpapi_configured: true,
-      serpapi_runtime_mode: "auto",
-      discovery_runtime: "serpapi",
-      analysis_runtime: "demo",
-      demo_fallbacks_enabled: true,
+      serpapi_live_reachable: true,
+      serpapi_runtime_mode: "live",
+      discovery_runtime: "live",
+      current_ai_runtime: "ollama",
+      analysis_runtime: "ollama",
+      analysis_fallback_runtime: "openai",
+      ollama_configured: true,
+      ollama_reachable: true,
+      openai_configured: true,
+      openai_fallback_configured: true,
+      demo_fallbacks_enabled: false,
       runtime_warnings: [],
       failed_jobs_last_7_days: state.searchJobs.filter((job) => job.status === "failed").length,
       provider_failures_last_7_days: state.searchJobs.reduce(
@@ -1750,8 +1757,29 @@ export async function installMockApi(page: Page) {
     await handleApiRoute(route, state);
   });
 
-  await page.route("**/*tile.openstreetmap.org/**", async (route) => {
-    await route.fulfill({ status: 204, body: "" });
+  // Mock OpenStreetMap tile requests
+  // Matches: https://a.tile.openstreetmap.org/z/x/y.png, etc.
+  await page.route(/https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i, async (route) => {
+    await route.fulfill({ 
+      status: 200,
+      contentType: "image/png",
+      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
+    });
+  });
+
+  // Also catch any other tile requests (other providers, etc.)
+  await page.route("**/*.png", async (route) => {
+    const url = route.request().url();
+    // Only mock tile URLs that look like they're trying to fetch map tiles
+    if (url.includes("tile") || url.includes("map")) {
+      await route.fulfill({ 
+        status: 200,
+        contentType: "image/png",
+        body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
+      });
+    } else {
+      await route.continue();
+    }
   });
 
   return state;

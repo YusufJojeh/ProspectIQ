@@ -3,22 +3,21 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
-from app.modules.ai_analysis.adapters import (
-    FallbackAnalysisBuilder,
-    LLMClient,
-    OllamaLLMAdapter,
-    OpenAILLMAdapter,
-)
+from app.modules.ai_analysis.adapters import LLMClient, OllamaLLMAdapter, OpenAILLMAdapter
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
 from app.modules.ai_analysis.prompt_builder import PromptBuilder
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import (
+    BatchAnalysisResponse,
+    BatchAnalysisResult,
     LatestLeadAnalysisResponse,
+    LeadAnalysisHistoryResponse,
     LeadAnalysisInput,
     LeadAnalysisResult,
     LeadAnalysisSnapshotResponse,
@@ -37,6 +36,13 @@ from app.shared.services.lead_intelligence import LeadIntelligenceService
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class RuntimeCandidate:
+    adapter: LLMClient
+    provider_name: str
+    model_name: str
+
+
 class AIAnalysisService:
     def __init__(
         self,
@@ -51,7 +57,7 @@ class AIAnalysisService:
         self.lead_intelligence = LeadIntelligenceService()
         self.audit_logs = AuditLogService()
         self.llm_client = llm_client
-        self.fallback_client = fallback_client or FallbackAnalysisBuilder()
+        self.fallback_client = fallback_client
 
     def analyze(
         self,
@@ -63,7 +69,7 @@ class AIAnalysisService:
         created_by_user_id: int,
         score_context: LeadScoreContext | None = None,
     ) -> tuple[AIAnalysisSnapshot, LeadAnalysisResult]:
-        adapter, provider_name, model_name = self._resolve_runtime()
+        runtime_candidates = self._resolve_runtime_candidates()
         template = self._get_or_create_active_prompt_template(
             db,
             workspace_id=workspace_id,
@@ -73,7 +79,7 @@ class AIAnalysisService:
         input_payload = self.prompt_builder.build_input_payload(
             facts,
             score_context=score_context,
-            allowed_service_catalog=list(ALLOWED_SERVICE_CATALOG),
+            allowed_service_catalog=self._resolve_service_catalog(db, workspace_id=workspace_id),
             prompt_instructions=template.template_text,
         )
         prompt = self.prompt_builder.build_prompt(input_payload)
@@ -94,10 +100,8 @@ class AIAnalysisService:
             return existing, LeadAnalysisResult.model_validate(existing.output_json)
 
         result, provider_name, model_name = self._run_analysis(
-            adapter=adapter,
+            candidates=runtime_candidates,
             input_payload=input_payload,
-            provider_name=provider_name,
-            model_name=model_name,
         )
         snapshot = self.repository.add_snapshot(
             db,
@@ -198,63 +202,220 @@ class AIAnalysisService:
         )
         return lead, snapshot, result
 
-    def _resolve_runtime(self) -> tuple[LLMClient, str, str]:
+    def list_history_for_lead(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_public_id: str,
+    ) -> LeadAnalysisHistoryResponse:
+        lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
+        snapshots = self.repository.list_snapshots_for_lead(db, lead_id=lead.id)
+        items = [
+            self._to_snapshot_response(
+                db,
+                lead_public_id=lead.public_id,
+                snapshot=snap,
+                result=LeadAnalysisResult.model_validate(snap.output_json),
+            )
+            for snap in snapshots
+        ]
+        return LeadAnalysisHistoryResponse(lead_id=lead.public_id, items=items)
+
+    def generate_batch(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_public_ids: list[str],
+        current_user: User,
+    ) -> BatchAnalysisResponse:
+        results: list[BatchAnalysisResult] = []
+        for lead_public_id in lead_public_ids:
+            try:
+                lead, snapshot, result = self.prepare_analysis_for_lead(
+                    db,
+                    workspace_id=workspace_id,
+                    lead_public_id=lead_public_id,
+                    created_by_user_id=current_user.id,
+                )
+                results.append(
+                    BatchAnalysisResult(
+                        lead_id=lead_public_id,
+                        snapshot=self._to_snapshot_response(
+                            db,
+                            lead_public_id=lead.public_id,
+                            snapshot=snapshot,
+                            result=result,
+                        ),
+                    )
+                )
+            except NotFoundError:
+                results.append(BatchAnalysisResult(lead_id=lead_public_id, error="Lead not found."))
+            except Exception as exc:
+                results.append(BatchAnalysisResult(lead_id=lead_public_id, error=str(exc)))
+        return BatchAnalysisResponse(triggered_count=len(results), results=results)
+
+    def test_prompt_template(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        template_public_id: str,
+        lead_public_id: str,
+        current_user: User,
+    ) -> LeadAnalysisSnapshotResponse:
+        from datetime import UTC, datetime
+
+        from app.modules.admin.repository import AdminRepository
+
+        template = AdminRepository().get_prompt_template(
+            db, workspace_id=workspace_id, public_id=template_public_id
+        )
+        if template is None:
+            raise NotFoundError("Prompt template was not found.")
+        lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
+        context = self.lead_intelligence.build(db, lead=lead)
+        input_payload = self.prompt_builder.build_input_payload(
+            context.facts,
+            score_context=context.score_context,
+            allowed_service_catalog=self._resolve_service_catalog(db, workspace_id=workspace_id),
+            prompt_instructions=template.template_text,
+        )
+        result, provider_name, model_name = self._run_analysis(
+            candidates=self._resolve_runtime_candidates(),
+            input_payload=input_payload,
+        )
+        return LeadAnalysisSnapshotResponse(
+            public_id=f"preview_{template.public_id}",
+            lead_id=lead_public_id,
+            ai_provider=provider_name,
+            model_name=model_name,
+            created_at=datetime.now(tz=UTC),
+            analysis=result,
+            service_recommendations=[],
+        )
+
+    def _resolve_service_catalog(self, db: Session, *, workspace_id: int) -> list[str]:
+        from app.modules.admin.repository import AdminRepository
+
+        items = AdminRepository().list_service_catalog(db, workspace_id=workspace_id)
+        active_items = [item.service_name for item in items if item.is_active]
+        if active_items:
+            return active_items
+        return list(ALLOWED_SERVICE_CATALOG)
+
+    def _resolve_runtime_candidates(self) -> list[RuntimeCandidate]:
         if self.llm_client is not None:
-            return self.llm_client, "custom", "custom-client"
+            custom_candidates = [
+                RuntimeCandidate(
+                    adapter=self.llm_client,
+                    provider_name="custom",
+                    model_name="custom-client",
+                )
+            ]
+            if self.fallback_client is not None:
+                custom_candidates.append(
+                    RuntimeCandidate(
+                        adapter=self.fallback_client,
+                        provider_name="custom-fallback",
+                        model_name="custom-fallback-client",
+                    )
+                )
+            return custom_candidates
+
         settings = get_settings()
+        runtime_candidates: list[RuntimeCandidate] = []
 
-        # Try OpenAI first
-        if settings.has_openai_configured:
-            return (
-                OpenAILLMAdapter(
-                    api_key=settings.openai_api_key,
-                    model=settings.openai_model,
-                ),
-                "openai",
-                settings.openai_model,
+        if settings.analysis_runtime == "demo":
+            raise ServiceUnavailableError(
+                "AI analysis demo mode is not available for this local-live profile. "
+                "Configure Ollama as primary and OpenAI as fallback."
             )
 
-        # Try Ollama
-        if settings.has_ollama_configured:
-            return (
-                OllamaLLMAdapter(
-                    base_url=settings.ollama_base_url,
-                    model=settings.ollama_model,
-                ),
-                "ollama",
-                settings.ollama_model,
+        if settings.analysis_runtime == "ollama":
+            runtime_candidates.append(
+                RuntimeCandidate(
+                    adapter=OllamaLLMAdapter(
+                        base_url=settings.ollama_base_url,
+                        model=settings.ollama_model,
+                    ),
+                    provider_name="ollama",
+                    model_name=settings.ollama_model,
+                )
             )
+            if settings.analysis_fallback_runtime == "openai":
+                runtime_candidates.append(
+                    RuntimeCandidate(
+                        adapter=OpenAILLMAdapter(
+                            api_key=settings.openai_api_key,
+                            model=settings.openai_model,
+                            base_url=settings.openai_base_url,
+                        ),
+                        provider_name="openai",
+                        model_name=settings.openai_model,
+                    )
+                )
+            return runtime_candidates
 
-        # No provider available
+        if settings.analysis_runtime == "openai":
+            runtime_candidates.append(
+                RuntimeCandidate(
+                    adapter=OpenAILLMAdapter(
+                        api_key=settings.openai_api_key,
+                        model=settings.openai_model,
+                        base_url=settings.openai_base_url,
+                    ),
+                    provider_name="openai",
+                    model_name=settings.openai_model,
+                )
+            )
+            if settings.analysis_fallback_runtime == "ollama":
+                runtime_candidates.append(
+                    RuntimeCandidate(
+                        adapter=OllamaLLMAdapter(
+                            base_url=settings.ollama_base_url,
+                            model=settings.ollama_model,
+                        ),
+                        provider_name="ollama",
+                        model_name=settings.ollama_model,
+                    )
+                )
+            return runtime_candidates
+
         raise ServiceUnavailableError(
             detail="AI analysis is unavailable because no LLM provider is configured. "
-            "Please set either OPENAI_API_KEY or OLLAMA_BASE_URL."
+            "Please configure Ollama as primary or OpenAI as fallback."
         )
 
     def _run_analysis(
         self,
         *,
-        adapter: LLMClient,
+        candidates: list[RuntimeCandidate],
         input_payload: LeadAnalysisInput,
-        provider_name: str,
-        model_name: str,
     ) -> tuple[LeadAnalysisResult, str, str]:
-        try:
-            payload = adapter.analyze(input_payload)
-            return self.validator.validate(payload), provider_name, model_name
-        except Exception:
-            logger.warning(
-                "ai_analysis.adapter_failed provider=%s model=%s — falling back to deterministic builder",
-                provider_name,
-                model_name,
-                exc_info=True,
-            )
-            fallback_payload = self.fallback_client.analyze(input_payload)
-            return (
-                self.validator.validate(fallback_payload),
-                "demo-fallback",
-                "fallback-builder-v1",
-            )
+        last_error: Exception | None = None
+        for candidate in candidates:
+            try:
+                payload = candidate.adapter.analyze(input_payload)
+                return (
+                    self.validator.validate(payload),
+                    candidate.provider_name,
+                    candidate.model_name,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "ai_analysis.adapter_failed provider=%s model=%s -- trying next runtime if available",
+                    candidate.provider_name,
+                    candidate.model_name,
+                    exc_info=True,
+                )
+
+        detail = "AI analysis failed because all configured providers were unavailable or returned invalid output."
+        if last_error is not None:
+            detail += f" Last error: {last_error}"
+        raise ServiceUnavailableError(detail)
 
     def _input_hash(
         self,

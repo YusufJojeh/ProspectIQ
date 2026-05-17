@@ -192,7 +192,7 @@ export function LeadDetailPage() {
   const activityItems = mergeActivityTimeline(activityQuery.data?.items ?? []);
 
   return (
-    <div className="space-y-6 p-3 sm:p-4 lg:p-6">
+    <div className="max-w-full space-y-6 overflow-x-clip p-3 sm:p-4 lg:p-6">
       <LeadHero
         lead={lead}
         onRefresh={() => refreshMutation.mutate()}
@@ -203,9 +203,9 @@ export function LeadDetailPage() {
 
       {actionSuccess ? <QueryStateNotice tone="success" title={t("leadDetail.actionCompleted")} description={actionSuccess} /> : null}
 
-      <section className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4">
-          <Card className="rounded-[1.5rem] border-border bg-card/95">
+      <section className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 space-y-4">
+          <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
               <CardTitle>Normalized facts and workflow</CardTitle>
               <CardDescription>
@@ -246,8 +246,8 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        <div className="space-y-4">
-          <Card className="rounded-[1.5rem] border-border bg-card/95">
+        <div className="min-w-0 space-y-4">
+          <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
               <CardTitle>Lead operations</CardTitle>
               <CardDescription>Assignment, status control, map context, and evidence health remain in one panel.</CardDescription>

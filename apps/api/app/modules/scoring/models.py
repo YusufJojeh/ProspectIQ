@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -37,6 +37,7 @@ class WorkspaceScoringActive(Base):
 
 class LeadScore(Base):
     __tablename__ = "lead_scores"
+    __table_args__ = (Index("ix_lead_scores_lead_scored_at", "lead_id", "scored_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
@@ -55,6 +56,7 @@ class LeadScore(Base):
 
 class ScoreBreakdown(Base):
     __tablename__ = "score_breakdowns"
+    __table_args__ = (Index("ix_score_breakdowns_lead_score_key", "lead_score_id", "key"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     lead_score_id: Mapped[int] = mapped_column(ForeignKey("lead_scores.id"), index=True)

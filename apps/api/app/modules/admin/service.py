@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
+from app.core.runtime_health import probe_ollama, probe_serpapi
 from app.modules.admin.repository import AdminRepository
 from app.modules.admin.schemas import (
     OperationalHealthResponse,
@@ -17,9 +18,14 @@ from app.modules.admin.schemas import (
     ProviderSettingsUpdateRequest,
     RecentFailedJobResponse,
     RecentProviderFailureResponse,
+    ServiceCatalogItemCreateRequest,
+    ServiceCatalogItemResponse,
+    ServiceCatalogItemUpdateRequest,
+    ServiceCatalogListResponse,
 )
-from app.modules.ai_analysis.models import PromptTemplate
+from app.modules.ai_analysis.models import PromptTemplate, WorkspaceServiceCatalogItem
 from app.modules.ai_analysis.repository import AIAnalysisRepository
+from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.provider_serpapi.models import ProviderFetch
 from app.modules.scoring.models import ScoringConfigVersion
@@ -301,12 +307,26 @@ class AdminService:
             or 0
         )
         settings = get_settings()
+        serpapi_probe = probe_serpapi(settings)
+        ollama_probe = probe_ollama(settings)
         return OperationalHealthResponse(
             database_ok=bool(db.execute(text("SELECT 1")).scalar()),
             serpapi_configured=settings.has_serpapi_configured,
+            serpapi_live_reachable=serpapi_probe.reachable,
             serpapi_runtime_mode=settings.serpapi_runtime_mode,
             discovery_runtime=settings.discovery_runtime,
+            discovery_execution_mode=settings.effective_discovery_mode,
+            discovery_kill_switch=settings.discovery_kill_switch,
+            discovery_multi_engine_enabled=settings.discovery_multi_engine_enabled,
+            current_ai_runtime=settings.analysis_runtime,
             analysis_runtime=settings.analysis_runtime,
+            analysis_fallback_runtime=settings.analysis_fallback_runtime,
+            ollama_configured=settings.has_ollama_configured,
+            ollama_reachable=ollama_probe.reachable,
+            openai_configured=settings.has_openai_configured,
+            openai_fallback_configured=(
+                settings.analysis_runtime == "ollama" and settings.has_openai_configured
+            ),
             demo_fallbacks_enabled=settings.allow_demo_fallbacks,
             runtime_warnings=settings.runtime_warnings,
             failed_jobs_last_7_days=failed_jobs_last_7_days,
@@ -336,6 +356,115 @@ class AdminService:
                 )
                 for item in provider_failures
             ],
+        )
+
+    def list_service_catalog(
+        self, db: Session, *, workspace_id: int
+    ) -> ServiceCatalogListResponse:
+        items = self.admin_repository.list_service_catalog(db, workspace_id=workspace_id)
+        if not items:
+            return ServiceCatalogListResponse(
+                items=[
+                    ServiceCatalogItemResponse(
+                        public_id=f"default_{i}",
+                        service_name=name,
+                        description=None,
+                        is_active=True,
+                        rank_order=i,
+                        created_at=datetime.now(tz=UTC),
+                    )
+                    for i, name in enumerate(ALLOWED_SERVICE_CATALOG, start=1)
+                ],
+                is_default=True,
+            )
+        return ServiceCatalogListResponse(
+            items=[self._to_catalog_response(item) for item in items],
+            is_default=False,
+        )
+
+    def create_catalog_item(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        payload: ServiceCatalogItemCreateRequest,
+        actor: User,
+    ) -> ServiceCatalogItemResponse:
+        item = self.admin_repository.add_catalog_item(
+            db,
+            WorkspaceServiceCatalogItem(
+                workspace_id=workspace_id,
+                service_name=payload.service_name,
+                description=payload.description,
+                is_active=payload.is_active,
+                rank_order=payload.rank_order,
+            ),
+        )
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=actor.id,
+            event_name="service_catalog.created",
+            details=f"Created service catalog item {item.public_id} ({item.service_name}).",
+        )
+        return self._to_catalog_response(item)
+
+    def update_catalog_item(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        public_id: str,
+        payload: ServiceCatalogItemUpdateRequest,
+        actor: User,
+    ) -> ServiceCatalogItemResponse:
+        item = self.admin_repository.get_catalog_item(
+            db, workspace_id=workspace_id, public_id=public_id
+        )
+        if item is None:
+            raise NotFoundError("Service catalog item was not found.")
+        if payload.description is not None:
+            item.description = payload.description
+        if payload.is_active is not None:
+            item.is_active = payload.is_active
+        if payload.rank_order is not None:
+            item.rank_order = payload.rank_order
+        item.updated_at = datetime.now(tz=UTC)
+        saved = self.admin_repository.save_catalog_item(db, item)
+        return self._to_catalog_response(saved)
+
+    def delete_catalog_item(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        public_id: str,
+        actor: User,
+    ) -> None:
+        item = self.admin_repository.get_catalog_item(
+            db, workspace_id=workspace_id, public_id=public_id
+        )
+        if item is None:
+            raise NotFoundError("Service catalog item was not found.")
+        self.admin_repository.delete_catalog_item(db, item)
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=actor.id,
+            event_name="service_catalog.deleted",
+            details=f"Deleted service catalog item ({item.service_name}).",
+        )
+
+    def _to_catalog_response(
+        self, item: WorkspaceServiceCatalogItem
+    ) -> ServiceCatalogItemResponse:
+        return ServiceCatalogItemResponse(
+            public_id=item.public_id,
+            service_name=item.service_name,
+            description=item.description,
+            is_active=item.is_active,
+            rank_order=item.rank_order,
+            created_at=item.created_at,
         )
 
     def _to_scoring_response(

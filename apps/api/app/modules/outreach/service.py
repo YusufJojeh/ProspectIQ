@@ -43,6 +43,7 @@ class OutreachGenerationService:
         created_by_user_id: int,
         tone: OutreachTone,
         regenerate: bool = False,
+        language: str = "en",
     ) -> OutreachMessageResult:
         existing = self.repository.get_by_snapshot_id(db, snapshot.id, tone=tone.value)
         if existing is not None and not regenerate:
@@ -57,6 +58,7 @@ class OutreachGenerationService:
             company_name=lead.company_name,
             base_subject=analysis.outreach_subject,
             base_message=analysis.outreach_message,
+            language=language,
         )
         saved = self.repository.add(
             db,
@@ -66,6 +68,7 @@ class OutreachGenerationService:
                 subject=subject,
                 message=message,
                 tone=tone.value,
+                language=language,
                 version_number=self.repository.get_next_version_number(db, lead.id),
                 created_by_user_id=created_by_user_id,
             ),
@@ -115,6 +118,7 @@ class OutreachGenerationService:
             created_by_user_id=current_user.id,
             tone=payload.tone,
             regenerate=payload.regenerate,
+            language=payload.language,
         )
         message = self.repository.get_latest_by_lead(db, lead.id)
         if message is None:
@@ -211,6 +215,7 @@ class OutreachGenerationService:
             subject=subject,
             message=body,
             tone=OutreachTone(message.tone),
+            language=message.language,
             version_number=message.version_number,
             generated_subject=message.subject,
             generated_message=message.message,
@@ -220,6 +225,25 @@ class OutreachGenerationService:
         )
 
     def _apply_tone(
+        self,
+        *,
+        tone: OutreachTone,
+        company_name: str,
+        base_subject: str,
+        base_message: str,
+        language: str = "en",
+    ) -> tuple[str, str]:
+        subject, message = self._apply_tone_english(
+            tone=tone,
+            company_name=company_name,
+            base_subject=base_subject,
+            base_message=base_message,
+        )
+        if language == "ar":
+            message = f"[Arabic language requested — translate the following to Arabic]\n\n{message}"
+        return subject, message
+
+    def _apply_tone_english(
         self,
         *,
         tone: OutreachTone,

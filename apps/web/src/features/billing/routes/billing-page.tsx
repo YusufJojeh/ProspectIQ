@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { formatDate } from "@/lib/presenters";
 
 export function BillingPage() {
   useDocumentTitle("Billing");
@@ -77,10 +78,10 @@ export function BillingPage() {
             <div className="mt-3 grid gap-1 text-sm text-muted-foreground">
               <p>Billing cycle: {subscriptionQuery.data.billing_cycle}</p>
               <p>Payment method: {subscriptionQuery.data.simulated_payment_method}</p>
-              <p>Trial ends: {subscriptionQuery.data.trial_ends_at ?? "n/a"}</p>
-              <p>Renews: {subscriptionQuery.data.renews_at ?? "n/a"}</p>
-              <p>Access ends: {subscriptionQuery.data.ends_at ?? "n/a"}</p>
-              <p>Canceled at: {subscriptionQuery.data.canceled_at ?? "n/a"}</p>
+              <p>Trial ends: {formatDate(subscriptionQuery.data.trial_ends_at)}</p>
+              <p>Renews: {formatDate(subscriptionQuery.data.renews_at)}</p>
+              <p>Access ends: {formatDate(subscriptionQuery.data.ends_at)}</p>
+              <p>Canceled at: {formatDate(subscriptionQuery.data.canceled_at)}</p>
             </div>
             {teamUsersMetric ? (
               <div className="mt-4 rounded-xl border border-border bg-background/70 p-3 text-sm text-muted-foreground">

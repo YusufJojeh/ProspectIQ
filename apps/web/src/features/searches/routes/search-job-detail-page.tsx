@@ -62,11 +62,13 @@ export function SearchJobDetailPage() {
 
   const job = jobQuery.data;
   const runtimeLabel =
-    job.discovery_runtime === "serpapi"
+    job.discovery_runtime === "live"
       ? "Live provider"
       : job.discovery_runtime === "demo"
         ? "Demo provider"
-        : "Blocked runtime";
+        : job.discovery_runtime === "stub"
+          ? "Stub runtime"
+          : "Blocked runtime";
 
   return (
     <div className="space-y-6 p-3 sm:p-4 lg:p-6">

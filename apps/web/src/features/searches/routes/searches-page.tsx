@@ -142,7 +142,7 @@ export function SearchesPage() {
           title="Discovery is using demo provider data"
           description="This workspace is currently returning structured demo results instead of live SerpAPI responses."
         />
-      ) : currentDiscoveryRuntime === "serpapi" ? (
+      ) : currentDiscoveryRuntime === "live" ? (
         <QueryStateNotice
           tone="success"
           title="Discovery is using live SerpAPI"

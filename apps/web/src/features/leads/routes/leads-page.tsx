@@ -213,7 +213,7 @@ export function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6 p-3 sm:p-4 lg:p-6">
+    <div className="max-w-full space-y-6 overflow-x-clip p-3 sm:p-4 lg:p-6">
       <PageHeader
         eyebrow="Leads"
         title="Evidence-first qualification workspace"
@@ -252,7 +252,7 @@ export function LeadsPage() {
         <MetricCard label="Selected leads" value={String(selectedIds.size)} helper="Bulk export ready" />
       </section>
 
-      <section className="grid gap-4 2xl:grid-cols-[320px_minmax(0,1fr)]">
+      <section className="grid min-w-0 gap-4 2xl:grid-cols-[320px_minmax(0,1fr)]">
         <LeadsFiltersPanel activeCount={activeFilterCount} onReset={resetFilters}>
           <FilterField label="Search">
             <Input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Company, city, or domain" />
@@ -385,8 +385,8 @@ export function LeadsPage() {
           </div>
         </LeadsFiltersPanel>
 
-        <div className="space-y-4">
-          <Card className="rounded-[1.5rem] border-border bg-card/95">
+        <div className="min-w-0 space-y-4">
+          <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -459,7 +459,7 @@ export function LeadsPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-[1.5rem] border-border bg-card/95">
+          <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
               <CardTitle>Selected lead workspace</CardTitle>
               <CardDescription>

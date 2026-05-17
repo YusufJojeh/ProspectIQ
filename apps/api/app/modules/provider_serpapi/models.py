@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -25,6 +36,9 @@ class ProviderSettings(Base):
 
 class ProviderFetch(Base):
     __tablename__ = "provider_fetches"
+    __table_args__ = (
+        Index("ix_provider_fetches_workspace_engine_mode", "workspace_id", "engine", "mode"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -103,11 +117,27 @@ class ProviderNormalizedFact(Base):
 
 class LeadSourceRecord(Base):
     __tablename__ = "lead_source_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "current_for_lead_id",
+            name="uq_lead_source_records_current_for_lead_id",
+        ),
+        Index(
+            "ix_lead_source_records_lead_current_priority",
+            "lead_id",
+            "is_current",
+            "priority",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
     provider_normalized_fact_id: Mapped[int] = mapped_column(
         ForeignKey("provider_normalized_facts.id"), index=True
+    )
+    current_for_lead_id: Mapped[int | None] = mapped_column(
+        ForeignKey("leads.id"),
+        nullable=True,
     )
     priority: Mapped[int] = mapped_column(Integer, default=100)
     is_current: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -116,6 +146,20 @@ class LeadSourceRecord(Base):
 
 class LeadIdentity(Base):
     __tablename__ = "lead_identities"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "identity_type",
+            "identity_value",
+            name="uq_lead_identities_workspace_key",
+        ),
+        Index(
+            "ix_lead_identities_lookup",
+            "workspace_id",
+            "identity_type",
+            "identity_value",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)

@@ -17,8 +17,10 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
+from app.modules.admin.models import SystemSetting
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
 from app.modules.ai_analysis.schemas import LeadAnalysisResult
 from app.modules.audit_logs.models import AuditLog
@@ -91,15 +93,21 @@ class DemoLeadSpec:
 
 DEMO_USERS = [
     DemoUserSpec(
-        email="manager@prospectiq.dev",
-        full_name="Demo Operations Manager",
-        password="ManagerPass123!",
+        email="admin@example.test",
+        full_name="Super Admin",
+        password="password",
+        role="account_owner",
+    ),
+    DemoUserSpec(
+        email="manager@example.test",
+        full_name="Tenant Manager",
+        password="password",
         role="manager",
     ),
     DemoUserSpec(
-        email="sales@prospectiq.dev",
-        full_name="Demo Sales User",
-        password="SalesPass123!",
+        email="user1@example.test",
+        full_name="Team User",
+        password="password",
         role="member",
     ),
 ]
@@ -122,7 +130,7 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             data_confidence=0.92,
             has_website=True,
             status=LeadStatus.QUALIFIED.value,
-            assigned_to_email="manager@prospectiq.dev",
+            assigned_to_email="manager@example.test",
             score_total=88.0,
             score_band=LeadScoreBand.HIGH.value,
             score_qualified=True,
@@ -227,7 +235,7 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             data_confidence=0.84,
             has_website=True,
             status=LeadStatus.REVIEWED.value,
-            assigned_to_email="sales@prospectiq.dev",
+            assigned_to_email="user1@example.test",
             score_total=72.0,
             score_band=LeadScoreBand.MEDIUM.value,
             score_qualified=True,
@@ -293,7 +301,7 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             data_confidence=0.74,
             has_website=False,
             status=LeadStatus.CONTACTED.value,
-            assigned_to_email="sales@prospectiq.dev",
+            assigned_to_email="user1@example.test",
             score_total=61.0,
             score_band=LeadScoreBand.MEDIUM.value,
             score_qualified=True,
@@ -334,7 +342,7 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             data_confidence=0.89,
             has_website=True,
             status=LeadStatus.INTERESTED.value,
-            assigned_to_email="manager@prospectiq.dev",
+            assigned_to_email="manager@example.test",
             score_total=83.0,
             score_band=LeadScoreBand.HIGH.value,
             score_qualified=True,
@@ -420,6 +428,10 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
         ),
     ],
 }
+
+
+def _demo_seed_marker_key(workspace_public_id: str) -> str:
+    return f"demo_seed.workspace.{workspace_public_id}.v1"
 
 
 def _sha(value: object) -> str:
@@ -536,6 +548,33 @@ def _ensure_user(
         existing.full_name = full_name
         existing.hashed_password = hash_password(password)
         existing.role = role
+    db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+def _ensure_system_setting(
+    db,
+    *,
+    key: str,
+    value_json: dict[str, object],
+    description: str,
+    updated_by_user_id: int | None,
+) -> SystemSetting:
+    existing = db.scalar(select(SystemSetting).where(SystemSetting.key == key))
+    if existing is None:
+        existing = SystemSetting(
+            key=key,
+            value_json=value_json,
+            description=description,
+            updated_by_user_id=updated_by_user_id,
+        )
+    else:
+        existing.value_json = value_json
+        existing.description = description
+        existing.updated_by_user_id = updated_by_user_id
+        existing.updated_at = datetime.now(tz=UTC)
     db.add(existing)
     db.commit()
     db.refresh(existing)
@@ -788,6 +827,7 @@ def _create_provider_fact(
         LeadSourceRecord(
             lead_id=lead_id,
             provider_normalized_fact_id=fact.id,
+            current_for_lead_id=lead_id if source_type == "maps_place" else None,
             priority=10 if source_type == "maps_place" else 20,
             is_current=source_type == "maps_place",
         )
@@ -876,17 +916,11 @@ def _seed_analysis_and_outreach(
 
 
 def _seed_demo_workspace(db) -> None:
-    workspace, admin = seed_default_workspace_and_admin(db)
-    admin.full_name = "LeadScope Demo Admin"
-    admin.hashed_password = hash_password("ChangeMe123!")
-    admin.role = "account_owner"
-    db.add(admin)
-    db.commit()
-    db.refresh(admin)
+    settings = get_settings()
+    if settings.is_production:
+        raise RuntimeError("Demo account seeding is blocked when APP_ENV=production.")
 
-    ensure_base_workspace_configuration(db, workspace_id=workspace.id, admin_id=admin.id)
-    _seed_secondary_admin_records(db, workspace_id=workspace.id, admin_id=admin.id)
-
+    workspace, bootstrap_admin = seed_default_workspace_and_admin(db)
     demo_users = {
         spec.email: _ensure_user(
             db,
@@ -898,12 +932,32 @@ def _seed_demo_workspace(db) -> None:
         )
         for spec in DEMO_USERS
     }
+    demo_admin = demo_users["admin@example.test"]
+
+    ensure_base_workspace_configuration(db, workspace_id=workspace.id, admin_id=demo_admin.id)
+    _seed_secondary_admin_records(db, workspace_id=workspace.id, admin_id=demo_admin.id)
+
+    marker_key = _demo_seed_marker_key(workspace.public_id)
+    existing_marker = db.scalar(select(SystemSetting).where(SystemSetting.key == marker_key))
+    if existing_marker is not None:
+        _ensure_system_setting(
+            db,
+            key=marker_key,
+            value_json={
+                "accounts": {spec.email: spec.role for spec in DEMO_USERS},
+                "workspace_public_id": workspace.public_id,
+                "seeded_at": str(existing_marker.value_json.get("seeded_at", datetime.now(tz=UTC))),
+            },
+            description="Deterministic demo workspace data marker.",
+            updated_by_user_id=demo_admin.id,
+        )
+        return
 
     base_time = datetime(2026, 4, 3, 10, 0, tzinfo=UTC)
     dental_job = _create_search_request_and_job(
         db,
         workspace_id=workspace.id,
-        requested_by_user_id=admin.id,
+        requested_by_user_id=demo_admin.id,
         business_type="Dental Clinic",
         city="Istanbul",
         region="Kadikoy",
@@ -923,7 +977,7 @@ def _seed_demo_workspace(db) -> None:
     physio_job = _create_search_request_and_job(
         db,
         workspace_id=workspace.id,
-        requested_by_user_id=admin.id,
+        requested_by_user_id=demo_admin.id,
         business_type="Physiotherapy Center",
         city="Ankara",
         region="Cankaya",
@@ -1065,7 +1119,7 @@ def _seed_demo_workspace(db) -> None:
                     LeadNote(
                         lead_id=lead.id,
                         note=note,
-                        created_by_user_id=admin.id,
+                        created_by_user_id=demo_admin.id,
                         created_at=lead.updated_at + timedelta(minutes=note_index),
                     )
                 )
@@ -1075,7 +1129,7 @@ def _seed_demo_workspace(db) -> None:
                         lead_id=lead.id,
                         from_status=from_status,
                         to_status=to_status,
-                        changed_by_user_id=admin.id,
+                        changed_by_user_id=demo_admin.id,
                         changed_at=lead.created_at + timedelta(minutes=status_index),
                     )
                 )
@@ -1086,7 +1140,7 @@ def _seed_demo_workspace(db) -> None:
                 _seed_analysis_and_outreach(
                     db,
                     lead=lead,
-                    admin_id=admin.id,
+                    admin_id=demo_admin.id,
                     analysis=spec.analysis,
                     rationales=spec.recommendation_rationales,
                     outreach_tone=spec.outreach_tone,
@@ -1117,19 +1171,19 @@ def _seed_demo_workspace(db) -> None:
         [
             AuditLog(
                 workspace_id=workspace.id,
-                actor_user_id=admin.id,
+                actor_user_id=demo_admin.id,
                 event_name="provider_settings.updated",
                 details="Prepared the workspace for the graduation demo using presentation-safe defaults.",
             ),
             AuditLog(
                 workspace_id=workspace.id,
-                actor_user_id=admin.id,
+                actor_user_id=demo_admin.id,
                 event_name="prompt_template.created",
                 details="Added a demo-only prompt variation for presentation walkthroughs.",
             ),
             AuditLog(
                 workspace_id=workspace.id,
-                actor_user_id=admin.id,
+                actor_user_id=demo_admin.id,
                 event_name="leads.exported_csv",
                 details="Exported the seeded lead list as CSV during demo preparation.",
             ),
@@ -1137,9 +1191,26 @@ def _seed_demo_workspace(db) -> None:
     )
     db.commit()
 
+    _ensure_system_setting(
+        db,
+        key=marker_key,
+        value_json={
+            "accounts": {spec.email: spec.role for spec in DEMO_USERS},
+            "workspace_public_id": workspace.public_id,
+            "seeded_at": str(datetime.now(tz=UTC)),
+            "bootstrap_admin_email": bootstrap_admin.email,
+        },
+        description="Deterministic demo workspace data marker.",
+        updated_by_user_id=demo_admin.id,
+    )
 
-def seed() -> None:
+
+def seed(*, demo_data: bool = False) -> None:
     with SessionLocal() as db:
+        if demo_data:
+            _seed_demo_workspace(db)
+            return
+
         workspace, admin = seed_default_workspace_and_admin(db)
         ensure_base_workspace_configuration(db, workspace_id=workspace.id, admin_id=admin.id)
 
@@ -1151,11 +1222,16 @@ def main() -> None:
         action="store_true",
         help="Run alembic migrations before seeding.",
     )
+    parser.add_argument(
+        "--demo-data",
+        action="store_true",
+        help="Seed deterministic local demo accounts and presentation-safe workspace data.",
+    )
     args = parser.parse_args()
 
     if args.migrate:
         run_migrations()
-    seed()
+    seed(demo_data=args.demo_data)
     print("Seed completed.")
 
 

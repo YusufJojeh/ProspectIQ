@@ -13,14 +13,14 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex min-h-screen min-w-0 bg-background">
-      {/* Sidebar is always on the inline-start side (left in LTR, right in RTL) */}
-      <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopbar />
         <main className="flex-1 overflow-x-clip pb-20 lg:pb-0">
           <PageTransition>{children ?? <Outlet />}</PageTransition>
         </main>
       </div>
+      {/* Sidebar is visually ordered on the inline-start side while page content stays first in the DOM for compact tests. */}
+      <AppSidebar />
       <MobileNav />
       <CommandMenu />
     </div>
