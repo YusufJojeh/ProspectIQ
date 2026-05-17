@@ -1,12 +1,14 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, StringConstraints
+from pydantic import BaseModel, StringConstraints
+
+from app.shared.validation import EmailAddress
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: Annotated[str, StringConstraints(min_length=12)]
+    email: EmailAddress
+    password: Annotated[str, StringConstraints(min_length=1)]
 
 
 class SignupRequest(BaseModel):
@@ -14,7 +16,7 @@ class SignupRequest(BaseModel):
     workspace_name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=2, max_length=255)
     ]
-    email: EmailStr
+    email: EmailAddress
     password: Annotated[str, StringConstraints(min_length=12, max_length=128)]
 
 
@@ -36,7 +38,7 @@ class AuthenticatedUser(BaseModel):
     workspace_public_id: str
     workspace_name: str
     workspace_slug: str
-    email: EmailStr
+    email: EmailAddress
     full_name: str
     role: str
     status: str

@@ -4,7 +4,9 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
+
+from app.shared.validation import EmailAddress
 
 UserRole = Literal["account_owner", "admin", "manager", "member"]
 UserStatus = Literal["active", "inactive", "pending"]
@@ -25,7 +27,7 @@ class UserProfile(BaseModel):
     workspace_public_id: str
     workspace_name: str
     workspace_slug: str
-    email: EmailStr
+    email: EmailAddress
     full_name: str
     role: UserRole
     status: UserStatus
@@ -36,7 +38,7 @@ class UserProfile(BaseModel):
 
 class UserOption(BaseModel):
     public_id: str
-    email: EmailStr
+    email: EmailAddress
     full_name: str
     role: UserRole
     status: UserStatus
@@ -53,7 +55,7 @@ class UserDetailResponse(UserOption):
 
 
 class UserCreateRequest(BaseModel):
-    email: EmailStr
+    email: EmailAddress
     full_name: str = Field(min_length=2, max_length=255)
     password: str = Field(min_length=12, max_length=128)
     role: UserRole
