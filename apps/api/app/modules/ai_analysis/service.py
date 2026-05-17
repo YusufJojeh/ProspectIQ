@@ -18,7 +18,10 @@ from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, S
 from app.modules.ai_analysis.prompt_builder import PromptBuilder
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import (
+    BatchAnalysisResponse,
+    BatchAnalysisResult,
     LatestLeadAnalysisResponse,
+    LeadAnalysisHistoryResponse,
     LeadAnalysisInput,
     LeadAnalysisResult,
     LeadAnalysisSnapshotResponse,
@@ -73,7 +76,7 @@ class AIAnalysisService:
         input_payload = self.prompt_builder.build_input_payload(
             facts,
             score_context=score_context,
-            allowed_service_catalog=list(ALLOWED_SERVICE_CATALOG),
+            allowed_service_catalog=self._resolve_service_catalog(db, workspace_id=workspace_id),
             prompt_instructions=template.template_text,
         )
         prompt = self.prompt_builder.build_prompt(input_payload)
@@ -197,6 +200,112 @@ class AIAnalysisService:
             score_context=context.score_context,
         )
         return lead, snapshot, result
+
+    def list_history_for_lead(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_public_id: str,
+    ) -> LeadAnalysisHistoryResponse:
+        lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
+        snapshots = self.repository.list_snapshots_for_lead(db, lead_id=lead.id)
+        items = [
+            self._to_snapshot_response(
+                db,
+                lead_public_id=lead.public_id,
+                snapshot=snap,
+                result=LeadAnalysisResult.model_validate(snap.output_json),
+            )
+            for snap in snapshots
+        ]
+        return LeadAnalysisHistoryResponse(lead_id=lead.public_id, items=items)
+
+    def generate_batch(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_public_ids: list[str],
+        current_user: User,
+    ) -> BatchAnalysisResponse:
+        results: list[BatchAnalysisResult] = []
+        for lead_public_id in lead_public_ids:
+            try:
+                lead, snapshot, result = self.prepare_analysis_for_lead(
+                    db,
+                    workspace_id=workspace_id,
+                    lead_public_id=lead_public_id,
+                    created_by_user_id=current_user.id,
+                )
+                results.append(
+                    BatchAnalysisResult(
+                        lead_id=lead_public_id,
+                        snapshot=self._to_snapshot_response(
+                            db,
+                            lead_public_id=lead.public_id,
+                            snapshot=snapshot,
+                            result=result,
+                        ),
+                    )
+                )
+            except NotFoundError:
+                results.append(BatchAnalysisResult(lead_id=lead_public_id, error="Lead not found."))
+            except Exception as exc:
+                results.append(BatchAnalysisResult(lead_id=lead_public_id, error=str(exc)))
+        return BatchAnalysisResponse(triggered_count=len(results), results=results)
+
+    def test_prompt_template(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        template_public_id: str,
+        lead_public_id: str,
+        current_user: User,
+    ) -> LeadAnalysisSnapshotResponse:
+        from datetime import UTC, datetime
+
+        from app.modules.admin.repository import AdminRepository
+
+        template = AdminRepository().get_prompt_template(
+            db, workspace_id=workspace_id, public_id=template_public_id
+        )
+        if template is None:
+            raise NotFoundError("Prompt template was not found.")
+        lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
+        context = self.lead_intelligence.build(db, lead=lead)
+        adapter, provider_name, model_name = self._resolve_runtime()
+        input_payload = self.prompt_builder.build_input_payload(
+            context.facts,
+            score_context=context.score_context,
+            allowed_service_catalog=self._resolve_service_catalog(db, workspace_id=workspace_id),
+            prompt_instructions=template.template_text,
+        )
+        result, provider_name, model_name = self._run_analysis(
+            adapter=adapter,
+            input_payload=input_payload,
+            provider_name=provider_name,
+            model_name=model_name,
+        )
+        return LeadAnalysisSnapshotResponse(
+            public_id=f"preview_{template.public_id}",
+            lead_id=lead_public_id,
+            ai_provider=provider_name,
+            model_name=model_name,
+            created_at=datetime.now(tz=UTC),
+            analysis=result,
+            service_recommendations=[],
+        )
+
+    def _resolve_service_catalog(self, db: Session, *, workspace_id: int) -> list[str]:
+        from app.modules.admin.repository import AdminRepository
+
+        items = AdminRepository().list_service_catalog(db, workspace_id=workspace_id)
+        active_items = [item.service_name for item in items if item.is_active]
+        if active_items:
+            return active_items
+        return list(ALLOWED_SERVICE_CATALOG)
 
     def _resolve_runtime(self) -> tuple[LLMClient, str, str]:
         if self.llm_client is not None:

@@ -8,13 +8,20 @@ from app.modules.admin.schemas import (
     PromptTemplateCreateRequest,
     PromptTemplateListResponse,
     PromptTemplateResponse,
+    PromptTemplateTestRequest,
     ProviderSettingsResponse,
     ProviderSettingsUpdateRequest,
     ScoringConfigVersionCreateRequest,
     ScoringConfigVersionListResponse,
     ScoringConfigVersionResponse,
+    ServiceCatalogItemCreateRequest,
+    ServiceCatalogItemResponse,
+    ServiceCatalogItemUpdateRequest,
+    ServiceCatalogListResponse,
 )
 from app.modules.admin.service import AdminService
+from app.modules.ai_analysis.schemas import LeadAnalysisSnapshotResponse
+from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.auth.policies import get_current_workspace_id, require_role
 from app.modules.users.models import User
 
@@ -142,3 +149,78 @@ def get_operational_health(
     _: User = Depends(require_role("account_owner", "admin")),
 ) -> OperationalHealthResponse:
     return AdminService().get_operational_health(db, workspace_id=workspace_id)
+
+
+@router.get("/service-catalog", response_model=ServiceCatalogListResponse)
+def list_service_catalog(
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    _: User = Depends(require_role("account_owner", "admin")),
+) -> ServiceCatalogListResponse:
+    return AdminService().list_service_catalog(db, workspace_id=workspace_id)
+
+
+@router.post("/service-catalog", response_model=ServiceCatalogItemResponse, status_code=201)
+def create_catalog_item(
+    payload: ServiceCatalogItemCreateRequest,
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    current_user: User = Depends(require_role("account_owner", "admin")),
+) -> ServiceCatalogItemResponse:
+    return AdminService().create_catalog_item(
+        db,
+        workspace_id=workspace_id,
+        payload=payload,
+        actor=current_user,
+    )
+
+
+@router.patch("/service-catalog/{item_id}", response_model=ServiceCatalogItemResponse)
+def update_catalog_item(
+    item_id: str,
+    payload: ServiceCatalogItemUpdateRequest,
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    current_user: User = Depends(require_role("account_owner", "admin")),
+) -> ServiceCatalogItemResponse:
+    return AdminService().update_catalog_item(
+        db,
+        workspace_id=workspace_id,
+        public_id=item_id,
+        payload=payload,
+        actor=current_user,
+    )
+
+
+@router.delete("/service-catalog/{item_id}", status_code=204)
+def delete_catalog_item(
+    item_id: str,
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    current_user: User = Depends(require_role("account_owner", "admin")),
+) -> None:
+    AdminService().delete_catalog_item(
+        db,
+        workspace_id=workspace_id,
+        public_id=item_id,
+        actor=current_user,
+    )
+
+
+@router.post(
+    "/prompt-templates/{template_id}/test", response_model=LeadAnalysisSnapshotResponse
+)
+def test_prompt_template(
+    template_id: str,
+    payload: PromptTemplateTestRequest,
+    db: Session = Depends(get_db),
+    workspace_id: int = Depends(get_current_workspace_id),
+    current_user: User = Depends(require_role("account_owner", "admin")),
+) -> LeadAnalysisSnapshotResponse:
+    return AIAnalysisService().test_prompt_template(
+        db,
+        workspace_id=workspace_id,
+        template_public_id=template_id,
+        lead_public_id=payload.lead_id,
+        current_user=current_user,
+    )

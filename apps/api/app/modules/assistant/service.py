@@ -12,6 +12,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import LeadAnalysisResult
+from app.modules.assistant.models import ChatSession
+from app.modules.assistant.repository import ChatSessionRepository
 from app.modules.assistant.schemas import AssistantMessageInput
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
@@ -25,6 +27,7 @@ class AssistantService:
         self.leads_repository = LeadsRepository()
         self.lead_intelligence = LeadIntelligenceService()
         self.analysis_repository = AIAnalysisRepository()
+        self.session_repository = ChatSessionRepository()
 
     def resolve_lead(
         self,
@@ -49,6 +52,51 @@ class AssistantService:
             raise NotFoundError("Lead was not found.")
         return lead
 
+    def get_or_create_session(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        session_public_id: str | None,
+        lead: Lead | None,
+        first_user_message: str,
+    ) -> ChatSession:
+        if session_public_id:
+            session = self.session_repository.get_session_by_public_id(
+                db, workspace_id=workspace_id, public_id=session_public_id
+            )
+            if session is None:
+                raise NotFoundError("Chat session was not found.")
+            return session
+        title = (first_user_message[:80].strip()) or "New Chat"
+        return self.session_repository.create_session(
+            db,
+            workspace_id=workspace_id,
+            lead_id=lead.id if lead else None,
+            title=title,
+        )
+
+    def list_sessions(self, db: Session, *, workspace_id: int) -> list[ChatSession]:
+        return self.session_repository.list_sessions(db, workspace_id=workspace_id)
+
+    def get_session_detail(
+        self, db: Session, *, workspace_id: int, session_public_id: str
+    ) -> ChatSession:
+        session = self.session_repository.get_session_by_public_id(
+            db, workspace_id=workspace_id, public_id=session_public_id
+        )
+        if session is None:
+            raise NotFoundError("Chat session was not found.")
+        return session
+
+    def delete_session(
+        self, db: Session, *, workspace_id: int, session_public_id: str
+    ) -> None:
+        session = self.get_session_detail(
+            db, workspace_id=workspace_id, session_public_id=session_public_id
+        )
+        self.session_repository.delete_session(db, session)
+
     def stream_response(
         self,
         db: Session,
@@ -56,12 +104,35 @@ class AssistantService:
         workspace_id: int,
         messages: list[AssistantMessageInput],
         lead: Lead | None,
+        session: ChatSession,
     ) -> Iterator[str]:
-        """Yield raw text tokens from the LLM or the deterministic fallback.
+        """Persist user message, yield tokens, then persist the assembled response."""
+        user_text = self._latest_user_message(messages)
+        self.session_repository.add_message(
+            db, session_id=session.id, role="user", content=user_text
+        )
 
-        The lead must already be resolved (via resolve_lead) so that
-        NotFoundError is raised before the stream starts.
-        """
+        assembled: list[str] = []
+        for token in self._generate_tokens(
+            db, workspace_id=workspace_id, messages=messages, lead=lead
+        ):
+            assembled.append(token)
+            yield token
+
+        full_response = "".join(assembled)
+        self.session_repository.add_message(
+            db, session_id=session.id, role="assistant", content=full_response
+        )
+
+    def _generate_tokens(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
+        lead: Lead | None,
+    ) -> Iterator[str]:
+        """Yield raw text tokens from the LLM or the deterministic fallback."""
         if lead is None:
             yield self._build_workspace_response(messages)
             return

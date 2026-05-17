@@ -81,12 +81,44 @@ class OperationalHealthResponse(BaseModel):
     recent_provider_failures: list[RecentProviderFailureResponse]
 
 
+class PromptTemplateTestRequest(BaseModel):
+    lead_id: str
+
+
+class ServiceCatalogItemResponse(BaseModel):
+    public_id: str
+    service_name: str
+    description: str | None
+    is_active: bool
+    rank_order: int
+    created_at: datetime
+
+
+class ServiceCatalogListResponse(BaseModel):
+    items: list[ServiceCatalogItemResponse]
+    is_default: bool
+
+
+class ServiceCatalogItemCreateRequest(BaseModel):
+    service_name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    is_active: bool = True
+    rank_order: int = Field(default=1, ge=1, le=999)
+
+
+class ServiceCatalogItemUpdateRequest(BaseModel):
+    description: str | None = Field(default=None, max_length=2000)
+    is_active: bool | None = None
+    rank_order: int | None = Field(default=None, ge=1, le=999)
+
+
 __all__ = [
     "ActiveScoringConfigResponse",
     "OperationalHealthResponse",
     "PromptTemplateCreateRequest",
     "PromptTemplateListResponse",
     "PromptTemplateResponse",
+    "PromptTemplateTestRequest",
     "ProviderSettingsResponse",
     "ProviderSettingsUpdateRequest",
     "RecentFailedJobResponse",
@@ -94,4 +126,8 @@ __all__ = [
     "ScoringConfigVersionCreateRequest",
     "ScoringConfigVersionListResponse",
     "ScoringConfigVersionResponse",
+    "ServiceCatalogItemCreateRequest",
+    "ServiceCatalogItemResponse",
+    "ServiceCatalogItemUpdateRequest",
+    "ServiceCatalogListResponse",
 ]

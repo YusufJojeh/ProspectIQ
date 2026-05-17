@@ -17,8 +17,13 @@ from app.modules.admin.schemas import (
     ProviderSettingsUpdateRequest,
     RecentFailedJobResponse,
     RecentProviderFailureResponse,
+    ServiceCatalogItemCreateRequest,
+    ServiceCatalogItemResponse,
+    ServiceCatalogItemUpdateRequest,
+    ServiceCatalogListResponse,
 )
-from app.modules.ai_analysis.models import PromptTemplate
+from app.modules.ai_analysis.models import PromptTemplate, WorkspaceServiceCatalogItem
+from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.provider_serpapi.models import ProviderFetch
@@ -336,6 +341,115 @@ class AdminService:
                 )
                 for item in provider_failures
             ],
+        )
+
+    def list_service_catalog(
+        self, db: Session, *, workspace_id: int
+    ) -> ServiceCatalogListResponse:
+        items = self.admin_repository.list_service_catalog(db, workspace_id=workspace_id)
+        if not items:
+            return ServiceCatalogListResponse(
+                items=[
+                    ServiceCatalogItemResponse(
+                        public_id=f"default_{i}",
+                        service_name=name,
+                        description=None,
+                        is_active=True,
+                        rank_order=i,
+                        created_at=datetime.now(tz=UTC),
+                    )
+                    for i, name in enumerate(ALLOWED_SERVICE_CATALOG, start=1)
+                ],
+                is_default=True,
+            )
+        return ServiceCatalogListResponse(
+            items=[self._to_catalog_response(item) for item in items],
+            is_default=False,
+        )
+
+    def create_catalog_item(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        payload: ServiceCatalogItemCreateRequest,
+        actor: User,
+    ) -> ServiceCatalogItemResponse:
+        item = self.admin_repository.add_catalog_item(
+            db,
+            WorkspaceServiceCatalogItem(
+                workspace_id=workspace_id,
+                service_name=payload.service_name,
+                description=payload.description,
+                is_active=payload.is_active,
+                rank_order=payload.rank_order,
+            ),
+        )
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=actor.id,
+            event_name="service_catalog.created",
+            details=f"Created service catalog item {item.public_id} ({item.service_name}).",
+        )
+        return self._to_catalog_response(item)
+
+    def update_catalog_item(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        public_id: str,
+        payload: ServiceCatalogItemUpdateRequest,
+        actor: User,
+    ) -> ServiceCatalogItemResponse:
+        item = self.admin_repository.get_catalog_item(
+            db, workspace_id=workspace_id, public_id=public_id
+        )
+        if item is None:
+            raise NotFoundError("Service catalog item was not found.")
+        if payload.description is not None:
+            item.description = payload.description
+        if payload.is_active is not None:
+            item.is_active = payload.is_active
+        if payload.rank_order is not None:
+            item.rank_order = payload.rank_order
+        item.updated_at = datetime.now(tz=UTC)
+        saved = self.admin_repository.save_catalog_item(db, item)
+        return self._to_catalog_response(saved)
+
+    def delete_catalog_item(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        public_id: str,
+        actor: User,
+    ) -> None:
+        item = self.admin_repository.get_catalog_item(
+            db, workspace_id=workspace_id, public_id=public_id
+        )
+        if item is None:
+            raise NotFoundError("Service catalog item was not found.")
+        self.admin_repository.delete_catalog_item(db, item)
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=actor.id,
+            event_name="service_catalog.deleted",
+            details=f"Deleted service catalog item ({item.service_name}).",
+        )
+
+    def _to_catalog_response(
+        self, item: WorkspaceServiceCatalogItem
+    ) -> ServiceCatalogItemResponse:
+        return ServiceCatalogItemResponse(
+            public_id=item.public_id,
+            service_name=item.service_name,
+            description=item.description,
+            is_active=item.is_active,
+            rank_order=item.rank_order,
+            created_at=item.created_at,
         )
 
     def _to_scoring_response(

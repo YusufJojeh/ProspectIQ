@@ -11,6 +11,7 @@ from app.modules.admin import models as admin_models  # noqa: F401
 
 # Import models so Base.metadata is populated for autogenerate.
 from app.modules.ai_analysis import models as ai_models  # noqa: F401
+from app.modules.assistant import models as assistant_models  # noqa: F401
 from app.modules.audit_logs import models as audit_models  # noqa: F401
 from app.modules.leads import models as lead_models  # noqa: F401
 from app.modules.outreach import models as outreach_models  # noqa: F401
