@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import cast
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
@@ -527,7 +528,20 @@ class BillingService:
             period_end=period_end,
         )
         db.add(counter)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            existing = self.repository.get_usage_counter(
+                db,
+                workspace_id=workspace_id,
+                metric_key=metric_key,
+                period_start=period_start,
+                period_end=period_end,
+            )
+            if existing is None:
+                raise
+            return existing
         db.refresh(counter)
         return counter
 

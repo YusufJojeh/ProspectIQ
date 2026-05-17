@@ -133,17 +133,16 @@ class ProviderEvidenceRepository:
             )
             for record in db.scalars(current_statement):
                 record.is_current = False
+                record.current_for_lead_id = None
                 db.add(record)
-            db.commit()
-
-        db.add(
-            LeadSourceRecord(
-                lead_id=lead_id,
-                provider_normalized_fact_id=provider_normalized_fact_id,
-                priority=priority,
-                is_current=is_current,
-            )
+        record = LeadSourceRecord(
+            lead_id=lead_id,
+            provider_normalized_fact_id=provider_normalized_fact_id,
+            current_for_lead_id=lead_id if is_current else None,
+            priority=priority,
+            is_current=is_current,
         )
+        db.add(record)
         db.commit()
 
     def get_best_source_priority(self, db: Session, lead_id: int) -> int | None:
