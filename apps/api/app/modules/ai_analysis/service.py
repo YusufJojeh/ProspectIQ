@@ -3,17 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
-from app.modules.ai_analysis.adapters import (
-    FallbackAnalysisBuilder,
-    LLMClient,
-    OllamaLLMAdapter,
-    OpenAILLMAdapter,
-)
+from app.modules.ai_analysis.adapters import LLMClient, OllamaLLMAdapter, OpenAILLMAdapter
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
 from app.modules.ai_analysis.prompt_builder import PromptBuilder
 from app.modules.ai_analysis.repository import AIAnalysisRepository
@@ -37,6 +33,13 @@ from app.shared.services.lead_intelligence import LeadIntelligenceService
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class RuntimeCandidate:
+    adapter: LLMClient
+    provider_name: str
+    model_name: str
+
+
 class AIAnalysisService:
     def __init__(
         self,
@@ -51,7 +54,7 @@ class AIAnalysisService:
         self.lead_intelligence = LeadIntelligenceService()
         self.audit_logs = AuditLogService()
         self.llm_client = llm_client
-        self.fallback_client = fallback_client or FallbackAnalysisBuilder()
+        self.fallback_client = fallback_client
 
     def analyze(
         self,
@@ -63,7 +66,7 @@ class AIAnalysisService:
         created_by_user_id: int,
         score_context: LeadScoreContext | None = None,
     ) -> tuple[AIAnalysisSnapshot, LeadAnalysisResult]:
-        adapter, provider_name, model_name = self._resolve_runtime()
+        runtime_candidates = self._resolve_runtime_candidates()
         template = self._get_or_create_active_prompt_template(
             db,
             workspace_id=workspace_id,
@@ -94,10 +97,8 @@ class AIAnalysisService:
             return existing, LeadAnalysisResult.model_validate(existing.output_json)
 
         result, provider_name, model_name = self._run_analysis(
-            adapter=adapter,
+            candidates=runtime_candidates,
             input_payload=input_payload,
-            provider_name=provider_name,
-            model_name=model_name,
         )
         snapshot = self.repository.add_snapshot(
             db,
@@ -198,63 +199,115 @@ class AIAnalysisService:
         )
         return lead, snapshot, result
 
-    def _resolve_runtime(self) -> tuple[LLMClient, str, str]:
+    def _resolve_runtime_candidates(self) -> list[RuntimeCandidate]:
         if self.llm_client is not None:
-            return self.llm_client, "custom", "custom-client"
+            custom_candidates = [
+                RuntimeCandidate(
+                    adapter=self.llm_client,
+                    provider_name="custom",
+                    model_name="custom-client",
+                )
+            ]
+            if self.fallback_client is not None:
+                custom_candidates.append(
+                    RuntimeCandidate(
+                        adapter=self.fallback_client,
+                        provider_name="custom-fallback",
+                        model_name="custom-fallback-client",
+                    )
+                )
+            return custom_candidates
+
         settings = get_settings()
+        runtime_candidates: list[RuntimeCandidate] = []
 
-        # Try OpenAI first
-        if settings.has_openai_configured:
-            return (
-                OpenAILLMAdapter(
-                    api_key=settings.openai_api_key,
-                    model=settings.openai_model,
-                ),
-                "openai",
-                settings.openai_model,
+        if settings.analysis_runtime == "demo":
+            raise ServiceUnavailableError(
+                "AI analysis demo mode is not available for this local-live profile. "
+                "Configure Ollama as primary and OpenAI as fallback."
             )
 
-        # Try Ollama
-        if settings.has_ollama_configured:
-            return (
-                OllamaLLMAdapter(
-                    base_url=settings.ollama_base_url,
-                    model=settings.ollama_model,
-                ),
-                "ollama",
-                settings.ollama_model,
+        if settings.analysis_runtime == "ollama":
+            runtime_candidates.append(
+                RuntimeCandidate(
+                    adapter=OllamaLLMAdapter(
+                        base_url=settings.ollama_base_url,
+                        model=settings.ollama_model,
+                    ),
+                    provider_name="ollama",
+                    model_name=settings.ollama_model,
+                )
             )
+            if settings.analysis_fallback_runtime == "openai":
+                runtime_candidates.append(
+                    RuntimeCandidate(
+                        adapter=OpenAILLMAdapter(
+                            api_key=settings.openai_api_key,
+                            model=settings.openai_model,
+                        ),
+                        provider_name="openai",
+                        model_name=settings.openai_model,
+                    )
+                )
+            return runtime_candidates
 
-        # No provider available
+        if settings.analysis_runtime == "openai":
+            runtime_candidates.append(
+                RuntimeCandidate(
+                    adapter=OpenAILLMAdapter(
+                        api_key=settings.openai_api_key,
+                        model=settings.openai_model,
+                    ),
+                    provider_name="openai",
+                    model_name=settings.openai_model,
+                )
+            )
+            if settings.analysis_fallback_runtime == "ollama":
+                runtime_candidates.append(
+                    RuntimeCandidate(
+                        adapter=OllamaLLMAdapter(
+                            base_url=settings.ollama_base_url,
+                            model=settings.ollama_model,
+                        ),
+                        provider_name="ollama",
+                        model_name=settings.ollama_model,
+                    )
+                )
+            return runtime_candidates
+
         raise ServiceUnavailableError(
             detail="AI analysis is unavailable because no LLM provider is configured. "
-            "Please set either OPENAI_API_KEY or OLLAMA_BASE_URL."
+            "Please configure Ollama as primary or OpenAI as fallback."
         )
 
     def _run_analysis(
         self,
         *,
-        adapter: LLMClient,
+        candidates: list[RuntimeCandidate],
         input_payload: LeadAnalysisInput,
-        provider_name: str,
-        model_name: str,
     ) -> tuple[LeadAnalysisResult, str, str]:
-        try:
-            payload = adapter.analyze(input_payload)
-            return self.validator.validate(payload), provider_name, model_name
-        except Exception:
-            logger.warning(
-                "ai_analysis.adapter_failed provider=%s model=%s — falling back to deterministic builder",
-                provider_name,
-                model_name,
-                exc_info=True,
-            )
-            fallback_payload = self.fallback_client.analyze(input_payload)
-            return (
-                self.validator.validate(fallback_payload),
-                "demo-fallback",
-                "fallback-builder-v1",
-            )
+        last_error: Exception | None = None
+        for candidate in candidates:
+            try:
+                payload = candidate.adapter.analyze(input_payload)
+                return (
+                    self.validator.validate(payload),
+                    candidate.provider_name,
+                    candidate.model_name,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "ai_analysis.adapter_failed provider=%s model=%s -- trying next runtime if available",
+                    candidate.provider_name,
+                    candidate.model_name,
+                    exc_info=True,
+                )
+
+        detail = "AI analysis failed because all configured providers were unavailable or returned invalid output."
+        if last_error is not None:
+            detail += f" Last error: {last_error}"
+        raise ServiceUnavailableError(detail)
 
     def _input_hash(
         self,

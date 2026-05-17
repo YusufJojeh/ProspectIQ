@@ -301,7 +301,7 @@ export function SettingsPage() {
           value={String(healthQuery.data?.provider_failures_last_7_days ?? 0)}
         />
         <MetricCard label="Discovery runtime" value={healthQuery.data?.discovery_runtime ?? "unknown"} />
-        <MetricCard label="Analysis runtime" value={healthQuery.data?.analysis_runtime ?? "unknown"} />
+        <MetricCard label="Current AI runtime" value={healthQuery.data?.current_ai_runtime ?? "unknown"} />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-0">
@@ -345,7 +345,19 @@ export function SettingsPage() {
                   />
                   <StatusMetric
                     label="SerpAPI"
-                    ok={healthQuery.data?.serpapi_configured ?? false}
+                    ok={healthQuery.data?.serpapi_live_reachable ?? false}
+                    okLabel="Reachable"
+                    badLabel="Unavailable"
+                  />
+                  <StatusMetric
+                    label="Ollama"
+                    ok={healthQuery.data?.ollama_reachable ?? false}
+                    okLabel="Reachable"
+                    badLabel="Unavailable"
+                  />
+                  <StatusMetric
+                    label="OpenAI fallback"
+                    ok={healthQuery.data?.openai_fallback_configured ?? false}
                     okLabel="Configured"
                     badLabel="Missing key"
                   />
@@ -365,14 +377,8 @@ export function SettingsPage() {
                     label="Discovery runtime"
                     value={healthQuery.data?.discovery_runtime ?? "unknown"}
                   />
-                  <MetricCard
-                    label="Demo fallbacks"
-                    value={healthQuery.data?.demo_fallbacks_enabled ? "enabled" : "disabled"}
-                  />
-                  <MetricCard
-                    label="Analysis runtime"
-                    value={healthQuery.data?.analysis_runtime ?? "unknown"}
-                  />
+                  <MetricCard label="Current AI runtime" value={healthQuery.data?.current_ai_runtime ?? "unknown"} />
+                  <MetricCard label="AI fallback runtime" value={healthQuery.data?.analysis_fallback_runtime ?? "none"} />
                 </div>
                 {(healthQuery.data?.runtime_warnings ?? []).length ? (
                   <div className="space-y-2">
@@ -477,15 +483,12 @@ export function SettingsPage() {
               <CardContent className="space-y-3">
                 <MetricCard label="SerpAPI mode" value={healthQuery.data?.serpapi_runtime_mode ?? "unknown"} />
                 <MetricCard label="Discovery runtime" value={healthQuery.data?.discovery_runtime ?? "unknown"} />
-                <MetricCard
-                  label="Demo fallbacks"
-                  value={healthQuery.data?.demo_fallbacks_enabled ? "enabled" : "disabled"}
-                />
+                <MetricCard label="Current AI runtime" value={healthQuery.data?.current_ai_runtime ?? "unknown"} />
                 <StatusMetric
                   label="SerpAPI availability"
-                  ok={healthQuery.data?.serpapi_configured ?? false}
-                  okLabel="Configured"
-                  badLabel="Missing key"
+                  ok={healthQuery.data?.serpapi_live_reachable ?? false}
+                  okLabel="Reachable"
+                  badLabel="Unavailable"
                 />
               </CardContent>
             </Card>

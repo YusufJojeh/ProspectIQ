@@ -32,6 +32,14 @@ from app.modules.scoring.service import ScoringConfigService, ScoringEngine, per
 from app.modules.search_jobs.models import SearchJob
 from app.modules.search_jobs.repository import SearchJobRepository
 from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsitePreference
+from app.workers.orchestration.discovery_pipeline import (
+    CandidateRanker,
+    CircuitState,
+    CrossSourceDeduper,
+    EngineExecutionPlanner,
+    QueryPlanner,
+    ResultMerger,
+)
 
 logger = logging.getLogger(__name__)
 ValueT = TypeVar("ValueT")
@@ -113,8 +121,16 @@ class LeadDiscoveryOrchestrator:
 
             try:
                 self._mark_running(db, job)
-                deadline = datetime.now(tz=UTC) + timedelta(seconds=ORCHESTRATION_TIMEOUT_SECONDS)
-                lead_ids = self._discover_leads(db, job)
+                settings = get_settings()
+                timeout_seconds = min(
+                    settings.discovery_global_job_deadline_seconds or ORCHESTRATION_TIMEOUT_SECONDS,
+                    ORCHESTRATION_TIMEOUT_SECONDS,
+                )
+                deadline = datetime.now(tz=UTC) + timedelta(seconds=timeout_seconds)
+                if timeout_seconds <= 0:
+                    lead_ids = self._discover_leads_single_path(db, job)
+                else:
+                    lead_ids = self._discover_leads(db, job, deadline=deadline)
                 if lead_ids:
                     self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
                     self._validate_web_presence(db, job, lead_ids, deadline=deadline)
@@ -124,7 +140,13 @@ class LeadDiscoveryOrchestrator:
                 logger.exception("Lead discovery failed for search job '%s'.", job_public_id)
                 self._mark_failed(db, job, str(exc))
 
-    def _discover_leads(self, db: Session, job: SearchJob) -> list[int]:
+    def _discover_leads(self, db: Session, job: SearchJob, *, deadline: datetime) -> list[int]:
+        settings = get_settings()
+        if settings.effective_discovery_mode == "single_path":
+            return self._discover_leads_single_path(db, job)
+        return self._discover_leads_pipeline(db, job, deadline=deadline)
+
+    def _discover_leads_single_path(self, db: Session, job: SearchJob) -> list[int]:
         provider_service = self._get_provider_service()
         fetch, payload = provider_service.maps_search(
             db,
@@ -158,6 +180,200 @@ class LeadDiscoveryOrchestrator:
         job.leads_upserted = len(lead_ids)
         self.search_job_repository.save(db, job)
         return list(lead_ids)
+
+    def _discover_leads_pipeline(self, db: Session, job: SearchJob, *, deadline: datetime) -> list[int]:
+        settings = get_settings()
+        provider_service = self._get_provider_service()
+        provider_settings = provider_service.get_settings(db, job.workspace_id)
+
+        planner = QueryPlanner()
+        execution_planner = EngineExecutionPlanner()
+        merger = ResultMerger()
+        deduper = CrossSourceDeduper()
+        ranker = CandidateRanker()
+        circuit = CircuitState()
+
+        variants = planner.plan(
+            business_type=job.business_type,
+            city=job.city,
+            region=job.region,
+            keyword_filter=job.keyword_filter,
+            bilingual_enabled=settings.discovery_bilingual_expansion_enabled,
+        )
+        tasks = execution_planner.plan(
+            mode=settings.effective_discovery_mode,
+            enabled_engines=settings.enabled_discovery_engines,
+            query_variants=variants,
+            max_calls_per_job=settings.discovery_max_calls_per_job,
+            max_concurrency=settings.discovery_max_concurrency,
+        )
+
+        logger.info(
+            "discovery.pipeline.planned queries=%s tasks=%s mode=%s",
+            len(variants),
+            len(tasks),
+            settings.effective_discovery_mode,
+        )
+
+        candidate_batches: list[list[LeadCandidate]] = []
+        dispatched = 0
+        skipped_budget = 0
+        failed_adapters: set[str] = set()
+        for task in tasks:
+            if datetime.now(tz=UTC) >= deadline:
+                logger.warning("discovery.pipeline.deadline_reached stage=discover")
+                break
+            if dispatched >= settings.discovery_max_calls_per_job:
+                skipped_budget += 1
+                continue
+            if not circuit.allow(
+                task.adapter_name,
+                threshold=settings.discovery_circuit_breaker_failure_threshold,
+                cooldown_seconds=settings.discovery_circuit_breaker_cooldown_seconds,
+            ):
+                skipped_budget += 1
+                continue
+
+            try:
+                fetch, payload = self._execute_discovery_task(
+                    db=db,
+                    job=job,
+                    provider_service=provider_service,
+                    task=task,
+                    provider_settings=provider_settings,
+                )
+            except Exception:
+                circuit.mark_failure(task.adapter_name)
+                opened = circuit.open_if_threshold(
+                    task.adapter_name, threshold=settings.discovery_circuit_breaker_failure_threshold
+                )
+                if opened:
+                    logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
+                if task.adapter_name == "google_maps_search" and task.adapter_name not in failed_adapters:
+                    failed_adapters.add(task.adapter_name)
+                    job.provider_error_count += 1
+                self.search_job_repository.save(db, job)
+                continue
+
+            dispatched += 1
+            if fetch.status != ProviderFetchStatus.OK.value:
+                circuit.mark_failure(task.adapter_name)
+                opened = circuit.open_if_threshold(
+                    task.adapter_name, threshold=settings.discovery_circuit_breaker_failure_threshold
+                )
+                if opened:
+                    logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
+                if task.adapter_name == "google_maps_search" and task.adapter_name not in failed_adapters:
+                    failed_adapters.add(task.adapter_name)
+                    job.provider_error_count += 1
+                self.search_job_repository.save(db, job)
+                continue
+
+            circuit.mark_success(task.adapter_name)
+            if task.adapter_name == "google_maps_search":
+                normalized = self.maps_local_normalizer.normalize(payload)
+                for item in normalized:
+                    item.facts["provider_fetch_id"] = fetch.id
+                    item.facts["query_variant"] = task.query_variant.key
+                    item.facts["source_engine"] = "google_maps"
+                    item.facts["source_mode"] = "maps_search"
+                    item.facts["adapter_name"] = task.adapter_name
+                    item.facts["execution_stage"] = task.stage
+                candidate_batches.append(normalized)
+
+        merged = merger.merge(
+            candidate_batches,
+            max_candidates=settings.discovery_max_candidates_after_merge,
+        )
+        deduped = deduper.dedupe(merged)
+        ranked = ranker.rank(deduped, max_candidates=job.max_results)
+        logger.info(
+            "discovery.pipeline.stats dispatched_calls=%s skipped_budget=%s merged=%s deduped=%s ranked=%s",
+            dispatched,
+            skipped_budget,
+            len(merged),
+            len(deduped),
+            len(ranked),
+        )
+        job.candidates_found = len(ranked)
+        self.search_job_repository.save(db, job)
+
+        lead_ids: set[int] = set()
+        for candidate in ranked:
+            lead = self._upsert_candidate(
+                db,
+                job=job,
+                candidate=candidate,
+                source_type="maps_search",
+                provider_fetch_id=int(candidate.facts.get("provider_fetch_id", 0)) or self._provider_fetch_id_from_candidate(db, job.workspace_id, candidate),
+                priority=20,
+                allow_source_promotion=True,
+            )
+            lead_ids.add(lead.id)
+        job.leads_upserted = len(lead_ids)
+        self.search_job_repository.save(db, job)
+        return list(lead_ids)
+
+    def _execute_discovery_task(
+        self,
+        *,
+        db: Session,
+        job: SearchJob,
+        provider_service: ProviderServiceProtocol,
+        task: Any,
+        provider_settings: ProviderSettings,
+    ) -> tuple[ProviderFetch, dict[str, Any]]:
+        if task.adapter_name == "google_maps_search":
+            fetch, payload = provider_service.maps_search(
+                db,
+                workspace_id=job.workspace_id,
+                search_job_id=job.id,
+                business_type=task.query_variant.text,
+                city=job.city,
+                region=job.region,
+                radius_km=job.radius_km,
+                keyword_filter=job.keyword_filter,
+            )
+        elif task.adapter_name == "google_web":
+            query = " ".join(part for part in [task.query_variant.text, "official website"] if part)
+            fetch, payload = provider_service.web_search(
+                db,
+                workspace_id=job.workspace_id,
+                search_job_id=job.id,
+                query=query,
+            )
+        else:
+            raise ValueError(f"Unsupported adapter '{task.adapter_name}'.")
+
+        fetch.request_params_json = {
+            **fetch.request_params_json,
+            "query_variant": task.query_variant.key,
+            "source_engine": fetch.engine,
+            "source_mode": fetch.mode,
+            "adapter_name": task.adapter_name,
+            "execution_stage": task.stage,
+            "request_fingerprint": fetch.request_fingerprint,
+            "hl": getattr(provider_settings, "hl", "en"),
+            "gl": getattr(provider_settings, "gl", "us"),
+            "google_domain": getattr(provider_settings, "google_domain", "google.com"),
+        }
+        db.add(fetch)
+        db.commit()
+        return fetch, payload
+
+    def _provider_fetch_id_from_candidate(
+        self, db: Session, workspace_id: int, candidate: LeadCandidate
+    ) -> int:
+        statement = (
+            select(ProviderFetch)
+            .where(ProviderFetch.workspace_id == workspace_id)
+            .order_by(ProviderFetch.id.desc())
+            .limit(1)
+        )
+        fetch = db.scalar(statement)
+        if fetch is None:
+            raise ValueError("No provider fetch exists for candidate persistence.")
+        return fetch.id
 
     def _enrich_top_candidates(
         self,

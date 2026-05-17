@@ -167,7 +167,7 @@ def test_create_search_job_endpoint_rejects_invalid_filter_ranges(monkeypatch) -
 
 def test_create_search_job_endpoint_returns_503_when_discovery_is_blocked(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "")
-    monkeypatch.setenv("DISCOVERY_RUNTIME_OVERRIDE", "blocked")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")
     clear_settings_cache()
     session_factory = _build_session_factory()
     _seed_workspace_admin(session_factory)
@@ -192,4 +192,4 @@ def test_create_search_job_endpoint_returns_503_when_discovery_is_blocked(monkey
     assert response.status_code == 503
     assert response.json()["error"]["code"] in {"service_unavailable", "provider.unavailable"}
     clear_settings_cache()
-    monkeypatch.delenv("DISCOVERY_RUNTIME_OVERRIDE", raising=False)
+    monkeypatch.delenv("SERPAPI_RUNTIME_MODE", raising=False)

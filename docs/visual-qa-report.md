@@ -3,7 +3,7 @@
 ## Run Context
 
 - Date: `2026-04-05`
-- Runtime mode: `SERPAPI_RUNTIME_MODE=demo`, `AI_PROVIDER=stub`
+- Runtime mode: `SERPAPI_RUNTIME_MODE=live`, `AI_PROVIDER=ollama`, `OPENAI_API_KEY=<fallback configured>`
 - Backend: real FastAPI API on `http://127.0.0.1:8000`
 - Frontend: real Vite app on `http://localhost:5173`
 - Database: local MariaDB with demo reset via `py -3.12 scripts/seed.py --migrate --demo-data --reset-demo-data`

@@ -383,9 +383,16 @@ export interface RecentProviderFailureResponse {
 export interface OperationalHealthResponse {
   database_ok: boolean;
   serpapi_configured: boolean;
+  serpapi_live_reachable: boolean;
   serpapi_runtime_mode: string;
   discovery_runtime: string;
+  current_ai_runtime: string;
   analysis_runtime: string;
+  analysis_fallback_runtime: string | null;
+  ollama_configured: boolean;
+  ollama_reachable: boolean;
+  openai_configured: boolean;
+  openai_fallback_configured: boolean;
   demo_fallbacks_enabled: boolean;
   runtime_warnings: string[];
   failed_jobs_last_7_days: number;

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
+from app.core.runtime_health import probe_ollama, probe_serpapi
 from app.modules.admin.repository import AdminRepository
 from app.modules.admin.schemas import (
     OperationalHealthResponse,
@@ -301,12 +302,26 @@ class AdminService:
             or 0
         )
         settings = get_settings()
+        serpapi_probe = probe_serpapi(settings)
+        ollama_probe = probe_ollama(settings)
         return OperationalHealthResponse(
             database_ok=bool(db.execute(text("SELECT 1")).scalar()),
             serpapi_configured=settings.has_serpapi_configured,
+            serpapi_live_reachable=serpapi_probe.reachable,
             serpapi_runtime_mode=settings.serpapi_runtime_mode,
             discovery_runtime=settings.discovery_runtime,
+            discovery_execution_mode=settings.effective_discovery_mode,
+            discovery_kill_switch=settings.discovery_kill_switch,
+            discovery_multi_engine_enabled=settings.discovery_multi_engine_enabled,
+            current_ai_runtime=settings.analysis_runtime,
             analysis_runtime=settings.analysis_runtime,
+            analysis_fallback_runtime=settings.analysis_fallback_runtime,
+            ollama_configured=settings.has_ollama_configured,
+            ollama_reachable=ollama_probe.reachable,
+            openai_configured=settings.has_openai_configured,
+            openai_fallback_configured=(
+                settings.analysis_runtime == "ollama" and settings.has_openai_configured
+            ),
             demo_fallbacks_enabled=settings.allow_demo_fallbacks,
             runtime_warnings=settings.runtime_warnings,
             failed_jobs_last_7_days=failed_jobs_last_7_days,

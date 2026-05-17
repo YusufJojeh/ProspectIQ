@@ -2,19 +2,23 @@
 
 ## Demo Accounts
 
-- Admin: `admin@prospectiq.dev` / `ChangeMe123!`
+- Admin: `admin@prospectiq.dev` / value of `DEFAULT_ADMIN_PASSWORD` in `apps/api/.env`
 - Manager: `manager@prospectiq.dev` / `ManagerPass123!`
 - Sales: `sales@prospectiq.dev` / `SalesPass123!`
 - Workspace slug: `ws_default`
 
-## Demo-Safe Runtime
+## Preferred Local-Live Runtime
 
-- Live SerpAPI demo:
-  Set `SERPAPI_API_KEY` and leave `SERPAPI_RUNTIME_MODE=auto`, or force `SERPAPI_RUNTIME_MODE=live`.
-- Safe presentation demo:
-  Set `SERPAPI_RUNTIME_MODE=demo` and keep `AI_PROVIDER=stub`.
+- Local-live project mode:
+  Set `SERPAPI_RUNTIME_MODE=live`, `AI_PROVIDER=ollama`, and keep `OPENAI_API_KEY` configured as the fallback.
 - Result:
-  New search jobs still work during the demo, but they use structured demo provider payloads instead of depending on live external APIs.
+  New search jobs use real SerpAPI calls, while AI features prefer Ollama and fall back to OpenAI only when Ollama is unavailable.
+
+## Explicit Demo Runtime (No External Calls)
+
+- Set `SERPAPI_RUNTIME_MODE=demo`
+- Set `AI_PROVIDER=stub`
+- Keep `DISCOVERY_MODE` explicit (recommended: `multi_engine_multi_query`) so discovery behavior remains deterministic and inspectable.
 
 ## Demo Reset Commands
 
@@ -44,8 +48,8 @@ py -3.12 scripts/seed.py --migrate --demo-data --reset-demo-data
 
 3. Create a search
    Open Search Jobs, create a scoped search, and explain:
-   - `SERPAPI_RUNTIME_MODE=demo` keeps the flow safe for presentation
-   - if a real API key exists, the same screen can run in live mode
+   - `SERPAPI_RUNTIME_MODE=live` keeps the project behavior aligned with real provider-backed discovery
+   - if Ollama is unavailable, the AI layer falls back to OpenAI instead of switching discovery into demo mode
 
 4. Inspect results
    Open the existing completed and partially completed jobs to show both healthy runs and operational failure visibility.

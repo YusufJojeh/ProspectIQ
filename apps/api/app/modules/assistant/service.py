@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -20,6 +21,12 @@ from app.shared.services.lead_intelligence import LeadIntelligenceService
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class StreamingRuntimeCandidate:
+    provider_name: str
+    stream_fn: str
+
+
 class AssistantService:
     def __init__(self) -> None:
         self.leads_repository = LeadsRepository()
@@ -33,11 +40,6 @@ class AssistantService:
         workspace_id: int,
         lead_public_id: str | None,
     ) -> Lead | None:
-        """Validate and fetch the lead before streaming starts.
-
-        Raises NotFoundError synchronously so the HTTP layer can return 404
-        before the StreamingResponse headers are committed.
-        """
         if not lead_public_id:
             return None
         lead = self.leads_repository.get_by_public_id_for_workspace(
@@ -57,11 +59,6 @@ class AssistantService:
         messages: list[AssistantMessageInput],
         lead: Lead | None,
     ) -> Iterator[str]:
-        """Yield raw text tokens from the LLM or the deterministic fallback.
-
-        The lead must already be resolved (via resolve_lead) so that
-        NotFoundError is raised before the stream starts.
-        """
         if lead is None:
             yield self._build_workspace_response(messages)
             return
@@ -74,9 +71,6 @@ class AssistantService:
             else None
         )
 
-        settings = get_settings()
-        runtime = settings.analysis_runtime
-
         llm_messages = self._build_llm_messages(
             lead=lead,
             messages=messages,
@@ -84,33 +78,52 @@ class AssistantService:
             score_context=context.score_context.model_dump(mode="json") if context.score_context else None,
             latest_analysis=latest_analysis_result.model_dump(mode="json") if latest_analysis_result else None,
         )
-
-        if runtime == "openai" and settings.has_openai_configured:
-            try:
-                yield from self._stream_with_openai(settings=settings, llm_messages=llm_messages)
-                return
-            except Exception:
-                logger.warning("assistant.openai_stream_failed", exc_info=True)
-
-        elif runtime == "ollama" and settings.has_ollama_configured:
-            try:
-                yield from self._stream_with_ollama(settings=settings, llm_messages=llm_messages)
-                return
-            except Exception:
-                logger.warning("assistant.ollama_stream_failed", exc_info=True)
-
-        elif runtime == "blocked":
+        settings = get_settings()
+        candidates = self._resolve_runtime_candidates(settings)
+        if not candidates:
             raise ServiceUnavailableError(
-                "Assistant replies are unavailable because the configured AI provider is blocked."
+                "Assistant replies are unavailable because no AI provider is configured."
             )
 
-        yield self._build_lead_response(
-            lead=lead,
-            messages=messages,
-            facts=context.facts.model_dump(mode="json"),
-            score_context=context.score_context.model_dump(mode="json") if context.score_context else None,
-            latest_analysis=latest_analysis_result,
-        )
+        last_error: Exception | None = None
+        for candidate in candidates:
+            try:
+                if candidate.stream_fn == "ollama":
+                    yield from self._stream_with_ollama(settings=settings, llm_messages=llm_messages)
+                else:
+                    yield from self._stream_with_openai(settings=settings, llm_messages=llm_messages)
+                return
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "assistant.stream_failed provider=%s -- trying next runtime if available",
+                    candidate.provider_name,
+                    exc_info=True,
+                )
+
+        detail = "Assistant replies failed because all configured AI providers were unavailable."
+        if last_error is not None:
+            detail += f" Last error: {last_error}"
+        raise ServiceUnavailableError(detail)
+
+    def _resolve_runtime_candidates(self, settings: Settings) -> list[StreamingRuntimeCandidate]:
+        if settings.analysis_runtime == "demo":
+            return []
+        if settings.analysis_runtime == "ollama":
+            candidates = [StreamingRuntimeCandidate(provider_name="ollama", stream_fn="ollama")]
+            if settings.analysis_fallback_runtime == "openai":
+                candidates.append(
+                    StreamingRuntimeCandidate(provider_name="openai", stream_fn="openai")
+                )
+            return candidates
+        if settings.analysis_runtime == "openai":
+            candidates = [StreamingRuntimeCandidate(provider_name="openai", stream_fn="openai")]
+            if settings.analysis_fallback_runtime == "ollama":
+                candidates.append(
+                    StreamingRuntimeCandidate(provider_name="ollama", stream_fn="ollama")
+                )
+            return candidates
+        return []
 
     def _latest_user_message(self, messages: list[AssistantMessageInput]) -> str:
         for message in reversed(messages):
@@ -305,33 +318,42 @@ class AssistantService:
         ) as client:
             with client.stream(
                 "POST",
-                "https://api.openai.com/v1/chat/completions",
+                "https://api.openai.com/v1/responses",
                 json={
                     "model": settings.openai_model,
-                    "temperature": 0.3,
+                    "input": llm_messages,
                     "stream": True,
-                    "messages": llm_messages,
                 },
             ) as response:
                 response.raise_for_status()
+                event_type = ""
                 for line in response.iter_lines():
                     if not line:
+                        event_type = ""
                         continue
-                    if line.startswith("data: "):
-                        data = line[6:]
-                        if data.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data)
-                            delta = (
-                                chunk.get("choices", [{}])[0]
-                                .get("delta", {})
-                                .get("content", "")
-                            )
-                            if delta:
-                                yield delta
-                        except json.JSONDecodeError:
-                            continue
+                    if line.startswith("event: "):
+                        event_type = line[7:]
+                        continue
+                    if not line.startswith("data: "):
+                        continue
+
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+
+                    payload = json.loads(data)
+                    payload_type = payload.get("type") or event_type
+                    if payload_type == "response.output_text.delta":
+                        delta = payload.get("delta", "")
+                        if isinstance(delta, str) and delta:
+                            yield delta
+                    elif payload_type == "response.refusal.delta":
+                        delta = payload.get("delta", "")
+                        if isinstance(delta, str) and delta:
+                            yield delta
+                    elif payload_type == "error":
+                        message = payload.get("message") or payload.get("error") or "OpenAI streaming failed."
+                        raise ServiceUnavailableError(str(message))
 
     def _stream_with_ollama(
         self,
@@ -354,12 +376,9 @@ class AssistantService:
                 for line in response.iter_lines():
                     if not line:
                         continue
-                    try:
-                        chunk = json.loads(line)
-                        token = chunk.get("response", "")
-                        if token:
-                            yield token
-                        if chunk.get("done"):
-                            break
-                    except json.JSONDecodeError:
-                        continue
+                    chunk = json.loads(line)
+                    token = chunk.get("response", "")
+                    if token:
+                        yield token
+                    if chunk.get("done"):
+                        break

@@ -9,6 +9,7 @@ from app.core.database import check_database_connection, dispose_engine
 from app.core.errors import ServiceUnavailableError, register_exception_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import add_cors_middleware, add_http_middleware
+from app.core.runtime_health import probe_ollama, probe_serpapi
 from app.modules.admin.api import router as admin_router
 from app.modules.ai_analysis.api import router as ai_analysis_router
 from app.modules.assistant.api import router as assistant_router
@@ -49,6 +50,32 @@ async def app_lifespan(_: FastAPI) -> AsyncIterator[None]:
     if runtime_warnings:
         for warning in runtime_warnings:
             logger.warning("config.runtime_warning %s", warning)
+
+    serpapi_probe = probe_serpapi(settings)
+    logger.info(
+        "runtime_probe.serpapi configured=%s reachable=%s detail=%s",
+        serpapi_probe.configured,
+        serpapi_probe.reachable,
+        serpapi_probe.detail,
+    )
+
+    if settings.analysis_runtime == "ollama":
+        ollama_probe = probe_ollama(settings)
+        if ollama_probe.reachable:
+            logger.info(
+                "runtime_probe.ollama configured=%s reachable=%s detail=%s",
+                ollama_probe.configured,
+                ollama_probe.reachable,
+                ollama_probe.detail,
+            )
+        else:
+            logger.warning(
+                "runtime_probe.ollama_unreachable configured=%s reachable=%s detail=%s fallback=%s",
+                ollama_probe.configured,
+                ollama_probe.reachable,
+                ollama_probe.detail,
+                settings.analysis_fallback_runtime or "none",
+            )
 
     try:
         yield
