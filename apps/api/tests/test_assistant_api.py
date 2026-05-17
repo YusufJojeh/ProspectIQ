@@ -1,12 +1,13 @@
 import json
 
-from app.modules.assistant.service import AssistantService
-from tests.test_workspace_e2e import (
+from test_workspace_e2e import (
     _build_session_factory,
     _login,
     _override_client,
     _seed_workspace,
 )
+
+from app.modules.assistant.service import AssistantService
 
 
 def test_assistant_chat_streams_grounded_response(monkeypatch) -> None:

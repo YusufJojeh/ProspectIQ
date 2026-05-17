@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import json
-
-from sqlalchemy import func, select
-
-from app.modules.assistant.models import ChatMessage, ChatSession
-from app.modules.assistant.service import AssistantService
-from tests.test_workspace_e2e import (
+from sqlalchemy import select
+from test_workspace_e2e import (
     _build_session_factory,
     _login,
     _override_client,
     _seed_workspace,
 )
+
+from app.modules.assistant.models import ChatMessage
+from app.modules.assistant.service import AssistantService
 
 
 def _fake_tokens(self, db, *, workspace_id, messages, lead):

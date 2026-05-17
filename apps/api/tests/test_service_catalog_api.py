@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests.test_workspace_e2e import (
+from test_workspace_e2e import (
     _build_session_factory,
     _login,
     _override_client,
@@ -156,7 +156,7 @@ def test_catalog_create_validates_rank_order_bounds() -> None:
 
 def test_service_catalog_requires_admin_role() -> None:
     session_factory = _build_session_factory()
-    seed = _seed_workspace(session_factory)
+    _seed_workspace(session_factory)
 
     with _override_client(session_factory) as client:
         member_login = client.post(

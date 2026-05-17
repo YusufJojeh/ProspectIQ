@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
+    openai_base_url: str = "https://api.openai.com/v1"
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"

@@ -9,6 +9,7 @@ import { useAuthSession } from "@/features/auth/session";
 import { ForgotPasswordPage } from "@/features/auth/routes/forgot-password-page";
 import { LoginPage } from "@/features/auth/routes/login-page";
 import { SignUpPage } from "@/features/auth/routes/sign-up-page";
+import i18n from "@/lib/i18n";
 
 const HomePage = lazy(async () => {
   const module = await import("@/features/home/routes/home-page");
@@ -112,7 +113,10 @@ function RequireRole({ allowedRoles }: { allowedRoles: Array<"account_owner" | "
 
   if (!user || !allowedRoles.includes(user.role)) {
     return (
-      <EmptyState title="Access restricted" description="This area is limited to authorized workspace roles." />
+      <EmptyState
+        title={i18n.t("routeLoading.accessRestrictedTitle")}
+        description={i18n.t("routeLoading.accessRestrictedDescription")}
+      />
     );
   }
 
@@ -152,8 +156,8 @@ const router = createBrowserRouter([
   {
     path: appPaths.home,
     element: lazyPage(HomePage, {
-      title: "Loading home page",
-      description: "Preparing the public product overview.",
+      title: i18n.t("routeLoading.homeTitle"),
+      description: i18n.t("routeLoading.homeDescription"),
     }),
   },
   {
@@ -187,103 +191,103 @@ const router = createBrowserRouter([
       {
         index: true,
         element: lazyPage(DashboardPage, {
-          title: "Loading dashboard",
-          description: "Preparing summary cards, charts, and workspace signals.",
+          title: i18n.t("routeLoading.dashboardTitle"),
+          description: i18n.t("routeLoading.dashboardDescription"),
           compact: true,
         }),
       },
       {
         path: "searches/jobs/:jobId",
         element: lazyPage(SearchJobDetailPage, {
-          title: "Loading discovery run",
-          description: "Preparing job detail metrics and execution state.",
+          title: i18n.t("routeLoading.discoveryRunTitle"),
+          description: i18n.t("routeLoading.discoveryRunDescription"),
         }),
       },
       {
         path: "searches",
         element: lazyPage(SearchesPage, {
-          title: "Loading search jobs",
-          description: "Preparing search forms and job history.",
+          title: i18n.t("routeLoading.searchJobsTitle"),
+          description: i18n.t("routeLoading.searchJobsDescription"),
           compact: true,
         }),
       },
       {
         path: "leads",
         element: lazyPage(LeadsPage, {
-          title: "Loading lead workspace",
-          description: "Preparing filters, table, and map panels.",
+          title: i18n.t("routeLoading.leadWorkspaceTitle"),
+          description: i18n.t("routeLoading.leadWorkspaceDescription"),
           compact: true,
         }),
       },
       {
         path: "leads/:leadId",
         element: lazyPage(LeadDetailPage, {
-          title: "Loading lead detail",
-          description: "Preparing evidence, activity, and outreach panels.",
+          title: i18n.t("routeLoading.leadDetailTitle"),
+          description: i18n.t("routeLoading.leadDetailDescription"),
           compact: true,
         }),
       },
       {
         path: "ai-analysis",
         element: lazyPage(AiAnalysisPage, {
-          title: "Loading AI analysis",
-          description: "Fetching lead intelligence and recommendations.",
+          title: i18n.t("routeLoading.aiAnalysisTitle"),
+          description: i18n.t("routeLoading.aiAnalysisDescription"),
           compact: true,
         }),
       },
       {
         path: "assistant",
         element: lazyPage(AssistantPage, {
-          title: "Loading AI assistant",
-          description: "Preparing the streaming lead-aware assistant workspace.",
+          title: i18n.t("routeLoading.assistantTitle"),
+          description: i18n.t("routeLoading.assistantDescription"),
           compact: true,
         }),
       },
       {
         path: "outreach",
         element: lazyPage(OutreachPage, {
-          title: "Loading outreach workspace",
-          description: "Preparing AI-drafted outreach messages.",
+          title: i18n.t("routeLoading.outreachTitle"),
+          description: i18n.t("routeLoading.outreachDescription"),
           compact: true,
         }),
       },
       {
         path: "exports",
         element: lazyPage(ExportsPage, {
-          title: "Loading exports",
-          description: "Preparing lead export workspace.",
+          title: i18n.t("routeLoading.exportsTitle"),
+          description: i18n.t("routeLoading.exportsDescription"),
           compact: true,
         }),
       },
       {
         path: "team",
         element: lazyPage(TeamPage, {
-          title: "Loading team",
-          description: "Preparing workspace team members and access controls.",
+          title: i18n.t("routeLoading.teamTitle"),
+          description: i18n.t("routeLoading.teamDescription"),
           compact: true,
         }),
       },
       {
         path: "billing",
         element: lazyPage(BillingPage, {
-          title: "Loading billing",
-          description: "Preparing subscription controls and simulated billing records.",
+          title: i18n.t("routeLoading.billingTitle"),
+          description: i18n.t("routeLoading.billingDescription"),
           compact: true,
         }),
       },
       {
         path: "invoices",
         element: lazyPage(InvoicesPage, {
-          title: "Loading invoices",
-          description: "Preparing invoice history and payment simulation actions.",
+          title: i18n.t("routeLoading.invoicesTitle"),
+          description: i18n.t("routeLoading.invoicesDescription"),
           compact: true,
         }),
       },
       {
         path: "usage",
         element: lazyPage(UsagePage, {
-          title: "Loading usage",
-          description: "Preparing current plan limits and usage counters.",
+          title: i18n.t("routeLoading.usageTitle"),
+          description: i18n.t("routeLoading.usageDescription"),
           compact: true,
         }),
       },
@@ -293,24 +297,24 @@ const router = createBrowserRouter([
           {
             path: "admin",
             element: lazyPage(AdminPage, {
-              title: "Loading admin workspace",
-              description: "Preparing scoring, providers, and health panels.",
+              title: i18n.t("routeLoading.adminTitle"),
+              description: i18n.t("routeLoading.adminDescription"),
               compact: true,
             }),
           },
           {
             path: "settings",
             element: lazyPage(SettingsPage, {
-              title: "Loading settings",
-              description: "Preparing operational configuration and audit views.",
+              title: i18n.t("routeLoading.settingsTitle"),
+              description: i18n.t("routeLoading.settingsDescription"),
               compact: true,
             }),
           },
           {
             path: "audit-logs",
             element: lazyPage(AuditLogsPage, {
-              title: "Loading audit logs",
-              description: "Fetching tamper-evident event history.",
+              title: i18n.t("routeLoading.auditLogsTitle"),
+              description: i18n.t("routeLoading.auditLogsDescription"),
               compact: true,
             }),
           },

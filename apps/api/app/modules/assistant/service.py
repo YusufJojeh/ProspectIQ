@@ -394,7 +394,7 @@ class AssistantService:
         ) as client:
             with client.stream(
                 "POST",
-                "https://api.openai.com/v1/responses",
+                f"{settings.openai_base_url.rstrip('/')}/responses",
                 json={
                     "model": settings.openai_model,
                     "input": llm_messages,

@@ -102,7 +102,8 @@ Minimal local profiles:
    - `SERPAPI_RUNTIME_MODE=live`
    - `SERPAPI_API_KEY=<real key>`
    - `AI_PROVIDER=openai`
-   - `OPENAI_API_KEY` (+ optional `OLLAMA_*` fallback)
+   - `OPENAI_API_KEY`, optional `OPENAI_MODEL`, optional `OPENAI_BASE_URL` for compatible gateways
+   - optional `OLLAMA_*` fallback
 
 ## Production Environment Setup
 
@@ -137,6 +138,7 @@ DISCOVERY_MULTI_ENGINE_ENABLED=true
 DISCOVERY_ENGINE_LIST=google_maps_search,google_maps_place,google_web
 AI_PROVIDER=openai
 OPENAI_API_KEY=<real-openai-key>
+OPENAI_BASE_URL=https://api.openai.com/v1
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1
 ENABLE_API_DOCS=false

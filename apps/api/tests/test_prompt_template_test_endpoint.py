@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from sqlalchemy import func, select
-
-from app.modules.ai_analysis.models import AIAnalysisSnapshot
-from tests.test_workspace_e2e import (
+from test_workspace_e2e import (
     _build_session_factory,
     _login,
     _override_client,
     _seed_workspace,
 )
+
+from app.modules.ai_analysis.models import AIAnalysisSnapshot
 
 
 def _get_template_id(client, token) -> str:

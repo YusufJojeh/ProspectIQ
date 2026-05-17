@@ -4,6 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, TypeVar
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings

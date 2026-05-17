@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder
-from app.modules.ai_analysis.schemas import LeadAnalysisResult
-from app.modules.ai_analysis.validator import LLMOutputValidator
-from app.shared.dto.lead_facts import NormalizedLeadFacts
-from tests.test_workspace_e2e import (
+from test_workspace_e2e import (
     _build_session_factory,
     _login,
     _override_client,
     _seed_workspace,
 )
+
+from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder
+from app.modules.ai_analysis.validator import LLMOutputValidator
+from app.shared.dto.lead_facts import NormalizedLeadFacts
 
 
 def _make_facts(**kwargs) -> NormalizedLeadFacts:
@@ -35,8 +35,8 @@ def test_fallback_builder_returns_consultative_for_high_band() -> None:
     builder = FallbackAnalysisBuilder()
     facts = _make_facts(has_website=True, review_count=30)
 
-    from app.modules.ai_analysis.schemas import LeadScoreContext
     from app.modules.ai_analysis.prompt_builder import PromptBuilder
+    from app.modules.ai_analysis.schemas import LeadScoreContext
 
     input_payload = PromptBuilder().build_input_payload(
         facts,
@@ -52,8 +52,8 @@ def test_fallback_builder_returns_friendly_for_medium_band_low_reviews() -> None
     builder = FallbackAnalysisBuilder()
     facts = _make_facts(has_website=True, review_count=8)
 
-    from app.modules.ai_analysis.schemas import LeadScoreContext
     from app.modules.ai_analysis.prompt_builder import PromptBuilder
+    from app.modules.ai_analysis.schemas import LeadScoreContext
 
     input_payload = PromptBuilder().build_input_payload(
         facts,

@@ -14,6 +14,7 @@ from app.modules.leads.models import Lead
 from app.modules.outreach.models import OutreachMessage
 from app.modules.outreach.schemas import OutreachGenerateRequest, OutreachMessageUpdateRequest
 from app.modules.outreach.service import OutreachGenerationService
+from app.modules.search_jobs import models as _search_job_models  # noqa: F401
 from app.modules.users.models import User, Workspace
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.enums.jobs import OutreachTone

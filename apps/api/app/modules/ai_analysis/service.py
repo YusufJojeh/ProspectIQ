@@ -350,6 +350,7 @@ class AIAnalysisService:
                         adapter=OpenAILLMAdapter(
                             api_key=settings.openai_api_key,
                             model=settings.openai_model,
+                            base_url=settings.openai_base_url,
                         ),
                         provider_name="openai",
                         model_name=settings.openai_model,
@@ -363,6 +364,7 @@ class AIAnalysisService:
                     adapter=OpenAILLMAdapter(
                         api_key=settings.openai_api_key,
                         model=settings.openai_model,
+                        base_url=settings.openai_base_url,
                     ),
                     provider_name="openai",
                     model_name=settings.openai_model,

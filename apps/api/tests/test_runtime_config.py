@@ -16,6 +16,15 @@ def test_analysis_runtime_prefers_ollama_and_falls_back_to_openai(monkeypatch) -
     assert settings.analysis_fallback_runtime == "openai"
 
 
+def test_openai_base_url_is_env_configurable(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://llm-gateway.example.test/v1")
+    clear_settings_cache()
+
+    settings = Settings()
+
+    assert settings.openai_base_url == "https://llm-gateway.example.test/v1"
+
+
 def test_discovery_runtime_is_blocked_without_serpapi_key(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "")
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")

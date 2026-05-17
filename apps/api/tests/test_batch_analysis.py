@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests.test_workspace_e2e import (
+from test_workspace_e2e import (
     _build_session_factory,
     _login,
     _override_client,

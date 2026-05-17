@@ -24,8 +24,8 @@ from app.modules.admin.schemas import (
     ServiceCatalogListResponse,
 )
 from app.modules.ai_analysis.models import PromptTemplate, WorkspaceServiceCatalogItem
-from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
 from app.modules.ai_analysis.repository import AIAnalysisRepository
+from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.provider_serpapi.models import ProviderFetch
 from app.modules.scoring.models import ScoringConfigVersion
