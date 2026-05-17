@@ -41,7 +41,9 @@ export function InvoicesPage() {
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Invoices</CardTitle>
+          <CardTitle>
+            <h1>Invoices</h1>
+          </CardTitle>
           <CardDescription>Internal invoice and payment-attempt records used to simulate SaaS billing and collections.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">

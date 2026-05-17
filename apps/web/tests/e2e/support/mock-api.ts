@@ -1759,7 +1759,7 @@ export async function installMockApi(page: Page) {
 
   // Mock OpenStreetMap tile requests
   // Matches: https://a.tile.openstreetmap.org/z/x/y.png, etc.
-  await page.route("**/tile.openstreetmap.org/**", async (route) => {
+  await page.route(/https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i, async (route) => {
     await route.fulfill({ 
       status: 200,
       contentType: "image/png",

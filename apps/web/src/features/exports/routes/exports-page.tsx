@@ -47,7 +47,7 @@ export function ExportsPage() {
   const totalLeads = leadsQuery.data?.pagination.total ?? 0;
 
   return (
-    <div>
+    <div className="max-w-full overflow-x-clip">
       <PageHeader
         eyebrow="Exports"
         title="Download your lead workspace"
@@ -68,9 +68,9 @@ export function ExportsPage() {
         }
       />
 
-      <div className="grid gap-4 p-3 sm:p-4 lg:p-6">
+      <div className="grid min-w-0 gap-4 p-3 sm:p-4 lg:p-6">
         {/* Stats */}
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[
             {
               k: "Total leads",
@@ -94,7 +94,7 @@ export function ExportsPage() {
               tone: "caution",
             },
           ].map((s) => (
-            <div key={s.k} className="rounded-xl border border-border bg-card p-4">
+            <div key={s.k} className="min-w-0 rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-[11.5px] uppercase tracking-wider text-muted-foreground">
                 <s.icon className="size-3.5" style={{ color: `oklch(var(--${s.tone}))` }} />
                 {s.k}
@@ -106,13 +106,13 @@ export function ExportsPage() {
         </section>
 
         {/* Filters */}
-        <section className="rounded-xl border border-border bg-card p-4">
+        <section className="min-w-0 rounded-xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center gap-2 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
             <Filter className="size-3.5" />
             Export filters
           </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-wrap gap-3">
+            <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
               <label className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
                 Score band
               </label>
@@ -130,7 +130,7 @@ export function ExportsPage() {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
               <label className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
                 Lead status
               </label>
@@ -155,7 +155,7 @@ export function ExportsPage() {
         </section>
 
         {/* Preview */}
-        <section className="rounded-xl border border-border bg-card">
+        <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
           <header className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2 text-[11.5px] font-medium text-muted-foreground">
               <Clock className="size-3.5" />
@@ -167,7 +167,7 @@ export function ExportsPage() {
           </header>
 
           {leadsQuery.isPending && (
-            <QueryStateNotice tone="loading" title="Loading preview" description="Fetching sample rows…" />
+            <QueryStateNotice tone="loading" title="Loading export rows" description="Fetching sample rows…" />
           )}
           {leadsQuery.isError && (
             <QueryStateNotice tone="error" title="Could not load preview" error={leadsQuery.error} />

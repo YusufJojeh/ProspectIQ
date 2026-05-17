@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Globe2, MapPinned, Radar, Rows3, ShieldCheck, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { appPaths } from "@/app/paths";
 import { JobThroughputChart, ScoreDistributionChart } from "@/components/dashboard/charts";
@@ -20,7 +21,8 @@ import { hasCoordinates } from "@/lib/maps";
 import { bandTone, formatDate, formatScore, searchJobTone, titleCaseLabel } from "@/lib/presenters";
 
 export function DashboardPage() {
-  useDocumentTitle("Overview");
+  const { t } = useTranslation();
+  useDocumentTitle(t("dashboard.title"));
 
   const jobsQuery = useSearchJobsQuery();
   const jobs = useMemo(() => jobsQuery.data?.items ?? [], [jobsQuery.data?.items]);
@@ -51,8 +53,8 @@ export function DashboardPage() {
   if (leadsQuery.isError || jobsQuery.isError) {
     return (
       <EmptyState
-        title="Workspace data could not load"
-        description="Make sure the API is running, the database is migrated, and the current session token is valid."
+        title={t("dashboard.loadErrorTitle")}
+        description={t("dashboard.loadErrorDescription")}
       />
     );
   }
@@ -61,8 +63,8 @@ export function DashboardPage() {
     return (
       <QueryStateNotice
         tone="loading"
-        title="Loading workspace snapshot"
-        description="Fetching live lead coverage, score bands, and job throughput from the API."
+        title={t("dashboard.loadingTitle")}
+        description={t("dashboard.loadingDescription")}
       />
     );
   }
@@ -70,17 +72,17 @@ export function DashboardPage() {
   return (
     <div className="space-y-6 p-3 sm:p-4 lg:p-6">
       <PageHeader
-        eyebrow="Dashboard"
-        title="Operational lead intelligence desk"
-        description="The imported dashboard composition is now driving the live workspace with real discovery throughput, score distribution, and evidence-backed lead readiness."
+        eyebrow={t("dashboard.title")}
+        title={t("dashboard.heroTitle")}
+        description={t("dashboard.heroDescription")}
         actions={
           <>
             <Button variant="outline" className="bg-transparent" asChild>
-              <Link to={appPaths.leads}>Review leads</Link>
+              <Link to={appPaths.leads}>{t("dashboard.reviewLeads")}</Link>
             </Button>
             <Button asChild>
               <Link to={appPaths.searches}>
-                Launch search
+                {t("dashboard.launchSearch")}
                 <ArrowRight className="size-3.5" />
               </Link>
             </Button>
@@ -90,42 +92,42 @@ export function DashboardPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
-          label="Total leads"
+          label={t("dashboard.totalLeads")}
           value={String(leads.length)}
-          helper="Persisted workspace records available for review."
-          delta={`${qualified} qualified`}
+          helper={t("dashboard.totalLeadsHelper")}
+          delta={t("dashboard.qualifiedCount", { count: qualified })}
           icon={Rows3}
         />
         <KpiCard
-          label="High band"
+          label={t("dashboard.highBand")}
           value={String(highBand)}
-          helper="Highest-scoring leads across the current workspace."
+          helper={t("dashboard.highBandHelper")}
           tone="evidence"
           delta={`${Math.round((highBand / Math.max(leads.length, 1)) * 100)}% mix`}
           icon={ShieldCheck}
         />
         <KpiCard
-          label="Qualified"
+          label={t("dashboard.qualified")}
           value={String(qualified)}
-          helper="Leads already meeting current qualification criteria."
+          helper={t("dashboard.qualifiedHelper")}
           tone="signal"
           delta={`${withWebsite} with websites`}
           icon={Radar}
         />
         <KpiCard
-          label="Website coverage"
+          label={t("dashboard.websiteCoverage")}
           value={String(withWebsite)}
-          helper="Stored domain evidence ready for outbound preparation."
+          helper={t("dashboard.websiteCoverageHelper")}
           tone="caution"
           delta={`${mappable} mappable`}
           icon={Globe2}
         />
         <KpiCard
-          label="Active jobs"
+          label={t("dashboard.activeJobs")}
           value={String(activeJobs.length)}
-          helper="Queued or running discovery jobs refreshing live data."
+          helper={t("dashboard.activeJobsHelper")}
           tone={activeJobs.length ? "signal" : "risk"}
-          delta={activeJobs.length ? "Auto-refresh enabled" : "Idle"}
+          delta={activeJobs.length ? t("dashboard.autoRefreshEnabled") : t("dashboard.idle")}
           icon={MapPinned}
         />
       </section>
@@ -133,10 +135,8 @@ export function DashboardPage() {
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Discovery throughput</CardTitle>
-            <CardDescription>
-              Search jobs are aggregated into the imported area-chart treatment using the persisted FastAPI job records.
-            </CardDescription>
+            <CardTitle>{t("dashboard.discoveryThroughput")}</CardTitle>
+            <CardDescription>{t("dashboard.discoveryThroughputDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <JobThroughputChart data={throughputData} />
@@ -145,10 +145,8 @@ export function DashboardPage() {
 
         <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Lead score distribution</CardTitle>
-            <CardDescription>
-              Score bands are derived from live lead scores instead of the archive&apos;s mock distribution.
-            </CardDescription>
+            <CardTitle>{t("dashboard.leadScoreDistribution")}</CardTitle>
+            <CardDescription>{t("dashboard.leadScoreDistributionDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <ScoreDistributionChart data={scoreDistribution} />
@@ -159,16 +157,14 @@ export function DashboardPage() {
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Priority lead queue</CardTitle>
-            <CardDescription>
-              The highest-scoring leads now use the imported card language while staying attached to the current lead detail routes.
-            </CardDescription>
+            <CardTitle>{t("dashboard.priorityLeadQueue")}</CardTitle>
+            <CardDescription>{t("dashboard.priorityLeadQueueDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             {topLeads.length === 0 ? (
               <EmptyState
                 title="No leads yet"
-                description="Launch a search job to populate the workspace and unlock the internal product views."
+                description={t("dashboard.noLeadsDescription")}
               />
             ) : (
               topLeads.map((lead) => (
@@ -181,17 +177,17 @@ export function DashboardPage() {
                     <div>
                       <p className="font-semibold">{lead.company_name}</p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {lead.category ?? "Business"} · {lead.city ?? "Unknown city"}
+                        {lead.category ?? t("dashboard.business")} · {lead.city ?? t("dashboard.unknownCity")}
                       </p>
                     </div>
                     <Badge tone={bandTone(lead.latest_band)}>
-                      {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
+                      {lead.latest_band ? titleCaseLabel(lead.latest_band) : t("dashboard.unscored")}
                     </Badge>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Badge tone="neutral">{formatScore(lead.latest_score)}</Badge>
                     <Badge tone={lead.latest_qualified ? "success" : "warning"}>
-                      {lead.latest_qualified ? "Qualified" : "Needs review"}
+                      {lead.latest_qualified ? t("dashboard.qualified") : t("dashboard.needsReview")}
                     </Badge>
                     {lead.website_domain ? <Badge tone="accent">{lead.website_domain}</Badge> : null}
                   </div>
@@ -204,16 +200,14 @@ export function DashboardPage() {
         <div className="space-y-4">
           <Card className="rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Region and operations</CardTitle>
-              <CardDescription>
-                The city widget from the imported design now runs on the actual lead geography in the database.
-              </CardDescription>
+              <CardTitle>{t("dashboard.regionOperations")}</CardTitle>
+              <CardDescription>{t("dashboard.regionOperationsDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {cityCoverage.length === 0 ? (
                 <EmptyState
                   title="No city coverage yet"
-                  description="City-level operations metrics appear once leads are stored in the workspace."
+                  description={t("dashboard.noCityCoverageDescription")}
                 />
               ) : (
                 cityCoverage.map((item) => (
@@ -223,7 +217,9 @@ export function DashboardPage() {
                   >
                     <div>
                       <p className="font-medium">{item.city}</p>
-                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Stored leads</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        {t("dashboard.storedLeads")}
+                      </p>
                     </div>
                     <Badge tone="accent">{item.count}</Badge>
                   </div>
@@ -234,32 +230,30 @@ export function DashboardPage() {
 
           <Card className="rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>AI and audit activity</CardTitle>
-              <CardDescription>
-                Imported sidebar panels are backed by current route destinations instead of static demo content.
-              </CardDescription>
+              <CardTitle>{t("dashboard.aiAuditActivity")}</CardTitle>
+              <CardDescription>{t("dashboard.aiAuditActivityDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border bg-muted/20 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Sparkles className="size-4 text-[oklch(var(--signal))]" />
-                  AI workspace readiness
+                  {t("dashboard.aiWorkspaceReadiness")}
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   {highBand > 0
-                    ? `${highBand} high-band leads are ready for deeper analysis and outreach draft generation.`
-                    : "No high-band leads yet. The AI workspace will populate as new discovery jobs produce stronger evidence."}
+                    ? t("dashboard.highBandReady", { count: highBand })
+                    : t("dashboard.noHighBandReady")}
                 </p>
                 <Button className="mt-3" variant="outline" asChild>
-                  <Link to={appPaths.aiAnalysis}>Open AI analysis</Link>
+                  <Link to={appPaths.aiAnalysis}>{t("dashboard.openAiAnalysis")}</Link>
                 </Button>
               </div>
 
               {activeJobs.length === 0 ? (
                 <QueryStateNotice
                   tone="info"
-                  title="No active discovery runs"
-                  description="Queue a new search job to refresh throughput, evidence, and lead scores."
+                  title={t("dashboard.noActiveDiscoveryRuns")}
+                  description={t("dashboard.noActiveDiscoveryRunsDescription")}
                 />
               ) : (
                 activeJobs.slice(0, 3).map((job) => (
