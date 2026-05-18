@@ -705,7 +705,13 @@
     "scopeLabelWorkspace": "Workspace-scoped assistant",
     "starterPrompt1": "Summarize the strongest evidence for this lead.",
     "starterPrompt2": "What is the clearest outreach angle from the stored signals?",
-    "starterPrompt3": "Explain the main reasons behind this lead's current score."
+    "starterPrompt3": "Explain the main reasons behind this lead's current score.",
+    "sources": "Sources",
+    "searchUsed": "Search used",
+    "searchUnavailable": "Search unavailable",
+    "searchFailed": "Search failed",
+    "externalEvidence": "External evidence",
+    "basedOnSystemData": "Based on system data"
   },
   "billing": {
     "title": "Billing",
