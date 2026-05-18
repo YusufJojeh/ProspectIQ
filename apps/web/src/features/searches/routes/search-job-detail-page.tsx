@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ListFilter, Radar, Rows3, ShieldAlert, TimerReset } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { appPaths } from "@/app/paths";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -11,13 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSearchJob } from "@/features/searches/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
-import { formatDate, searchJobTone, titleCaseLabel } from "@/lib/presenters";
+import { discoveryRuntimeLabel, searchJobStatusLabel, websitePreferenceLabel } from "@/lib/i18n-labels";
+import { formatDate, searchJobTone } from "@/lib/presenters";
 
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running"]);
 
 export function SearchJobDetailPage() {
+  const { t } = useTranslation();
   const { jobId = "" } = useParams();
-  useDocumentTitle("Discovery run");
+  useDocumentTitle(t("searches.detailTitle"));
 
   const jobQuery = useQuery({
     queryKey: ["search-jobs", "detail", jobId],
@@ -40,8 +43,8 @@ export function SearchJobDetailPage() {
     return (
       <QueryStateNotice
         tone="loading"
-        title="Loading discovery run"
-        description="Fetching the latest persisted status and throughput metrics for this job."
+        title={t("searches.detailLoadingTitle")}
+        description={t("searches.detailLoadingDescription")}
       />
     );
   }
@@ -49,11 +52,11 @@ export function SearchJobDetailPage() {
   if (jobQuery.isError) {
     return (
       <EmptyState
-        title="Search job not found"
+        title={t("searches.jobNotFound")}
         description={jobQuery.error.message}
         action={
           <Button asChild>
-            <Link to={appPaths.searches}>Back to search jobs</Link>
+            <Link to={appPaths.searches}>{t("searches.backToJobs")}</Link>
           </Button>
         }
       />
@@ -62,30 +65,32 @@ export function SearchJobDetailPage() {
 
   const job = jobQuery.data;
   const runtimeLabel =
-    job.discovery_runtime === "serpapi"
-      ? "Live provider"
+    job.discovery_runtime === "live"
+      ? discoveryRuntimeLabel(t, "live")
       : job.discovery_runtime === "demo"
-        ? "Demo provider"
-        : "Blocked runtime";
+        ? discoveryRuntimeLabel(t, "demo")
+        : job.discovery_runtime === "stub"
+          ? discoveryRuntimeLabel(t, "stub")
+          : discoveryRuntimeLabel(t, "blocked");
 
   return (
     <div className="space-y-6 p-3 sm:p-4 lg:p-6">
       <PageHeader
-        eyebrow="Search job"
-        title={`${job.business_type} in ${job.city}`}
-        description="Live execution record from the discovery pipeline: search, enrichment, web validation, and score persistence."
+        eyebrow={t("searches.jobDetails")}
+        title={t("searches.jobTitlePattern", { businessType: job.business_type, city: job.city })}
+        description={t("searches.detailDescription")}
         actions={
           <>
             <Button asChild variant="outline" className="bg-transparent">
               <Link to={appPaths.searches}>
                 <ArrowLeft className="size-3.5" />
-                All jobs
+                {t("searches.allJobs")}
               </Link>
             </Button>
             <Button asChild>
               <Link to={`${appPaths.leads}?search_job_id=${encodeURIComponent(job.public_id)}`}>
                 <ListFilter className="size-3.5" />
-                Leads from this run
+                {t("searches.leadsFromRun")}
               </Link>
             </Button>
           </>
@@ -93,118 +98,112 @@ export function SearchJobDetailPage() {
       />
 
       <div className="flex flex-wrap gap-2">
-        <Badge tone={searchJobTone(job.status)}>{titleCaseLabel(job.status)}</Badge>
-        <Badge tone="neutral">Job ID {job.public_id}</Badge>
+        <Badge tone={searchJobTone(job.status)}>{searchJobStatusLabel(t, job.status)}</Badge>
+        <Badge tone="neutral">{t("searches.jobId", { id: job.public_id })}</Badge>
         <Badge tone="neutral">{runtimeLabel}</Badge>
       </div>
 
       {job.status === "queued" || job.status === "running" ? (
         <QueryStateNotice
           tone="loading"
-          title="Discovery run in progress"
-          description="This page refreshes automatically while the background pipeline is still working."
+          title={t("searches.runInProgressTitle")}
+          description={t("searches.runInProgressDescription")}
         />
       ) : job.status === "failed" ? (
         <QueryStateNotice
           tone="error"
-          title="Discovery run failed"
-          description="No leads were persisted for this run. Check provider configuration and recent operational health warnings."
+          title={t("searches.runFailedTitle")}
+          description={t("searches.runFailedDescription")}
         />
       ) : (
         <QueryStateNotice
           tone={job.status === "partially_completed" ? "info" : "success"}
-          title={job.status === "partially_completed" ? "Discovery run completed with warnings" : "Discovery run completed"}
+          title={job.status === "partially_completed" ? t("searches.runCompletedWarningsTitle") : t("searches.runCompletedTitle")}
           description={
             job.status === "partially_completed"
-              ? "Some provider calls failed, but usable leads were still persisted."
-              : "The requested run finished and persisted its lead outputs."
+              ? t("searches.runCompletedWarningsDescription")
+              : t("searches.runCompletedDescription")
           }
         />
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Candidates found" value={String(job.candidates_found)} helper="Raw provider candidates" icon={Rows3} />
-        <KpiCard label="Leads upserted" value={String(job.leads_upserted)} helper="Persisted lead records" tone="evidence" icon={Radar} />
-        <KpiCard label="Provider errors" value={String(job.provider_error_count)} helper="Fetch failures during run" tone={job.provider_error_count ? "risk" : "signal"} icon={ShieldAlert} />
-        <KpiCard label="Enriched" value={String(job.enriched_count)} helper="Expanded candidate records" tone="caution" icon={TimerReset} />
+        <KpiCard label={t("searches.candidatesFound")} value={String(job.candidates_found)} helper={t("searches.rawProviderCandidates")} icon={Rows3} />
+        <KpiCard label={t("searches.leadsUpserted")} value={String(job.leads_upserted)} helper={t("searches.persistedLeadRecords")} tone="evidence" icon={Radar} />
+        <KpiCard label={t("searches.providerErrors")} value={String(job.provider_error_count)} helper={t("searches.fetchFailures")} tone={job.provider_error_count ? "risk" : "signal"} icon={ShieldAlert} />
+        <KpiCard label={t("searches.enriched")} value={String(job.enriched_count)} helper={t("searches.expandedCandidates")} tone="caution" icon={TimerReset} />
       </section>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Scope</CardTitle>
-            <CardDescription>Immutable request parameters stored with the job.</CardDescription>
+            <CardTitle>{t("searches.scope")}</CardTitle>
+            <CardDescription>{t("searches.scopeDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <DetailRow label="Business type" value={job.business_type} />
-            <DetailRow label="City" value={job.city} />
-            <DetailRow label="Region" value={job.region ?? "-"} />
-            <DetailRow label="Radius" value={job.radius_km != null ? `${job.radius_km} km` : "-"} />
-            <DetailRow label="Max results" value={String(job.max_results)} />
+            <DetailRow label={t("searches.businessType")} value={job.business_type} />
+            <DetailRow label={t("searches.city")} value={job.city} />
+            <DetailRow label={t("searches.region")} value={job.region ?? "-"} />
+            <DetailRow label={t("searches.radiusKm")} value={job.radius_km != null ? `${job.radius_km} km` : "-"} />
+            <DetailRow label={t("searches.maxResults")} value={String(job.max_results)} />
             <DetailRow
-              label="Website preference"
-              value={
-                job.website_preference === "must_have"
-                  ? "Must have website"
-                  : job.website_preference === "must_be_missing"
-                    ? "Must be missing website"
-                    : "Any"
-              }
+              label={t("searches.websitePreference")}
+              value={websitePreferenceLabel(t, job.website_preference)}
             />
-            <DetailRow label="Keyword filter" value={job.keyword_filter ?? "-"} />
+            <DetailRow label={t("searches.keywordFilter")} value={job.keyword_filter ?? "-"} />
           </CardContent>
         </Card>
 
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Filters and thresholds</CardTitle>
-            <CardDescription>Rating, reviews, and website constraints applied during discovery.</CardDescription>
+            <CardTitle>{t("searches.filtersThresholds")}</CardTitle>
+            <CardDescription>{t("searches.filtersThresholdsDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <DetailRow label="Rating range" value={`${job.min_rating ?? "Any"} - ${job.max_rating ?? "Any"}`} />
-            <DetailRow label="Review range" value={`${job.min_reviews ?? "Any"} - ${job.max_reviews ?? "Any"}`} />
-            <DetailRow label="Runtime" value={runtimeLabel} />
+            <DetailRow label={t("searches.ratingRange")} value={`${job.min_rating ?? t("common.all")} - ${job.max_rating ?? t("common.all")}`} />
+            <DetailRow label={t("searches.reviewRange")} value={`${job.min_reviews ?? t("common.all")} - ${job.max_reviews ?? t("common.all")}`} />
+            <DetailRow label={t("searches.discoveryRuntime")} value={runtimeLabel} />
           </CardContent>
         </Card>
       </div>
 
       <Card className="rounded-[1.5rem] border-border bg-card/95">
         <CardHeader>
-          <CardTitle>Execution timeline</CardTitle>
-          <CardDescription>Queued, started, and finished timestamps from the API.</CardDescription>
+          <CardTitle>{t("searches.executionTimeline")}</CardTitle>
+          <CardDescription>{t("searches.executionTimelineDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <DetailRow label="Queued" value={formatDate(job.queued_at)} />
-          <DetailRow label="Started" value={job.started_at ? formatDate(job.started_at) : "-"} />
-          <DetailRow label="Finished" value={job.finished_at ? formatDate(job.finished_at) : "-"} />
+          <DetailRow label={t("searches.queued")} value={formatDate(job.queued_at)} />
+          <DetailRow label={t("searches.started")} value={job.started_at ? formatDate(job.started_at) : "-"} />
+          <DetailRow label={t("searches.finished")} value={job.finished_at ? formatDate(job.finished_at) : "-"} />
         </CardContent>
       </Card>
 
       <Card className="rounded-[1.5rem] border-border bg-card/95">
         <CardHeader>
-          <CardTitle>Operational interpretation</CardTitle>
-          <CardDescription>Quick reading of how this run behaved in the workspace.</CardDescription>
+          <CardTitle>{t("searches.operationalInterpretation")}</CardTitle>
+          <CardDescription>{t("searches.operationalInterpretationDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 lg:grid-cols-3">
           <DetailRow
-            label="Outcome"
+            label={t("searches.outcome")}
             value={
               job.status === "completed"
-                ? "Completed cleanly"
+                ? t("searches.completedCleanly")
                 : job.status === "partially_completed"
-                  ? "Completed with warnings"
+                  ? t("searches.completedWithWarnings")
                   : job.status === "failed"
-                    ? "Failed before useful persistence"
-                    : "Still processing"
+                    ? t("searches.failedBeforePersistence")
+                    : t("searches.stillProcessing")
             }
           />
           <DetailRow
-            label="Lead yield"
-            value={job.leads_upserted > 0 ? `${job.leads_upserted} records persisted` : "No lead records yet"}
+            label={t("searches.leadYield")}
+            value={job.leads_upserted > 0 ? t("searches.recordsPersisted", { count: job.leads_upserted }) : t("searches.noLeadRecordsYet")}
           />
           <DetailRow
-            label="Next action"
-            value={job.leads_upserted > 0 ? "Open filtered leads workspace" : "Monitor run progress"}
+            label={t("searches.nextAction")}
+            value={job.leads_upserted > 0 ? t("searches.openFilteredLeads") : t("searches.monitorRunProgress")}
           />
         </CardContent>
       </Card>

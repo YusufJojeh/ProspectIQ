@@ -31,8 +31,9 @@ import { generateLeadOutreach, getLatestOutreach, updateOutreachDraft } from "@/
 import { listUsers } from "@/features/users/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
 import { hasCoordinates } from "@/lib/maps";
-import { formatPercent, formatScore, titleCaseLabel } from "@/lib/presenters";
+import { formatPercent, formatScore } from "@/lib/presenters";
 import { LazyLeadMap } from "@/features/leads/components/lazy-lead-map";
 import type { LeadStatus, OutreachTone } from "@/types/api";
 
@@ -165,7 +166,7 @@ export function LeadDetailPage() {
   });
 
   if (leadQuery.isError) {
-    return <EmptyState title="Lead detail is unavailable" description={resolveErrorMessage(leadQuery.error, t)} />;
+    return <EmptyState title={t("leadDetail.unavailableTitle")} description={resolveErrorMessage(leadQuery.error, t)} />;
   }
 
   if (leadQuery.isPending || !leadQuery.data) {
@@ -192,7 +193,7 @@ export function LeadDetailPage() {
   const activityItems = mergeActivityTimeline(activityQuery.data?.items ?? []);
 
   return (
-    <div className="space-y-6 p-3 sm:p-4 lg:p-6">
+    <div className="max-w-full space-y-6 overflow-x-clip p-3 sm:p-4 lg:p-6">
       <LeadHero
         lead={lead}
         onRefresh={() => refreshMutation.mutate()}
@@ -203,24 +204,24 @@ export function LeadDetailPage() {
 
       {actionSuccess ? <QueryStateNotice tone="success" title={t("leadDetail.actionCompleted")} description={actionSuccess} /> : null}
 
-      <section className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4">
-          <Card className="rounded-[1.5rem] border-border bg-card/95">
+      <section className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 space-y-4">
+          <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Normalized facts and workflow</CardTitle>
+              <CardTitle>{t("leadDetail.normalizedFacts")}</CardTitle>
               <CardDescription>
-                Imported fact tiles are now fed by the current canonical lead record from the API.
+                {t("leadDetail.normalizedFactsDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <FactCard label="Lead score" value={formatScore(lead.latest_score)} />
-              <FactCard label="Band" value={lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"} />
-              <FactCard label="Reviews" value={String(lead.review_count)} />
-              <FactCard label="Rating" value={lead.rating ? String(lead.rating) : "N/A"} />
-              <FactCard label="Confidence" value={formatPercent(lead.data_confidence)} />
-              <FactCard label="Completeness" value={formatPercent(lead.data_completeness)} />
-              <FactCard label="Qualified" value={lead.latest_qualified ? "Yes" : "No"} />
-              <FactCard label="Website" value={lead.website_domain ?? "Missing"} />
+              <FactCard label={t("leadDetail.leadScore")} value={formatScore(lead.latest_score)} />
+              <FactCard label={t("leads.band")} value={scoreBandLabel(t, lead.latest_band)} />
+              <FactCard label={t("leads.reviews")} value={String(lead.review_count)} />
+              <FactCard label={t("leads.rating")} value={lead.rating ? String(lead.rating) : t("common.notAvailable")} />
+              <FactCard label={t("leads.confidence")} value={formatPercent(lead.data_confidence)} />
+              <FactCard label={t("leadDetail.completeness")} value={formatPercent(lead.data_completeness)} />
+              <FactCard label={t("leads.qualified")} value={lead.latest_qualified ? t("common.yes") : t("common.no")} />
+              <FactCard label={t("leads.website")} value={lead.website_domain ?? t("leads.missing")} />
             </CardContent>
           </Card>
 
@@ -232,7 +233,7 @@ export function LeadDetailPage() {
           />
 
           {evidenceQuery.isPending ? (
-            <QueryStateNotice tone="loading" title="Loading evidence" description="Fetching normalized provider facts for this lead." />
+            <QueryStateNotice tone="loading" title={t("leadDetail.loadingEvidenceTitle")} description={t("leadDetail.loadingEvidenceDescription")} />
           ) : evidenceQuery.isError ? (
             <QueryStateNotice tone="error" title={t("leads.evidence")} error={evidenceQuery.error} />
           ) : evidenceItems.length > 0 ? (
@@ -240,25 +241,25 @@ export function LeadDetailPage() {
           ) : (
             <QueryStateNotice
               tone="info"
-              title="No evidence rows"
-              description="No normalized evidence has been stored for this lead yet."
+              title={t("leadDetail.noEvidenceRows")}
+              description={t("leadDetail.noEvidenceRowsDescription")}
             />
           )}
         </div>
 
-        <div className="space-y-4">
-          <Card className="rounded-[1.5rem] border-border bg-card/95">
+        <div className="min-w-0 space-y-4">
+          <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Lead operations</CardTitle>
-              <CardDescription>Assignment, status control, map context, and evidence health remain in one panel.</CardDescription>
+              <CardTitle>{t("leadDetail.leadOperations")}</CardTitle>
+              <CardDescription>{t("leadDetail.leadOperationsDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {healthSignals.map((item) => (
                   <div key={item.label} className="rounded-xl border border-border bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{item.label}</p>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t(`leadDetail.health.${item.label}.label`, { defaultValue: item.label })}</p>
                     <p className="mt-2 text-xl font-semibold">{item.value}%</p>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.helper}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{t(`leadDetail.health.${item.label}.${item.value > 0 ? "positive" : "negative"}`, { defaultValue: item.helper })}</p>
                   </div>
                 ))}
               </div>
@@ -269,25 +270,25 @@ export function LeadDetailPage() {
                 ) : (
                   <EmptyState
                     className="h-full border-0"
-                    title="No map location yet"
-                    description="Coordinate evidence has not been stored for this lead yet."
+                    title={t("leadDetail.noMapLocation")}
+                    description={t("leadDetail.noMapLocationDescription")}
                   />
                 )}
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Assignee</Label>
+                  <Label>{t("leads.assignee")}</Label>
                   <Select
                     value={lead.assigned_to_user_public_id ?? "unassigned"}
                     disabled={assignMutation.isPending}
                     onValueChange={(value) => assignMutation.mutate(value === "unassigned" ? null : value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Unassigned" />
+                      <SelectValue placeholder={t("leads.unassigned")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      <SelectItem value="unassigned">{t("leads.unassigned")}</SelectItem>
                       {(usersQuery.data?.items ?? []).map((user) => (
                         <SelectItem key={user.public_id} value={user.public_id}>
                           {user.full_name}
@@ -298,36 +299,36 @@ export function LeadDetailPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Next status</Label>
+                  <Label>{t("leadDetail.nextStatus")}</Label>
                   <Select value={statusDraft} onValueChange={(value) => setStatusDraft(value as LeadStatus)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
+                      <SelectValue placeholder={t("leadDetail.selectStatus")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="reviewed">Reviewed</SelectItem>
-                      <SelectItem value="qualified">Qualified</SelectItem>
-                      <SelectItem value="contacted">Contacted</SelectItem>
-                      <SelectItem value="interested">Interested</SelectItem>
-                      <SelectItem value="won">Won</SelectItem>
-                      <SelectItem value="lost">Lost</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
+                      <SelectItem value="new">{leadStatusLabel(t, "new")}</SelectItem>
+                      <SelectItem value="reviewed">{leadStatusLabel(t, "reviewed")}</SelectItem>
+                      <SelectItem value="qualified">{leadStatusLabel(t, "qualified")}</SelectItem>
+                      <SelectItem value="contacted">{leadStatusLabel(t, "contacted")}</SelectItem>
+                      <SelectItem value="interested">{leadStatusLabel(t, "interested")}</SelectItem>
+                      <SelectItem value="won">{leadStatusLabel(t, "won")}</SelectItem>
+                      <SelectItem value="lost">{leadStatusLabel(t, "lost")}</SelectItem>
+                      <SelectItem value="archived">{leadStatusLabel(t, "archived")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Status note</Label>
+                <Label>{t("leadDetail.statusNote")}</Label>
                 <Textarea
                   value={statusNote}
                   onChange={(event) => setStatusNote(event.target.value)}
-                  placeholder="Optional note to store with this status change"
+                  placeholder={t("leadDetail.statusNotePlaceholder")}
                 />
               </div>
 
               <Button onClick={() => statusMutation.mutate({ status: statusDraft, note: statusNote || undefined })} disabled={statusMutation.isPending}>
-                {statusMutation.isPending ? "Saving..." : "Save status update"}
+                {statusMutation.isPending ? t("common.saving") : t("leadDetail.saveStatusUpdate")}
               </Button>
             </CardContent>
           </Card>

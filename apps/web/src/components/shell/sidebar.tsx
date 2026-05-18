@@ -88,7 +88,7 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="hidden w-80 shrink-0 border-r border-sidebar-border bg-sidebar lg:flex rtl:border-r-0 rtl:border-l">
+    <aside className="hidden w-80 shrink-0 border-r border-sidebar-border bg-sidebar lg:order-first lg:flex rtl:border-r-0 rtl:border-l">
       <div className="flex w-full flex-col bg-[oklch(var(--sidebar))]">
         <div className="border-b border-sidebar-border px-4 py-3">
           <div className="flex items-center gap-2">

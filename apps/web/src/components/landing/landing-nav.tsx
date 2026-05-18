@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useMotionValueEvent, useScroll } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -25,6 +25,15 @@ export function LandingNav() {
     setScrolled(value > 12);
   });
 
+  useEffect(() => {
+    const pageRegions = [document.querySelector("main"), document.querySelector("footer")].filter(Boolean) as HTMLElement[];
+    if (open) {
+      pageRegions.forEach((region) => region.setAttribute("aria-hidden", "true"));
+      return () => pageRegions.forEach((region) => region.removeAttribute("aria-hidden"));
+    }
+    pageRegions.forEach((region) => region.removeAttribute("aria-hidden"));
+  }, [open]);
+
   return (
     <motion.header
       initial={{ y: -24, opacity: 0 }}
@@ -34,7 +43,7 @@ export function LandingNav() {
     >
       <div
         className={cn(
-          "flex w-full max-w-6xl items-center justify-between gap-6 rounded-full border px-4 py-2.5 transition-all duration-300",
+          "flex w-full max-w-6xl items-center justify-between gap-2 rounded-full border px-3 py-2.5 transition-all duration-300 lg:gap-6 lg:px-4",
           scrolled
             ? "border-border bg-background/80 shadow-[0_8px_32px_-12px_oklch(0_0_0/0.6)] backdrop-blur-xl"
             : "border-transparent bg-transparent",
@@ -49,34 +58,42 @@ export function LandingNav() {
             <a
               key={link.href}
               href={link.href}
-              className="rounded-full px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="rounded-full px-2 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:px-3 lg:text-[13px]"
             >
               {link.label}
             </a>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-0.5 md:flex lg:gap-1">
           <LanguageSwitcher />
           <ThemeSwitcher />
-          <Button asChild variant="ghost" size="sm" className="h-8 text-[13px] font-medium">
+          <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[12px] font-medium lg:px-3 lg:text-[13px]">
             <Link to={appPaths.login}>{t("landing.nav.signIn")}</Link>
           </Button>
-          <Button asChild size="sm" className="h-8 gap-1 text-[13px] font-medium">
+          <Button asChild size="sm" className="h-8 gap-1 px-2 text-[12px] font-medium lg:px-3 lg:text-[13px]">
             <Link to={appPaths.signUp}>
               {t("landing.nav.requestAccess")} <ArrowRight className="size-3.5" />
             </Link>
           </Button>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex size-9 items-center justify-center rounded-full border border-border text-foreground md:hidden"
-          onClick={() => setOpen((value) => !value)}
-          aria-label={t("landing.nav.toggleMenu")}
-        >
-          {open ? <X className="size-4" /> : <Menu className="size-4" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <Link
+            to={appPaths.login}
+            className="rounded-full px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
+          >
+            {t("landing.nav.signIn")}
+          </Link>
+          <button
+            type="button"
+            className="inline-flex size-9 items-center justify-center rounded-full border border-border text-foreground"
+            onClick={() => setOpen((value) => !value)}
+            aria-label={t("landing.nav.toggleMenu")}
+          >
+            {open ? <X className="size-4" /> : <Menu className="size-4" />}
+          </button>
+        </div>
       </div>
 
       {open ? (

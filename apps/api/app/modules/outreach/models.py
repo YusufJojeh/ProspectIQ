@@ -27,6 +27,7 @@ class OutreachMessage(Base):
     subject: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text())
     tone: Mapped[str] = mapped_column(String(32), default="consultative")
+    language: Mapped[str] = mapped_column(String(8), default="en")
     version_number: Mapped[int] = mapped_column(Integer, default=1)
     edited_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     edited_message: Mapped[str | None] = mapped_column(Text(), nullable=True)

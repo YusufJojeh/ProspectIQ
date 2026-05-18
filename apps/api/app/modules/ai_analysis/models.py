@@ -90,3 +90,27 @@ class ServiceRecommendation(Base):
         "AIAnalysisSnapshot",
         back_populates="service_recommendations",
     )
+
+
+class WorkspaceServiceCatalogItem(Base):
+    __tablename__ = "workspace_service_catalog_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "service_name",
+            name="uq_wsc_workspace_service",
+        ),
+        Index("ix_wsc_workspace_rank", "workspace_id", "rank_order"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("scat")
+    )
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    service_name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    rank_order: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))

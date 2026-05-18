@@ -160,7 +160,18 @@ def test_admin_can_manage_prompt_templates_and_view_operations_health() -> None:
     assert payload["database_ok"] is True
     assert payload["serpapi_runtime_mode"] in {"live", "demo", "stub", "blocked"}
     assert payload["discovery_runtime"] in {"live", "demo", "stub", "blocked"}
+    assert payload["discovery_execution_mode"] in {
+        "single_path",
+        "multi_query_single_engine",
+        "multi_engine_multi_query",
+    }
+    assert isinstance(payload["discovery_kill_switch"], bool)
+    assert isinstance(payload["discovery_multi_engine_enabled"], bool)
     assert payload["analysis_runtime"] in {"demo", "ollama", "openai", "blocked"}
+    assert payload["current_ai_runtime"] in {"demo", "ollama", "openai", "blocked"}
+    assert isinstance(payload["serpapi_live_reachable"], bool)
+    assert isinstance(payload["ollama_reachable"], bool)
+    assert isinstance(payload["openai_fallback_configured"], bool)
     assert isinstance(payload["runtime_warnings"], list)
     assert payload["failed_jobs_last_7_days"] >= 1
     assert payload["provider_failures_last_7_days"] >= 1

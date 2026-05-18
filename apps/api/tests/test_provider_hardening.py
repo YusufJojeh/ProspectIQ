@@ -222,6 +222,102 @@ def test_repository_prioritizes_provider_identity_over_website_domain_overlap() 
     assert resolved.public_id == provider_match.public_id
 
 
+def test_repository_ensure_identities_deduplicates_input_batch() -> None:
+    session_factory = _build_session_factory()
+    repository = ProviderEvidenceRepository()
+
+    with session_factory() as db:
+        workspace = Workspace(name="LeadScope Workspace")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
+
+        lead = Lead(
+            workspace_id=workspace.id,
+            company_name="Acme Clinic",
+            city="Istanbul",
+            address="Kadikoy, Istanbul, Turkey",
+            data_completeness=0.5,
+            data_confidence=0.5,
+            has_website=False,
+        )
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+
+        repository.ensure_identities(
+            db,
+            workspace_id=workspace.id,
+            lead_id=lead.id,
+            identities=[
+                LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233"),
+                LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233"),
+                LeadIdentityCandidate(identity_type="website_domain", identity_value="acme.example"),
+            ],
+        )
+
+        rows = list(
+            db.query(LeadIdentity)
+            .filter(LeadIdentity.workspace_id == workspace.id, LeadIdentity.lead_id == lead.id)
+            .all()
+        )
+        assert len(rows) == 2
+
+
+def test_repository_ensure_identities_skips_workspace_wide_duplicates() -> None:
+    session_factory = _build_session_factory()
+    repository = ProviderEvidenceRepository()
+
+    with session_factory() as db:
+        workspace = Workspace(name="LeadScope Workspace")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
+
+        lead_a = Lead(
+            workspace_id=workspace.id,
+            company_name="Acme A",
+            city="Istanbul",
+            address="Kadikoy",
+            data_completeness=0.5,
+            data_confidence=0.5,
+            has_website=False,
+        )
+        lead_b = Lead(
+            workspace_id=workspace.id,
+            company_name="Acme B",
+            city="Istanbul",
+            address="Kadikoy",
+            data_completeness=0.5,
+            data_confidence=0.5,
+            has_website=False,
+        )
+        db.add_all([lead_a, lead_b])
+        db.commit()
+        db.refresh(lead_a)
+        db.refresh(lead_b)
+
+        repository.ensure_identities(
+            db,
+            workspace_id=workspace.id,
+            lead_id=lead_a.id,
+            identities=[LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233")],
+        )
+        repository.ensure_identities(
+            db,
+            workspace_id=workspace.id,
+            lead_id=lead_b.id,
+            identities=[LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233")],
+        )
+
+        rows = list(
+            db.query(LeadIdentity)
+            .filter(LeadIdentity.workspace_id == workspace.id, LeadIdentity.identity_type == "phone")
+            .all()
+        )
+        assert len(rows) == 1
+
+
 def test_serpapi_client_retries_payload_rate_limit_then_succeeds(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "12345678901234567890123456789012")
     clear_settings_cache()

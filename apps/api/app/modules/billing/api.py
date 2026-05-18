@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.errors import ConflictError
 from app.modules.auth.policies import get_current_user
 from app.modules.billing.schemas import (
     BillingSimulationRequest,
@@ -83,7 +84,8 @@ def mark_invoice_paid(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> InvoiceResponse:
-    assert payload.invoice_public_id is not None
+    if payload.invoice_public_id is None:
+        raise ConflictError("invoice_public_id is required.")
     return BillingService().mark_invoice_paid(
         db,
         workspace_id=current_user.workspace_id,
@@ -98,7 +100,8 @@ def simulate_invoice_failure(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> InvoiceResponse:
-    assert payload.invoice_public_id is not None
+    if payload.invoice_public_id is None:
+        raise ConflictError("invoice_public_id is required.")
     return BillingService().simulate_payment_failure(
         db,
         workspace_id=current_user.workspace_id,

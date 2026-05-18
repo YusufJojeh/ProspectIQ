@@ -26,7 +26,7 @@ ProspectIQ/
 
 ## Local Startup
 
-Validated against CI:
+Validated against CI and the local-live profile:
 
 - Python `3.12`
 - Node.js `22`
@@ -48,26 +48,70 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -3.12 -m pip install --upgrade pip
 py -3.12 -m pip install -e .[dev]
-Copy-Item .env.example .env
+Copy-Item .env.local-live.example .env
 py -3.12 -m alembic upgrade head
-py -3.12 scripts/seed.py
+py -3.12 scripts/seed.py --demo-data
 py -3.12 -m uvicorn app.main:app --reload
 ```
 
 Backend URL: `http://localhost:8000`
+
+Demo credentials use email login:
+
+- Super Admin equivalent: `admin@example.test` / `password`
+- Tenant Manager: `manager@example.test` / `password`
+- Team User: `user1@example.test` / `password`
+
+The current auth model is workspace-scoped, so the “Super Admin” demo account is seeded as the strongest available workspace role: `account_owner`.
 
 ### 3. Run the frontend
 
 ```powershell
 cd apps/web
 npm install
-Copy-Item .env.example .env
+Copy-Item .env.local-live.example .env
 npm run dev
 ```
 
 Frontend URL: `http://localhost:5173`
 
 For local development, the backend accepts both `http://localhost:5173` and `http://127.0.0.1:5173` by default. Set `WEB_ORIGINS` explicitly when you need a tighter origin list.
+
+### Runtime Mode Profiles
+
+The runtime is explicit and controlled by env vars. No implicit discovery demo fallback is used.
+
+- **Discovery runtime gate**: `SERPAPI_RUNTIME_MODE`
+  - `live`: use real SerpAPI (requires `SERPAPI_API_KEY`)
+  - `demo`: explicit demo discovery mode
+  - `stub`: deterministic test-only discovery mode
+  - `blocked`: disables discovery
+- **Discovery execution mode**: `DISCOVERY_MODE`
+  - `single_path`
+  - `multi_query_single_engine`
+  - `multi_engine_multi_query`
+- **Hard stop**: `DISCOVERY_KILL_SWITCH=true` forces `single_path`
+- **AI runtime gate**: `AI_PROVIDER`
+  - `ollama`, `openai`, `auto`, or `stub`
+  - `stub` is explicit demo AI mode
+
+Minimal local profiles:
+
+1. **Local demo mode (no external providers)**
+   - `SERPAPI_RUNTIME_MODE=demo`
+   - `AI_PROVIDER=stub`
+2. **Local live discovery + Ollama primary**
+   - `SERPAPI_RUNTIME_MODE=live`
+   - `SERPAPI_API_KEY=<real key>`
+   - `AI_PROVIDER=ollama`
+   - `OLLAMA_BASE_URL` + `OLLAMA_MODEL`
+   - optional OpenAI fallback with `OPENAI_API_KEY`
+3. **Local live discovery + OpenAI primary**
+   - `SERPAPI_RUNTIME_MODE=live`
+   - `SERPAPI_API_KEY=<real key>`
+   - `AI_PROVIDER=openai`
+   - `OPENAI_API_KEY`, optional `OPENAI_MODEL`, optional `OPENAI_BASE_URL` for compatible gateways
+   - optional `OLLAMA_*` fallback
 
 ## Production Environment Setup
 
@@ -78,8 +122,11 @@ LeadScope AI enforces strict production configuration to ensure security and rel
 - `JWT_SECRET`: A cryptographically random string of at least 32 characters (not the default placeholder)
 - `DEFAULT_ADMIN_PASSWORD`: A strong password different from the default `ChangeMe123!` (minimum 12 characters)
 - `WEB_ORIGINS`: Explicitly set to your production domain(s), e.g., `https://leadscope.example.com`
-- `SERPAPI_API_KEY`: Real SerpAPI credentials (demo fallbacks are removed; provider is required)
-- `OPENAI_API_KEY` or `OLLAMA_BASE_URL` + `OLLAMA_MODEL`: At least one real LLM provider must be configured
+- `SERPAPI_RUNTIME_MODE=live` and `SERPAPI_API_KEY`: Real SerpAPI credentials
+- `AI_PROVIDER`: One of `ollama`, `openai`, or `auto` for real AI runtime
+- `OPENAI_API_KEY` when OpenAI is primary or fallback
+- `OLLAMA_BASE_URL` + `OLLAMA_MODEL` when Ollama is primary or fallback
+- Discovery controls (explicit): `DISCOVERY_MODE`, `DISCOVERY_MULTI_ENGINE_ENABLED`, `DISCOVERY_ENGINE_LIST`, and budget limits
 
 ### Automatic Validation
 
@@ -92,8 +139,16 @@ APP_ENV=production
 JWT_SECRET=<generate-with-openssl-rand-hex-or-similar>
 DEFAULT_ADMIN_PASSWORD=<strong-random-password>
 WEB_ORIGINS=https://leadscope.example.com,https://www.leadscope.example.com
+SERPAPI_RUNTIME_MODE=live
 SERPAPI_API_KEY=<real-serpapi-key>
+DISCOVERY_MODE=multi_engine_multi_query
+DISCOVERY_MULTI_ENGINE_ENABLED=true
+DISCOVERY_ENGINE_LIST=google_maps_search,google_maps_place,google_web
+AI_PROVIDER=openai
 OPENAI_API_KEY=<real-openai-key>
+OPENAI_BASE_URL=https://api.openai.com/v1
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
 ENABLE_API_DOCS=false
 ```
 
@@ -128,6 +183,11 @@ The web image supports two production modes:
 
 - same-origin mode: set `WEB_PUBLIC_API_BASE_URL=` and let Nginx proxy `/api/*` to the API container
 - split-origin mode: set `WEB_PUBLIC_API_BASE_URL=https://api.example.com`
+
+Frontend env surface:
+
+- `VITE_API_BASE_URL` (dev/build-time base URL)
+- `WEB_PUBLIC_API_BASE_URL` (container runtime override -> `window.__APP_CONFIG__.VITE_API_BASE_URL`)
 
 ### Docker Compose Deployment
 
@@ -213,11 +273,40 @@ For a Windows-first smoke pass after dependencies are installed:
 powershell -ExecutionPolicy Bypass -File scripts/verify_local_environment.ps1
 ```
 
+For a one-command local-live bootstrap:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/bootstrap_local_live.ps1
+```
+
+For a local prod-like stack check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify_local_prod_like.ps1
+```
+
 This checks Docker availability, API import, database connectivity, Alembic upgrade, and the frontend production build.
+
+For a database integrity and growth audit:
+
+```powershell
+cd apps/api
+py -3.12 scripts/db_maintenance.py
+```
+
+To repair only `lead_source_records.current_for_lead_id` marker drift:
+
+```powershell
+cd apps/api
+py -3.12 scripts/db_maintenance.py --apply-current-marker-repair
+```
+
+See [docs/database-maintenance.md](docs/database-maintenance.md) for the full safety notes and output details.
 
 ## Local vs Production-Style Defaults
 
-- `.env.example` is intentionally local-development friendly and boots cleanly in explicit demo runtime (`SERPAPI_RUNTIME_MODE=demo`, `AI_PROVIDER=stub`).
+- `.env.local-live.example` is the primary local development profile: live SerpAPI, Ollama primary, OpenAI fallback.
+- `.env.example` remains a generic template, but local development should prefer the explicit local-live profile.
 - For shared/staging/production environments, replace `JWT_SECRET`, `DEFAULT_ADMIN_PASSWORD`, and provider credentials with real secrets.
 - Seed data and demo setup are explicit script-driven flows, not startup side effects.
 - `infra/deploy.env.example` is the production-oriented template; fill it with real values before any remote deployment.

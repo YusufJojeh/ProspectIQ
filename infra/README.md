@@ -16,7 +16,8 @@ docker compose -f infra/docker-compose.yml up -d
 
 1. Copy `infra/deploy.env.example` to a real `deploy.env`.
 2. Replace every placeholder secret and credential.
-3. Pull and start the stack:
+3. Keep provider/runtime modes explicit (`SERPAPI_RUNTIME_MODE`, `AI_PROVIDER`, discovery controls).
+4. Pull and start the stack:
 
 ```powershell
 docker compose --env-file infra/deploy.env -f infra/docker-compose.deploy.yml pull

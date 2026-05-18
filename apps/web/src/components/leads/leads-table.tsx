@@ -1,11 +1,13 @@
 import type { KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { appPaths } from "@/app/paths";
 import { ScoreRing } from "@/components/brand/score-ring";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { bandTone, formatScore, statusTone, titleCaseLabel } from "@/lib/presenters";
+import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
+import { bandTone, formatScore, statusTone } from "@/lib/presenters";
 import type { LeadResponse } from "@/types/api";
 
 export function LeadsTable({
@@ -21,16 +23,17 @@ export function LeadsTable({
   onSelectLead: (leadId: string) => void;
   onToggleSelect: (leadId: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Table className="min-w-[860px]">
       <TableHeader className="bg-muted/30">
         <TableRow className="hover:bg-transparent">
           <TableHead className="w-12" />
-          <TableHead>Lead</TableHead>
-          <TableHead>Coverage</TableHead>
-          <TableHead>Score</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Website</TableHead>
+          <TableHead>{t("leads.lead")}</TableHead>
+          <TableHead>{t("leads.coverage")}</TableHead>
+          <TableHead>{t("leads.score")}</TableHead>
+          <TableHead>{t("leads.status")}</TableHead>
+          <TableHead>{t("leads.website")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -62,6 +65,7 @@ function LeadTableRow({
   onSelectLead: (leadId: string) => void;
   onToggleSelect: (leadId: string) => void;
 }) {
+  const { t } = useTranslation();
   const handleKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -89,24 +93,24 @@ function LeadTableRow({
               {lead.company_name}
             </Link>
             <p className="text-sm text-muted-foreground">
-              {lead.category ?? "Business"} · {lead.city ?? "Unknown"}
+              {lead.category ?? t("leads.business")} · {lead.city ?? t("common.unknown")}
             </p>
           </div>
         </div>
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-2">
-          <Badge tone={bandTone(lead.latest_band)}>{lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}</Badge>
+          <Badge tone={bandTone(lead.latest_band)}>{scoreBandLabel(t, lead.latest_band)}</Badge>
           <Badge tone={lead.latest_qualified ? "success" : "neutral"}>
-            {lead.latest_qualified ? "Qualified" : "Needs review"}
+            {lead.latest_qualified ? t("leads.qualified") : t("leads.needsReview")}
           </Badge>
         </div>
       </TableCell>
       <TableCell className="font-mono tabular-nums">{formatScore(lead.latest_score)}</TableCell>
       <TableCell>
-        <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
+        <Badge tone={statusTone(lead.status)}>{leadStatusLabel(t, lead.status)}</Badge>
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">{lead.website_domain ?? "Missing"}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">{lead.website_domain ?? t("leads.missing")}</TableCell>
     </TableRow>
   );
 }

@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -25,13 +36,14 @@ class Plan(Base):
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = (Index("ix_subscriptions_workspace_id_id", "workspace_id", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
         String(24), unique=True, default=lambda: new_public_id("sub")
     )
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    plan_id: Mapped[int] = mapped_column(ForeignKey("plans.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    plan_id: Mapped[int] = mapped_column(ForeignKey("plans.id"))
     status: Mapped[str] = mapped_column(String(32), default="trialing")
     billing_cycle: Mapped[str] = mapped_column(String(16), default="monthly")
     started_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
@@ -45,13 +57,16 @@ class Subscription(Base):
 
 class Invoice(Base):
     __tablename__ = "invoices"
+    __table_args__ = (
+        Index("ix_invoices_workspace_issued_at_id", "workspace_id", "issued_at", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
         String(24), unique=True, default=lambda: new_public_id("inv")
     )
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    subscription_id: Mapped[int] = mapped_column(ForeignKey("subscriptions.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    subscription_id: Mapped[int] = mapped_column(ForeignKey("subscriptions.id"))
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     currency: Mapped[str] = mapped_column(String(8), default="USD")
     status: Mapped[str] = mapped_column(String(32), default="open")
@@ -62,9 +77,10 @@ class Invoice(Base):
 
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"
+    __table_args__ = (Index("ix_invoice_items_invoice_id_id", "invoice_id", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
     description: Mapped[str] = mapped_column(String(255))
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     quantity: Mapped[int] = mapped_column(Integer(), default=1)
@@ -72,12 +88,20 @@ class InvoiceItem(Base):
 
 class PaymentAttempt(Base):
     __tablename__ = "payment_attempts"
+    __table_args__ = (
+        Index(
+            "ix_payment_attempts_invoice_attempted_at_id",
+            "invoice_id",
+            "attempted_at",
+            "id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
         String(24), unique=True, default=lambda: new_public_id("pay")
     )
-    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
     status: Mapped[str] = mapped_column(String(32), default="pending")
     simulated_result: Mapped[str] = mapped_column(String(32), default="success")
     attempted_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
@@ -86,10 +110,25 @@ class PaymentAttempt(Base):
 
 class UsageCounter(Base):
     __tablename__ = "usage_counters"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "metric_key",
+            "period_start",
+            "period_end",
+            name="uq_usage_counters_workspace_metric_period",
+        ),
+        Index(
+            "ix_usage_counters_workspace_period_end_metric",
+            "workspace_id",
+            "period_end",
+            "metric_key",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    metric_key: Mapped[str] = mapped_column(String(64), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    metric_key: Mapped[str] = mapped_column(String(64))
     current_value: Mapped[int] = mapped_column(Integer(), default=0)
     period_start: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
     period_end: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))

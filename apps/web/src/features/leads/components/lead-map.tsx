@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import { CircleMarker, Popup, useMap } from "react-leaflet";
+import { useTranslation } from "react-i18next";
 import { LeafletMapShell } from "@/components/maps/leaflet-map-shell";
 import {
   DEFAULT_MAP_CENTER,
@@ -11,7 +12,8 @@ import {
   hasCoordinates,
   toLatLngTuple,
 } from "@/lib/maps";
-import { formatScore, titleCaseLabel } from "@/lib/presenters";
+import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
+import { formatScore } from "@/lib/presenters";
 import { cn } from "@/lib/utils";
 import type { LeadScoreBand, LeadStatus } from "@/types/api";
 
@@ -97,6 +99,7 @@ const LeadMarker = memo(function LeadMarker({
   isSelected: boolean;
   onSelect?: (leadId: string) => void;
 }) {
+  const { t } = useTranslation();
   const markerStyle = isSelected ? SELECTED_MARKER_STYLE : DEFAULT_MARKER_STYLE;
   const eventHandlers = useMemo(
     () => (onSelect ? { click: () => onSelect(lead.public_id) } : undefined),
@@ -114,24 +117,24 @@ const LeadMarker = memo(function LeadMarker({
         <div className="space-y-2 p-3">
           <div>
             <p className="font-semibold">{lead.company_name}</p>
-            <p className="text-xs text-[color:var(--muted)]">{lead.city ?? "Unknown city"}</p>
+            <p className="text-xs text-[color:var(--muted)]">{lead.city ?? t("dashboard.unknownCity")}</p>
           </div>
           <div className="grid gap-1 text-xs text-[color:var(--muted)]">
             <p>
-              <span className="font-semibold text-[color:var(--text)]">Score:</span>{" "}
+              <span className="font-semibold text-[color:var(--text)]">{t("leads.score")}:</span>{" "}
               {formatScore(lead.latest_score)}
             </p>
             <p>
-              <span className="font-semibold text-[color:var(--text)]">Band:</span>{" "}
-              {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
+              <span className="font-semibold text-[color:var(--text)]">{t("leads.band")}:</span>{" "}
+              {scoreBandLabel(t, lead.latest_band)}
             </p>
             <p>
-              <span className="font-semibold text-[color:var(--text)]">Status:</span>{" "}
-              {lead.status ? titleCaseLabel(lead.status) : "Unknown"}
+              <span className="font-semibold text-[color:var(--text)]">{t("leads.status")}:</span>{" "}
+              {lead.status ? leadStatusLabel(t, lead.status) : t("common.unknown")}
             </p>
             <p>
-              <span className="font-semibold text-[color:var(--text)]">Website:</span>{" "}
-              {lead.website_domain ?? "Missing"}
+              <span className="font-semibold text-[color:var(--text)]">{t("leads.website")}:</span>{" "}
+              {lead.website_domain ?? t("leads.missing")}
             </p>
           </div>
         </div>
@@ -141,10 +144,11 @@ const LeadMarker = memo(function LeadMarker({
 });
 
 export function LeadMap({ leads, selectedLeadId, onSelect, className }: LeadMapProps) {
+  const { t } = useTranslation();
   const mappable = useMemo(() => leads.filter(hasCoordinates) as MappableLeadMapPoint[], [leads]);
 
   return (
-    <div className={cn("h-full", className)} role="region" aria-label="Lead map">
+    <div className={cn("h-full", className)} role="region" aria-label={t("leads.mapLabel")}>
       <LeafletMapShell scrollWheelZoom={false}>
         <MapViewport leads={mappable} selectedLeadId={selectedLeadId} />
         {mappable.map((lead) => {

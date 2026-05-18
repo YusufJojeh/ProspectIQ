@@ -49,17 +49,20 @@ export function AppTopbar() {
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-background/85 px-3 py-2 backdrop-blur-xl sm:px-4 lg:px-6">
-      <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 items-center gap-1.5 text-sm md:flex">
-        <Link to={appPaths.dashboard} className="shrink-0 text-muted-foreground hover:text-foreground">
+      <nav aria-label="Breadcrumb" className="flex min-w-[7rem] flex-1 basis-32 items-center gap-1.5 text-sm">
+        <Link to={appPaths.dashboard} className="hidden shrink-0 text-muted-foreground hover:text-foreground sm:inline">
           LeadScope
         </Link>
         {segments.map((segment, index) => (
-          <div key={segment + index} className="flex min-w-0 items-center gap-1.5">
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60 rtl:rotate-180" />
+          <div
+            key={segment + index}
+            className={index === segments.length - 1 ? "flex min-w-0 items-center gap-1.5" : "hidden min-w-0 items-center gap-1.5 sm:flex"}
+          >
+            <ChevronRight className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block rtl:rotate-180" />
             <span
               className={
                 index === segments.length - 1
-                  ? "truncate font-medium text-foreground"
+                  ? "min-w-fit truncate font-medium text-foreground"
                   : "truncate text-muted-foreground hover:text-foreground"
               }
             >
@@ -70,7 +73,7 @@ export function AppTopbar() {
       </nav>
 
       <button
-        className="order-4 hidden w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 md:flex md:max-w-sm xl:order-none xl:ml-2"
+        className="order-4 hidden w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 md:flex md:max-w-sm xl:order-none xl:ms-2"
         aria-label={t("topbar.searchPlaceholder")}
         onClick={() => {
           const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true });
@@ -84,7 +87,7 @@ export function AppTopbar() {
         </kbd>
       </button>
 
-      <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-1.5 md:ml-0">
+      <div className="ms-auto flex min-w-0 items-center gap-1 sm:gap-1.5 md:ms-0">
         <Button variant="outline" size="sm" className="hidden border-border bg-transparent font-medium sm:inline-flex" asChild>
           <Link to={appPaths.aiAnalysis}>
             <Sparkles className="size-3.5 text-[oklch(var(--signal))]" />

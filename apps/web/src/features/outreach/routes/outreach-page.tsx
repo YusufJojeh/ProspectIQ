@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ScrollText,
   Send,
@@ -24,14 +25,15 @@ import { BandBadge, bandFromScore } from "@/components/brand/badges";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import type { LeadResponse, OutreachTone } from "@/types/api";
 
-const TONES: { value: OutreachTone; label: string }[] = [
-  { value: "formal", label: "Formal" },
-  { value: "friendly", label: "Friendly" },
-  { value: "consultative", label: "Consultative" },
-  { value: "short_pitch", label: "Short Pitch" },
+const TONES: { value: OutreachTone; labelKey: string }[] = [
+  { value: "formal", labelKey: "outreach.toneFormal" },
+  { value: "friendly", labelKey: "outreach.toneFriendly" },
+  { value: "consultative", labelKey: "outreach.toneConsultative" },
+  { value: "short_pitch", labelKey: "outreach.toneShortPitch" },
 ];
 
 function OutreachCard({ lead }: { lead: LeadResponse }) {
+  const { t } = useTranslation();
   const [tone, setTone] = useState<OutreachTone>("consultative");
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
@@ -72,7 +74,7 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
             <BandBadge band={band} />
           </div>
           <div className="mt-0.5 text-[12px] text-muted-foreground">
-            {lead.category ?? "Business"} · {lead.city ?? "—"}
+            {lead.category ?? t("leads.business")} · {lead.city ?? "—"}
           </div>
         </div>
         <Link
@@ -89,9 +91,9 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {TONES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
+            {TONES.map((toneOption) => (
+              <SelectItem key={toneOption.value} value={toneOption.value}>
+                {t(toneOption.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -108,7 +110,7 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
           ) : (
             <Sparkles className="size-3.5" />
           )}
-          {displayDraft ? "Regenerate" : "Generate draft"}
+          {displayDraft ? t("outreach.regenerate") : t("outreach.generateDraft")}
         </Button>
       </div>
 
@@ -120,20 +122,20 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-3">
           <div className="flex items-center justify-between">
             <div className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
-              Subject
+              {t("leadDetail.outreachSubject")}
             </div>
             <button
               onClick={() => void copyToClipboard(`${displayDraft.subject}\n\n${displayDraft.message}`)}
               className="flex items-center gap-1 text-[10.5px] text-muted-foreground transition hover:text-foreground"
             >
               {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-              {copied ? "Copied" : "Copy all"}
+              {copied ? t("outreach.copied") : t("outreach.copyAll")}
             </button>
           </div>
           <div className="text-[12.5px] font-medium">{displayDraft.subject}</div>
           <div className="mt-1 border-t border-border pt-2">
             <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
-              Message
+              {t("outreach.message")}
             </div>
             <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
               {displayDraft.message}
@@ -151,7 +153,7 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
       {!displayDraft && !generateMutation.isPending && !latestQuery.isPending && (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/10 px-3 py-4 text-[12px] text-muted-foreground">
           <MessageSquare className="size-4 shrink-0" />
-          Select a tone and generate a draft to begin outreach.
+          {t("outreach.emptyDraftInstruction")}
         </div>
       )}
     </article>
@@ -159,7 +161,8 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
 }
 
 export function OutreachPage() {
-  useDocumentTitle("Outreach");
+  const { t } = useTranslation();
+  useDocumentTitle(t("outreach.title"));
   const [query, setQuery] = useState("");
 
   const leadsQuery = useQuery({
@@ -181,24 +184,24 @@ export function OutreachPage() {
   }, [leads, query]);
 
   if (leadsQuery.isPending) {
-    return <QueryStateNotice tone="loading" title="Loading outreach workspace" description="Fetching leads…" />;
+    return <QueryStateNotice tone="loading" title={t("outreach.loadingTitle")} description={t("outreach.loadingDescription")} />;
   }
 
   if (leadsQuery.isError) {
     return (
-      <QueryStateNotice tone="error" title="Could not load leads" error={leadsQuery.error} />
+      <QueryStateNotice tone="error" title={t("outreach.loadErrorTitle")} error={leadsQuery.error} />
     );
   }
 
   return (
     <div>
       <PageHeader
-        eyebrow="Outreach"
-        title="AI-drafted outreach messages"
-        description="Generate tone-matched outreach drafts for each lead. Drafts are based on real evidence signals — no hallucinations."
+        eyebrow={t("outreach.eyebrow")}
+        title={t("outreach.headerTitle")}
+        description={t("outreach.headerDescription")}
         actions={
           <Button size="sm" variant="outline" className="bg-transparent">
-            <Send className="size-3.5" /> Batch generate
+            <Send className="size-3.5" /> {t("outreach.batchGenerate")}
           </Button>
         }
       />
@@ -207,9 +210,9 @@ export function OutreachPage() {
         {/* Summary stats */}
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[
-            { k: "Leads available", v: String(leads.length), sub: "for outreach drafting", tone: "evidence", icon: ScrollText },
-            { k: "High-band leads", v: String(leads.filter((l) => l.latest_band === "high").length), sub: "priority outreach", tone: "signal", icon: Sparkles },
-            { k: "Tone options", v: "4", sub: "formal · friendly · consultative · pitch", tone: "caution", icon: MessageSquare },
+            { k: t("outreach.leadsAvailable"), v: String(leads.length), sub: t("outreach.forDrafting"), tone: "evidence", icon: ScrollText },
+            { k: t("outreach.highBandLeads"), v: String(leads.filter((l) => l.latest_band === "high").length), sub: t("outreach.priorityOutreach"), tone: "signal", icon: Sparkles },
+            { k: t("outreach.toneOptions"), v: "4", sub: t("outreach.toneOptionsSummary"), tone: "caution", icon: MessageSquare },
           ].map((s) => (
             <div key={s.k} className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-[11.5px] uppercase tracking-wider text-muted-foreground">
@@ -224,12 +227,12 @@ export function OutreachPage() {
 
         {/* Search */}
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by company, city, or category…"
-            className="h-9 bg-card pl-9"
+            placeholder={t("outreach.searchPlaceholder")}
+            className="h-9 bg-card ps-9"
           />
         </div>
 
@@ -243,8 +246,8 @@ export function OutreachPage() {
         {filtered.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card/40 py-16 text-center">
             <ScrollText className="size-5 text-muted-foreground" />
-            <div className="text-sm font-medium">No leads match your search</div>
-            <div className="text-xs text-muted-foreground">Try widening the search terms.</div>
+            <div className="text-sm font-medium">{t("outreach.noSearchMatches")}</div>
+            <div className="text-xs text-muted-foreground">{t("outreach.noSearchMatchesDescription")}</div>
           </div>
         )}
       </div>

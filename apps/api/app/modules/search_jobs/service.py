@@ -92,7 +92,7 @@ class SearchJobService:
         settings = get_settings()
         if settings.discovery_runtime == "blocked":
             raise ServiceUnavailableError(
-                "Lead discovery is unavailable because SERPAPI_API_KEY is not configured and demo fallbacks are disabled."
+                "Lead discovery is unavailable because SERPAPI_API_KEY is not configured."
             )
 
     def to_response(self, job: SearchJob) -> SearchJobResponse:

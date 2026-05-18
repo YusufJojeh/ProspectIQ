@@ -85,18 +85,18 @@ export function AiAnalysisPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="AI analysis"
-        title="Evidence-grounded recommendations"
-        description="Every recommendation cites the verified facts behind it. No hallucinated signals, no opaque scoring."
+        eyebrow={t("ai.title")}
+        title={t("ai.heroTitle")}
+        description={t("ai.heroDescription")}
         actions={
           <div className="flex gap-2">
             <Button size="sm" variant="outline" className="bg-transparent" asChild>
               <Link to={appPaths.assistant}>
-                <Sparkles className="size-3.5" /> Open assistant
+                <Sparkles className="size-3.5" /> {t("ai.openAssistant")}
               </Link>
             </Button>
             <Button size="sm">
-              <Zap className="size-3.5" /> Run batch analysis
+              <Zap className="size-3.5" /> {t("ai.runBatchAnalysis")}
             </Button>
           </div>
         }
@@ -168,13 +168,13 @@ export function AiAnalysisPage() {
               <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">{tab.count}</span>
             </button>
           ))}
-          <div className="relative w-full md:ml-auto md:w-64">
+          <div className="relative w-full md:ms-auto md:w-64">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("ai.searchLeads")}
-              className="h-8 bg-background pl-8 text-[12.5px]"
+              className="h-8 bg-background ps-8 text-[12.5px]"
             />
           </div>
         </section>
@@ -204,13 +204,13 @@ export function AiAnalysisPage() {
                       {lead.category ?? "Business"} · {lead.city ?? "—"}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {kind === "recommend" && <AiPill>Recommend outreach</AiPill>}
+                      {kind === "recommend" && <AiPill>{t("ai.recommendOutreach")}</AiPill>}
                       {kind === "watch" && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-[oklch(var(--caution)/0.35)] bg-[oklch(var(--caution)/0.08)] px-2 py-0.5 text-[11px] font-medium text-[oklch(var(--caution))]">
-                          <Clock className="size-3" /> Watch — monitor signal
+                          <Clock className="size-3" /> {t("ai.watchSignal")}
                         </span>
                       )}
-                      {kind === "attention" && <AttentionPill>Needs review</AttentionPill>}
+                      {kind === "attention" && <AttentionPill>{t("ai.needsReview")}</AttentionPill>}
                       <ConfidenceBadge value={lead.data_confidence} />
                     </div>
                   </div>
@@ -220,35 +220,34 @@ export function AiAnalysisPage() {
                   <span className="font-medium text-foreground">{lead.company_name}</span>{" "}
                   {kind === "recommend" ? (
                     <>
-                      shows strong operational maturity with {lead.review_count} reviews
-                      {lead.rating ? ` at ${lead.rating} avg.` : "."} Confidence score of{" "}
+                      {t("ai.recommendationCopyPrefix", { reviews: lead.review_count })}
+                      {lead.rating ? t("ai.ratingAverage", { rating: lead.rating }) : "."} {t("ai.confidenceScore")}{" "}
                       <span className="text-foreground">{Math.round(lead.data_confidence * 100)}%</span>.
                     </>
                   ) : kind === "watch" ? (
                     <>
-                      shows moderate signal. Data completeness at{" "}
-                      <span className="text-foreground">{Math.round(lead.data_completeness * 100)}%</span>. Consider
-                      an enrichment pass before outreach.
+                      {t("ai.watchCopyPrefix")}{" "}
+                      <span className="text-foreground">{Math.round(lead.data_completeness * 100)}%</span>.{" "}
+                      {t("ai.watchCopySuffix")}
                     </>
                   ) : (
                     <>
-                      has developing signal. Current evidence does not yet meet tier threshold — hold outreach until
-                      next refresh.
+                      {t("ai.attentionCopy")}
                     </>
                   )}
                 </p>
 
                 <div className="grid grid-cols-3 gap-2 text-[11.5px]">
                   <div className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Score</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ai.score")}</div>
                     <div className="mt-0.5 font-mono font-semibold tabular-nums">{score}</div>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reviews</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ai.reviews")}</div>
                     <div className="mt-0.5 font-mono font-semibold tabular-nums">{lead.review_count}</div>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ai.confidence")}</div>
                     <div className="mt-0.5 font-mono font-semibold tabular-nums">
                       {Math.round(lead.data_confidence * 100)}%
                     </div>
@@ -257,17 +256,17 @@ export function AiAnalysisPage() {
 
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <CheckCircle2 className="size-3 text-[oklch(var(--evidence))]" />
-                  {lead.category ?? "Business"} · {lead.city ?? "—"}{lead.has_website ? " · has website" : ""}
+                  {lead.category ?? t("dashboard.business")} · {lead.city ?? "—"}{lead.has_website ? ` · ${t("ai.hasWebsite")}` : ""}
                 </div>
 
                 <div className="flex items-center gap-2 border-t border-border pt-3">
                   <Button size="sm" variant="outline" className="bg-transparent" asChild>
                     <Link to={appPaths.leadDetail(lead.public_id)}>
-                      <TrendingUp className="size-3.5" /> Open lead
+                      <TrendingUp className="size-3.5" /> {t("ai.openLead")}
                     </Link>
                   </Button>
                   <Button size="sm" variant="ghost" asChild>
-                    <Link to={`${appPaths.assistant}?leadId=${lead.public_id}`}>Ask assistant</Link>
+                    <Link to={`${appPaths.assistant}?leadId=${lead.public_id}`}>{t("ai.askAssistant")}</Link>
                   </Button>
                 </div>
               </article>

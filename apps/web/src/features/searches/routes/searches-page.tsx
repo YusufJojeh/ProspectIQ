@@ -2,6 +2,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Compass, Copy, DatabaseZap, Play, SearchCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { z } from "zod";
@@ -19,7 +20,8 @@ import { createSearchJob } from "@/features/searches/api";
 import { useInvalidateLeadsWhileDiscoveryActive } from "@/hooks/use-invalidate-leads-while-discovery-active";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useSearchJobsQuery } from "@/hooks/use-search-jobs-query";
-import { formatDate, searchJobTone, titleCaseLabel } from "@/lib/presenters";
+import { searchJobStatusLabel, websitePreferenceLabel } from "@/lib/i18n-labels";
+import { formatDate, searchJobTone } from "@/lib/presenters";
 import type { SearchJobResponse } from "@/types/api";
 
 const searchSchema = z
@@ -83,7 +85,8 @@ const defaultValues: SearchValues = {
 };
 
 export function SearchesPage() {
-  useDocumentTitle("Search Jobs");
+  const { t } = useTranslation();
+  useDocumentTitle(t("searches.title"));
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<SearchJobResponse | null>(null);
 
@@ -126,12 +129,12 @@ export function SearchesPage() {
   return (
     <div className="space-y-6 p-3 sm:p-4 lg:p-6">
       <PageHeader
-        eyebrow="Search jobs"
-        title="Scoped discovery workspace"
-        description="The imported job-management layout now runs on the live FastAPI search queue, including clone, rerun, history, and lead-routing actions."
+        eyebrow={t("searches.title")}
+        title={t("searches.workspaceTitle")}
+        description={t("searches.workspaceDescription")}
         actions={
           <Button asChild variant="outline" className="bg-transparent">
-            <Link to={appPaths.leads}>Open leads workspace</Link>
+            <Link to={appPaths.leads}>{t("searches.openLeadsWorkspace")}</Link>
           </Button>
         }
       />
@@ -139,66 +142,66 @@ export function SearchesPage() {
       {currentDiscoveryRuntime === "demo" ? (
         <QueryStateNotice
           tone="info"
-          title="Discovery is using demo provider data"
-          description="This workspace is currently returning structured demo results instead of live SerpAPI responses."
+          title={t("searches.demoRuntimeTitle")}
+          description={t("searches.demoRuntimeDescription")}
         />
-      ) : currentDiscoveryRuntime === "serpapi" ? (
+      ) : currentDiscoveryRuntime === "live" ? (
         <QueryStateNotice
           tone="success"
-          title="Discovery is using live SerpAPI"
-          description="New search jobs will call the live provider and persist real fetch traces."
+          title={t("searches.liveRuntimeTitle")}
+          description={t("searches.liveRuntimeDescription")}
         />
       ) : currentDiscoveryRuntime === "blocked" ? (
         <QueryStateNotice
           tone="error"
-          title="Discovery is blocked"
-          description="Real SerpAPI calls are required for this workspace and demo fallbacks are disabled or unavailable."
+          title={t("searches.blockedRuntimeTitle")}
+          description={t("searches.blockedRuntimeDescription")}
         />
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <MetricCard label="Queued or running" value={String(queuedJobs)} helper="Live discovery throughput" />
-        <MetricCard label="Completed cleanly" value={String(completedJobs)} helper="Finished without warnings" />
-        <MetricCard label="Completed with warnings" value={String(partialJobs)} helper="Partial provider success" />
+        <MetricCard label={t("searches.queuedOrRunning")} value={String(queuedJobs)} helper={t("searches.liveThroughput")} />
+        <MetricCard label={t("searches.completedCleanly")} value={String(completedJobs)} helper={t("searches.finishedWithoutWarnings")} />
+        <MetricCard label={t("searches.completedWithWarnings")} value={String(partialJobs)} helper={t("searches.partialProviderSuccess")} />
       </section>
 
       <section className="grid gap-4 2xl:grid-cols-[1.05fr_0.95fr]">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Create new job</CardTitle>
+            <CardTitle>{t("searches.createNewJob")}</CardTitle>
             <CardDescription>
-              Imported discovery controls are now mapped to the real search job API contract and validation rules.
+              {t("searches.createNewJobDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}>
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Business type" error={form.formState.errors.business_type?.message}>
+                <Field label={t("searches.businessType")} error={form.formState.errors.business_type?.message}>
                   <Input
                     data-testid="search-form-business-type"
                     placeholder="Dentist, lawyer, clinic, salon"
                     {...form.register("business_type")}
                   />
                 </Field>
-                <Field label="City" error={form.formState.errors.city?.message}>
+                <Field label={t("searches.city")} error={form.formState.errors.city?.message}>
                   <Input data-testid="search-form-city" placeholder="Istanbul" {...form.register("city")} />
                 </Field>
-                <Field label="Region" error={form.formState.errors.region?.message}>
+                <Field label={t("searches.region")} error={form.formState.errors.region?.message}>
                   <Input placeholder="District, state, or broader geography" {...form.register("region")} />
                 </Field>
-                <Field label="Keyword filter" error={form.formState.errors.keyword_filter?.message}>
+                <Field label={t("searches.keywordFilter")} error={form.formState.errors.keyword_filter?.message}>
                   <Input placeholder="implant, emergency, cosmetic" {...form.register("keyword_filter")} />
                 </Field>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
-                <Field label="Radius (km)" error={form.formState.errors.radius_km?.message}>
+                <Field label={t("searches.radiusKm")} error={form.formState.errors.radius_km?.message}>
                   <Input type="number" min={1} max={500} {...form.register("radius_km")} />
                 </Field>
-                <Field label="Max results" error={form.formState.errors.max_results?.message}>
+                <Field label={t("searches.maxResults")} error={form.formState.errors.max_results?.message}>
                   <Input type="number" min={1} max={100} {...form.register("max_results")} />
                 </Field>
-                <Field label="Website preference">
+                <Field label={t("searches.websitePreference")}>
                   <Select
                     value={form.watch("website_preference")}
                     onValueChange={(value) =>
@@ -209,28 +212,28 @@ export function SearchesPage() {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select website preference" />
+                      <SelectValue placeholder={t("searches.selectWebsitePreference")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="must_have">Must have website</SelectItem>
-                      <SelectItem value="must_be_missing">Must be missing website</SelectItem>
+                      <SelectItem value="any">{t("searches.websiteAny")}</SelectItem>
+                      <SelectItem value="must_have">{t("searches.websiteRequired")}</SelectItem>
+                      <SelectItem value="must_be_missing">{t("searches.websiteNone")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
               </div>
 
               <div className="grid gap-4 md:grid-cols-4">
-                <Field label="Min rating" error={form.formState.errors.min_rating?.message}>
+                <Field label={t("searches.minRating")} error={form.formState.errors.min_rating?.message}>
                   <Input type="number" min={0} max={5} step="0.1" {...form.register("min_rating")} />
                 </Field>
-                <Field label="Max rating" error={form.formState.errors.max_rating?.message}>
+                <Field label={t("searches.maxRating")} error={form.formState.errors.max_rating?.message}>
                   <Input type="number" min={0} max={5} step="0.1" {...form.register("max_rating")} />
                 </Field>
-                <Field label="Min reviews" error={form.formState.errors.min_reviews?.message}>
+                <Field label={t("searches.minReviews")} error={form.formState.errors.min_reviews?.message}>
                   <Input type="number" min={0} {...form.register("min_reviews")} />
                 </Field>
-                <Field label="Max reviews" error={form.formState.errors.max_reviews?.message}>
+                <Field label={t("searches.maxReviews")} error={form.formState.errors.max_reviews?.message}>
                   <Input type="number" min={0} {...form.register("max_reviews")} />
                 </Field>
               </div>
@@ -238,24 +241,24 @@ export function SearchesPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="submit" disabled={createMutation.isPending}>
                   <Play className="size-3.5" />
-                  {createMutation.isPending ? "Submitting..." : "Queue discovery job"}
+                  {createMutation.isPending ? t("searches.submitting") : t("searches.queueDiscoveryJob")}
                 </Button>
                 <Button type="button" variant="outline" className="bg-transparent" onClick={() => form.reset(defaultValues)}>
-                  Reset form
+                  {t("searches.resetForm")}
                 </Button>
               </div>
 
               {createMutation.isSuccess ? (
                 <QueryStateNotice
                   tone="success"
-                  title="Discovery job queued"
-                  description="The run was accepted and the search-job list has been refreshed."
+                  title={t("searches.discoveryQueuedTitle")}
+                  description={t("searches.discoveryQueuedDescription")}
                 />
               ) : null}
               {createMutation.isError ? (
                 <QueryStateNotice
                   tone="error"
-                  title="Search job could not be queued"
+                  title={t("searches.queueErrorTitle")}
                   error={createMutation.error}
                 />
               ) : null}
@@ -266,32 +269,32 @@ export function SearchesPage() {
         <div className="space-y-4">
           <Card className="rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Run guidance</CardTitle>
-              <CardDescription>Use explicit qualification thresholds so result quality remains reproducible.</CardDescription>
+              <CardTitle>{t("searches.runGuidance")}</CardTitle>
+              <CardDescription>{t("searches.runGuidanceDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <InsightCard
                 icon={<SearchCheck className="mt-1 size-5 text-[oklch(var(--signal))]" />}
-                title="Discovery flow"
-                description="Maps search discovers candidates, enrichment deepens selected records, and web validation confirms website presence."
+                title={t("searches.discoveryFlow")}
+                description={t("searches.discoveryFlowDescription")}
               />
               <InsightCard
                 icon={<DatabaseZap className="mt-1 size-5 text-[oklch(var(--signal))]" />}
-                title="Stored outputs"
-                description="Raw payloads, normalized facts, score breakdowns, and activity records remain persisted separately for traceability."
+                title={t("searches.storedOutputs")}
+                description={t("searches.storedOutputsDescription")}
               />
               <InsightCard
                 icon={<Compass className="mt-1 size-5 text-[oklch(var(--signal))]" />}
-                title="Clone and rerun"
-                description="Historical jobs can populate the live form or be resubmitted directly without introducing mock workflow state."
+                title={t("searches.cloneAndRerun")}
+                description={t("searches.cloneAndRerunDescription")}
               />
             </CardContent>
           </Card>
 
           <Card className="rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Selected run</CardTitle>
-              <CardDescription>Use the drawer to inspect details, clone parameters, rerun, or jump into lead results.</CardDescription>
+              <CardTitle>{t("searches.selectedRun")}</CardTitle>
+              <CardDescription>{t("searches.selectedRunDescription")}</CardDescription>
             </CardHeader>
             <CardContent>
               {selectedJob ? (
@@ -302,8 +305,8 @@ export function SearchesPage() {
                 />
               ) : (
                 <EmptyState
-                  title="No run selected"
-                  description="Select an active or historical job below to inspect the imported detail drawer."
+                  title={t("searches.noRunSelected")}
+                  description={t("searches.noRunSelectedDescription")}
                 />
               )}
             </CardContent>
@@ -314,14 +317,14 @@ export function SearchesPage() {
       <section className="grid gap-4 2xl:grid-cols-2">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Active jobs</CardTitle>
-            <CardDescription>Queued and running search jobs with real execution status and action controls.</CardDescription>
+            <CardTitle>{t("searches.activeJobs")}</CardTitle>
+            <CardDescription>{t("searches.activeJobsDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {activeJobs.length === 0 ? (
               <EmptyState
-                title="No active jobs"
-                description="Queued and running discovery jobs will appear here while the workspace refreshes in real time."
+                title={t("searches.noActiveJobs")}
+                description={t("searches.noActiveJobsDescription")}
               />
             ) : (
               activeJobs.map((job) => (
@@ -340,14 +343,14 @@ export function SearchesPage() {
 
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
-            <CardTitle>Run history</CardTitle>
-            <CardDescription>Completed jobs remain actionable through the imported cards and detail drawer.</CardDescription>
+            <CardTitle>{t("searches.runHistory")}</CardTitle>
+            <CardDescription>{t("searches.runHistoryDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {historyJobs.length === 0 ? (
               <EmptyState
-                title="No completed runs yet"
-                description="Once jobs finish, their persisted throughput and warnings will appear in this history view."
+                title={t("searches.noCompletedRuns")}
+                description={t("searches.noCompletedRunsDescription")}
               />
             ) : (
               historyJobs.map((job) => (
@@ -482,6 +485,7 @@ function SearchJobPreview({
   onOpen: () => void;
   onClone: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-2xl border border-border bg-muted/20 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -491,14 +495,14 @@ function SearchJobPreview({
           </p>
           <p className="mt-1 text-sm text-muted-foreground">{formatDate(job.queued_at)}</p>
         </div>
-        <Badge tone={searchJobTone(job.status)}>{titleCaseLabel(job.status)}</Badge>
+        <Badge tone={searchJobTone(job.status)}>{searchJobStatusLabel(t, job.status)}</Badge>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" className="flex-1 sm:flex-none" onClick={onOpen}>
-          Inspect run
+          {t("searches.inspectRun")}
         </Button>
         <Button size="sm" variant="outline" className="flex-1 bg-transparent sm:flex-none" onClick={onClone}>
-          Clone to form
+          {t("searches.cloneToForm")}
         </Button>
       </div>
     </div>
@@ -518,6 +522,7 @@ function SearchJobCard({
   onRerun: () => void;
   rerunning?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-2xl border border-border bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -527,19 +532,19 @@ function SearchJobCard({
             {job.region ? `, ${job.region}` : ""}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {formatDate(job.queued_at)} / {job.candidates_found} candidates / {job.leads_upserted} upserted
+            {t("searches.jobCardSummary", {
+              date: formatDate(job.queued_at),
+              candidates: job.candidates_found,
+              upserted: job.leads_upserted,
+            })}
           </p>
         </div>
-        <Badge tone={searchJobTone(job.status)}>{titleCaseLabel(job.status)}</Badge>
+        <Badge tone={searchJobTone(job.status)}>{searchJobStatusLabel(t, job.status)}</Badge>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Badge tone="neutral">
-          {job.website_preference === "must_have"
-            ? "Website required"
-            : job.website_preference === "must_be_missing"
-              ? "Website missing"
-              : "Website any"}
+          {websitePreferenceLabel(t, job.website_preference)}
         </Badge>
         {job.keyword_filter ? <Badge tone="accent">{job.keyword_filter}</Badge> : null}
         {job.radius_km ? <Badge tone="neutral">{job.radius_km} km radius</Badge> : null}
@@ -547,11 +552,11 @@ function SearchJobCard({
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" className="flex-1 sm:flex-none" onClick={onInspect}>
-          Inspect
+          {t("searches.inspect")}
         </Button>
         <Button size="sm" variant="outline" className="flex-1 bg-transparent sm:flex-none" onClick={onClone}>
           <Copy className="size-3.5" />
-          Clone
+          {t("searches.clone")}
         </Button>
         <Button
           size="sm"
@@ -561,10 +566,10 @@ function SearchJobCard({
           disabled={rerunning}
         >
           <Play className="size-3.5" />
-          {rerunning ? "Rerunning..." : "Rerun"}
+          {rerunning ? t("searches.rerunning") : t("searches.rerun")}
         </Button>
         <Button size="sm" variant="outline" className="flex-1 bg-transparent sm:flex-none" asChild>
-          <Link to={`${appPaths.leads}?search_job_id=${job.public_id}`}>View leads</Link>
+          <Link to={`${appPaths.leads}?search_job_id=${job.public_id}`}>{t("searches.viewLeads")}</Link>
         </Button>
       </div>
     </div>

@@ -5,6 +5,8 @@
 - set a real `JWT_SECRET` (32+ chars)
 - set a rotated `DEFAULT_ADMIN_PASSWORD` (12+ chars)
 - set provider credentials if running in live provider mode (`SERPAPI_RUNTIME_MODE=live`, non-empty `SERPAPI_API_KEY`)
+- set explicit discovery execution controls (`DISCOVERY_MODE`, `DISCOVERY_MULTI_ENGINE_ENABLED`, `DISCOVERY_ENGINE_LIST`, and budget/circuit vars)
+- set explicit AI runtime mode (`AI_PROVIDER=ollama|openai|auto|stub`) and required provider credentials for non-stub modes
 - set explicit `WEB_ORIGINS` for the deployed frontend origin
 - confirm `DATABASE_URL` targets the intended MySQL or MariaDB instance
 - prepare a real `infra/deploy.env` from `infra/deploy.env.example`

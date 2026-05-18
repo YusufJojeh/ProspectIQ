@@ -5,13 +5,16 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
+from app.core.errors import ServiceUnavailableError
+from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
-from app.modules.ai_analysis.schemas import LeadScoreContext
+from app.modules.ai_analysis.schemas import LeadAnalysisInput, LeadScoreContext
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.leads.models import Lead
 from app.modules.outreach.models import OutreachMessage
 from app.modules.outreach.schemas import OutreachGenerateRequest, OutreachMessageUpdateRequest
 from app.modules.outreach.service import OutreachGenerationService
+from app.modules.search_jobs import models as _search_job_models  # noqa: F401
 from app.modules.users.models import User, Workspace
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.enums.jobs import OutreachTone
@@ -80,11 +83,41 @@ class InvalidAdapter:
         return {"summary": "invalid"}
 
 
+class ValidAdapter:
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        company_name = payload.local_business.company_name
+        return {
+            "summary": f"{company_name} has enough evidence for an assistive review.",
+            "weaknesses": ["Website conversion details are still limited."],
+            "opportunities": ["Run a focused visibility audit."],
+            "recommended_services": ["Local SEO Sprint", "GBP Optimization"],
+            "outreach_subject": f"Quick ideas for {company_name}",
+            "outreach_message": f"Hi {company_name}, we found a few evidence-backed opportunities.",
+            "confidence": 0.78,
+        }
+
+
+class ServiceCatalogAwareAdapter:
+    def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        company_name = payload.local_business.company_name
+        services = list(payload.allowed_service_catalog[:2]) or ["Local SEO Sprint"]
+        return {
+            "summary": f"{company_name} has a scoped service opportunity.",
+            "weaknesses": ["The visible demand signals need follow-up."],
+            "opportunities": ["Match outreach to the highest-ranked workspace service."],
+            "recommended_services": services,
+            "outreach_subject": f"Service ideas for {company_name}",
+            "outreach_message": f"Hi {company_name}, these services align with your current signals.",
+            "confidence": 0.74,
+            "recommended_tone": "consultative",
+        }
+
+
 def test_ai_analysis_persists_and_reuses_snapshot() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:
         workspace, user, lead = _seed(db)
-        service = AIAnalysisService()
+        service = AIAnalysisService(llm_client=ValidAdapter())
         facts = NormalizedLeadFacts(
             company_name=lead.company_name,
             category=lead.category,
@@ -148,7 +181,7 @@ def test_ai_analysis_creates_default_prompt_template_when_missing() -> None:
         db.query(PromptTemplate).delete()
         db.commit()
 
-        service = AIAnalysisService()
+        service = AIAnalysisService(llm_client=ValidAdapter())
         facts = NormalizedLeadFacts(
             company_name=lead.company_name,
             category=lead.category,
@@ -177,11 +210,14 @@ def test_ai_analysis_creates_default_prompt_template_when_missing() -> None:
         assert db.scalar(select(func.count(PromptTemplate.id))) == 1
 
 
-def test_ai_analysis_falls_back_to_valid_payload_when_adapter_output_is_invalid() -> None:
+def test_ai_analysis_uses_explicit_fallback_client_when_primary_output_is_invalid() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:
         workspace, user, lead = _seed(db)
-        service = AIAnalysisService(llm_client=InvalidAdapter())
+        service = AIAnalysisService(
+            llm_client=InvalidAdapter(),
+            fallback_client=FallbackAnalysisBuilder(),
+        )
         facts = NormalizedLeadFacts(
             company_name=lead.company_name,
             category=lead.category,
@@ -210,12 +246,156 @@ def test_ai_analysis_falls_back_to_valid_payload_when_adapter_output_is_invalid(
         assert result.recommended_services
 
 
+def test_ai_analysis_fails_when_all_configured_providers_fail() -> None:
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace, user, lead = _seed(db)
+        service = AIAnalysisService(llm_client=InvalidAdapter())
+
+        facts = NormalizedLeadFacts(
+            company_name=lead.company_name,
+            category=lead.category,
+            city=lead.city,
+            website_url=lead.website_url,
+            website_domain=lead.website_domain,
+            review_count=lead.review_count,
+            rating=lead.rating,
+            data_completeness=lead.data_completeness,
+            data_confidence=lead.data_confidence,
+            has_website=lead.has_website,
+        )
+
+        try:
+            service.analyze(
+                db,
+                workspace_id=workspace.id,
+                lead=lead,
+                facts=facts,
+                created_by_user_id=user.id,
+            )
+        except ServiceUnavailableError as exc:
+            assert "all configured providers" in exc.detail
+        else:
+            raise AssertionError("Expected ServiceUnavailableError when all providers fail.")
+
+
+def test_sha256_deduplication_returns_existing_snapshot_not_new_one() -> None:
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace, user, lead = _seed(db)
+        service = AIAnalysisService(llm_client=ValidAdapter())
+        facts = NormalizedLeadFacts(
+            company_name=lead.company_name,
+            category=lead.category,
+            city=lead.city,
+            website_url=lead.website_url,
+            website_domain=lead.website_domain,
+            review_count=lead.review_count,
+            rating=lead.rating,
+            data_completeness=lead.data_completeness,
+            data_confidence=lead.data_confidence,
+            has_website=lead.has_website,
+            visibility_confidence=0.5,
+            visibility_source="web_search",
+        )
+        snap1, _ = service.analyze(db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id)
+        snap2, _ = service.analyze(db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id)
+        snap3, _ = service.analyze(db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id)
+
+        assert snap1.id == snap2.id == snap3.id
+        assert db.scalar(select(func.count(AIAnalysisSnapshot.id))) == 1
+
+
+def test_fallback_analysis_builder_output_schema_is_valid() -> None:
+    from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder
+    from app.modules.ai_analysis.prompt_builder import PromptBuilder
+    from app.modules.ai_analysis.schemas import LeadScoreContext
+    from app.modules.ai_analysis.validator import LLMOutputValidator
+
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace, user, lead = _seed(db)
+        facts = NormalizedLeadFacts(
+            company_name=lead.company_name,
+            category=lead.category,
+            city=lead.city,
+            website_url=lead.website_url,
+            website_domain=lead.website_domain,
+            review_count=lead.review_count,
+            rating=lead.rating,
+            data_completeness=lead.data_completeness,
+            data_confidence=lead.data_confidence,
+            has_website=lead.has_website,
+            visibility_confidence=0.5,
+            visibility_source="web_search",
+        )
+        input_payload = PromptBuilder().build_input_payload(
+            facts,
+            score_context=LeadScoreContext(total_score=72, band="medium", qualified=True),
+            allowed_service_catalog=["SEO", "PPC"],
+        )
+        raw = FallbackAnalysisBuilder().analyze(input_payload)
+        result = LLMOutputValidator().validate(raw)
+
+        assert result.summary
+        assert result.recommended_services
+        assert result.recommended_tone in (None, "formal", "friendly", "consultative", "short_pitch")
+        assert 0.0 <= result.confidence <= 1.0
+
+
+def test_service_recommendation_rank_ordering() -> None:
+    from app.modules.ai_analysis.models import WorkspaceServiceCatalogItem
+
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace, user, lead = _seed(db)
+
+        for rank, name in enumerate(["Reputation Management", "Local SEO", "PPC Ads"], start=1):
+            db.add(
+                WorkspaceServiceCatalogItem(
+                    workspace_id=workspace.id,
+                    service_name=name,
+                    is_active=True,
+                    rank_order=rank,
+                )
+            )
+        db.commit()
+
+        service = AIAnalysisService(llm_client=ServiceCatalogAwareAdapter())
+        facts = NormalizedLeadFacts(
+            company_name=lead.company_name,
+            category=lead.category,
+            city=lead.city,
+            website_url=lead.website_url,
+            website_domain=lead.website_domain,
+            review_count=lead.review_count,
+            rating=lead.rating,
+            data_completeness=lead.data_completeness,
+            data_confidence=lead.data_confidence,
+            has_website=lead.has_website,
+            visibility_confidence=0.5,
+            visibility_source="web_search",
+        )
+        _, result = service.analyze(
+            db,
+            workspace_id=workspace.id,
+            lead=lead,
+            facts=facts,
+            created_by_user_id=user.id,
+        )
+
+        assert result.recommended_services
+        for service_name in result.recommended_services:
+            assert service_name in {"Reputation Management", "Local SEO", "PPC Ads"}
+
+
 def test_outreach_generation_versions_messages_by_tone_and_regeneration() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:
         workspace, user, lead = _seed(db)
-        analysis_service = AIAnalysisService()
+        analysis_service = AIAnalysisService(llm_client=ValidAdapter())
         outreach_service = OutreachGenerationService()
+        outreach_service.analysis_service = AIAnalysisService(llm_client=ValidAdapter())
         facts = NormalizedLeadFacts(
             company_name=lead.company_name,
             category=lead.category,

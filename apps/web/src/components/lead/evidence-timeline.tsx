@@ -1,4 +1,5 @@
 import { Database, Globe, MapPin, Search, ShieldCheck, Star } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, titleCaseLabel } from "@/lib/presenters";
 import type { LeadEvidenceItem } from "@/types/api";
@@ -18,13 +19,14 @@ export function LeadEvidenceTimeline({
   items: LeadEvidenceItem[];
   summary: Array<{ label: string; count: number }>;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="rounded-2xl border border-border bg-card/95">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
         <div>
-          <h2 className="text-sm font-semibold">Evidence timeline</h2>
+          <h2 className="text-sm font-semibold">{t("leadDetail.evidenceTimeline")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Every normalized fact on this lead remains traceable to a provider fetch.
+            {t("leadDetail.evidenceTimelineDescription")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -50,11 +52,11 @@ export function LeadEvidenceTimeline({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{titleCaseLabel(item.source_type.replace(/_/g, " "))}</p>
-                      <Badge tone={meta.tone}>{Math.round(item.confidence * 100)}% confidence</Badge>
-                      <Badge tone="neutral">{Math.round(item.completeness * 100)}% completeness</Badge>
+                      <Badge tone={meta.tone}>{t("leadDetail.confidencePct", { value: Math.round(item.confidence * 100) })}</Badge>
+                      <Badge tone="neutral">{t("leadDetail.completenessPct", { value: Math.round(item.completeness * 100) })}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.company_name} · {item.address ?? item.city ?? "No address captured"}
+                      {item.company_name} · {item.address ?? item.city ?? t("leadDetail.noAddressCaptured")}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                       <span>{item.request_mode}</span>

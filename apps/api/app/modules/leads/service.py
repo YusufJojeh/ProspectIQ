@@ -258,6 +258,7 @@ class LeadsService:
             created_by_user_id=current_user.id,
             tone=payload.tone,
             regenerate=payload.regenerate,
+            language=payload.language,
         )
         self.audit_logs.record(
             db,
