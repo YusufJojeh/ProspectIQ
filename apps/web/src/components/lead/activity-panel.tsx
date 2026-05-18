@@ -69,7 +69,7 @@ export function LeadActivityPanel({
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.detail}</p>
                   </div>
                 </div>
-                <div className="text-right text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="text-end text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   <p>{item.actor}</p>
                   <p className="mt-1">{formatDate(item.createdAt)}</p>
                 </div>

@@ -34,7 +34,7 @@ export function LanguageSwitcher() {
           >
             <span className="w-4 text-center text-xs font-bold uppercase text-muted-foreground">{lang.code}</span>
             <span>{lang.nativeLabel}</span>
-            {currentLang === lang.code ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+            {currentLang === lang.code ? <span className="ms-auto text-xs text-muted-foreground">✓</span> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

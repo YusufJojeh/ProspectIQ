@@ -5,6 +5,11 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4173";
 const apiBaseURL = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:8000";
 const artifactRoot = process.env.PLAYWRIGHT_ARTIFACT_ROOT ?? "test-artifacts/playwright";
 const authStatePath = path.resolve(process.cwd(), "tests/e2e/.auth/admin.json");
+const viteBin = "node ./node_modules/vite/bin/vite.js";
+const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER === "1";
+const configuredGlobalTimeout = process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS
+  ? Number(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS)
+  : undefined;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -82,9 +87,11 @@ export default defineConfig({
       },
     },
   ],
-  globalTimeout: process.env.CI ? 300_000 : 0,
-  webServer: {
-    command: process.env.CI ? "npm run build && npm run preview:e2e" : "npm run dev:e2e",
+  globalTimeout: configuredGlobalTimeout ?? (process.env.CI ? 300_000 : 0),
+  webServer: skipWebServer ? undefined : {
+    command: process.env.CI
+      ? `${viteBin} preview --host 127.0.0.1 --port 4173`
+      : `${viteBin} --host 127.0.0.1 --port 4173`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: process.env.CI ? 180_000 : 60_000,

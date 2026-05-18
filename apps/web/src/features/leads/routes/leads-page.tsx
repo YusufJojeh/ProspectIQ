@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Map, RefreshCw, Sparkles, Table2, LayoutGrid } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { appPaths } from "@/app/paths";
 import { LeadsCards } from "@/components/leads/leads-cards";
@@ -23,7 +24,8 @@ import { listUsers } from "@/features/users/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useSearchJobsQuery } from "@/hooks/use-search-jobs-query";
 import { hasCoordinates } from "@/lib/maps";
-import { bandTone, formatScore, statusTone, titleCaseLabel } from "@/lib/presenters";
+import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
+import { bandTone, formatScore, statusTone } from "@/lib/presenters";
 import { LazyLeadMap } from "@/features/leads/components/lazy-lead-map";
 import type {
   LeadAnalysisSnapshotResponse,
@@ -37,7 +39,8 @@ import type {
 type WorkspaceView = "table" | "cards" | "map";
 
 export function LeadsPage() {
-  useDocumentTitle("Leads");
+  const { t } = useTranslation();
+  useDocumentTitle(t("leads.title"));
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchJobIdParam = searchParams.get("search_job_id");
@@ -152,14 +155,14 @@ export function LeadsPage() {
     mutationFn: ({ leadId, nextStatus }: { leadId: string; nextStatus: LeadStatus }) => updateLeadStatus(leadId, nextStatus),
     onSuccess: (_payload, variables) => {
       invalidateLeadQueries();
-      setActionSuccess(`Lead marked ${titleCaseLabel(variables.nextStatus)}.`);
+      setActionSuccess(t("leads.leadMarkedStatus", { status: leadStatusLabel(t, variables.nextStatus) }));
     },
   });
   const assignMutation = useMutation({
     mutationFn: ({ leadId, assigneeId }: { leadId: string; assigneeId: string | null }) => assignLead(leadId, assigneeId),
     onSuccess: (_payload, variables) => {
       invalidateLeadQueries();
-      setActionSuccess(variables.assigneeId ? "Lead owner updated." : "Lead owner cleared.");
+      setActionSuccess(variables.assigneeId ? t("leads.leadOwnerUpdated") : t("leads.leadOwnerCleared"));
     },
   });
   const analysisMutation = useMutation({
@@ -167,7 +170,7 @@ export function LeadsPage() {
     onSuccess: (payload, leadId) => {
       setAnalysisPreview(payload);
       void queryClient.invalidateQueries({ queryKey: ["lead", leadId, "analysis"] });
-      setActionSuccess("Assistive analysis generated.");
+      setActionSuccess(t("leads.analysisGenerated"));
     },
   });
   const outreachMutation = useMutation({
@@ -175,7 +178,7 @@ export function LeadsPage() {
     onSuccess: (payload, leadId) => {
       setOutreachPreview(outreachDraftToMessagePreview(payload));
       void queryClient.invalidateQueries({ queryKey: ["lead", leadId, "outreach"] });
-      setActionSuccess("Outreach draft generated.");
+      setActionSuccess(t("leads.outreachGenerated"));
     },
   });
   const refreshMutation = useMutation({
@@ -185,7 +188,7 @@ export function LeadsPage() {
       setSelectedLeadId(payload.public_id);
       setAnalysisPreview(null);
       setOutreachPreview(null);
-      setActionSuccess("Lead refresh completed.");
+      setActionSuccess(t("leads.leadRefreshCompleted"));
     },
   });
   const exportMutation = useMutation({
@@ -196,8 +199,8 @@ export function LeadsPage() {
   if (leadsQuery.isError || jobsQuery.isError || usersQuery.isError) {
     return (
       <EmptyState
-        title="Lead data is unavailable"
-        description="Make sure the API is running and that the current session token is valid."
+        title={t("leads.dataUnavailableTitle")}
+        description={t("leads.dataUnavailableDescription")}
       />
     );
   }
@@ -206,8 +209,8 @@ export function LeadsPage() {
     return (
       <QueryStateNotice
         tone="loading"
-        title="Loading qualification workspace"
-        description="Fetching leads, owners, and search-job filters from the API."
+        title={t("leads.loadingWorkspaceTitle")}
+        description={t("leads.loadingWorkspaceDescription")}
       />
     );
   }
@@ -215,9 +218,9 @@ export function LeadsPage() {
   return (
     <div className="max-w-full space-y-6 overflow-x-clip p-3 sm:p-4 lg:p-6">
       <PageHeader
-        eyebrow="Leads"
-        title="Evidence-first qualification workspace"
-        description="The imported leads explorer is now active on the real route with a live filter rail, table or cards view, map mode, selection, and API-backed quick actions."
+        eyebrow={t("leads.title")}
+        title={t("leads.workspaceTitle")}
+        description={t("leads.workspaceDescription")}
         actions={
           <>
             <Button
@@ -227,11 +230,15 @@ export function LeadsPage() {
               disabled={exportMutation.isPending}
             >
               <Download className="size-3.5" />
-              {exportMutation.isPending ? "Exporting..." : selectedIds.size ? `Export ${selectedIds.size}` : "Export CSV"}
+              {exportMutation.isPending
+                ? t("leads.exportingCsv")
+                : selectedIds.size
+                  ? t("leads.exportSelected", { count: selectedIds.size })
+                  : t("leads.exportCsv")}
             </Button>
             {selectedLead ? (
               <Button asChild>
-                <Link to={appPaths.leadDetail(selectedLead.public_id)}>Open lead detail</Link>
+                <Link to={appPaths.leadDetail(selectedLead.public_id)}>{t("leads.openLeadDetail")}</Link>
               </Button>
             ) : null}
           </>
@@ -241,29 +248,29 @@ export function LeadsPage() {
       {exportMutation.isSuccess ? (
         <QueryStateNotice
           tone="success"
-          title="Export started"
-          description="The CSV download has been prepared from the current filters or selected leads."
+          title={t("leads.exportStartedTitle")}
+          description={t("leads.exportStartedDescription")}
         />
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricCard label="Filtered leads" value={String(totalLeads)} helper="Current backend result set" />
-        <MetricCard label="Mappable on page" value={String(mappableLeads.length)} helper="Visible markers in map mode" />
-        <MetricCard label="Selected leads" value={String(selectedIds.size)} helper="Bulk export ready" />
+        <MetricCard label={t("leads.filteredLeads")} value={String(totalLeads)} helper={t("leads.currentResultSet")} />
+        <MetricCard label={t("leads.mappableOnPage")} value={String(mappableLeads.length)} helper={t("leads.visibleMarkers")} />
+        <MetricCard label={t("leads.selectedLeads")} value={String(selectedIds.size)} helper={t("leads.bulkExportReady")} />
       </section>
 
       <section className="grid min-w-0 gap-4 2xl:grid-cols-[320px_minmax(0,1fr)]">
         <LeadsFiltersPanel activeCount={activeFilterCount} onReset={resetFilters}>
-          <FilterField label="Search">
-            <Input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Company, city, or domain" />
+          <FilterField label={t("common.search")}>
+            <Input value={q} onChange={(event) => setQ(event.target.value)} placeholder={t("leads.searchPlaceholder")} />
           </FilterField>
-          <FilterField label="City">
-            <Input value={city} onChange={(event) => setCity(event.target.value)} placeholder="Filter by city" />
+          <FilterField label={t("leads.city")}>
+            <Input value={city} onChange={(event) => setCity(event.target.value)} placeholder={t("leads.cityPlaceholder")} />
           </FilterField>
-          <FilterField label="Category">
-            <Input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Filter by category" />
+          <FilterField label={t("leads.category")}>
+            <Input value={category} onChange={(event) => setCategory(event.target.value)} placeholder={t("leads.categoryPlaceholder")} />
           </FilterField>
-          <FilterField label="Search job">
+          <FilterField label={t("searches.jobDetails")}>
             <Select
               value={searchJobId}
               onValueChange={(value) =>
@@ -279,10 +286,10 @@ export function LeadsPage() {
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="All search jobs" />
+                <SelectValue placeholder={t("leads.allSearchJobs")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All search jobs</SelectItem>
+                <SelectItem value="all">{t("leads.allSearchJobs")}</SelectItem>
                 {searchJobs.map((job) => (
                   <SelectItem key={job.public_id} value={job.public_id}>
                     {job.business_type} / {job.city}
@@ -291,69 +298,69 @@ export function LeadsPage() {
               </SelectContent>
             </Select>
           </FilterField>
-          <FilterField label="Status">
+          <FilterField label={t("leads.status")}>
             <Select value={status} onValueChange={(value) => setStatus(value as LeadStatus | "all")}>
               <SelectTrigger>
-                <SelectValue placeholder="All statuses" />
+                <SelectValue placeholder={t("exports.allStatuses")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="reviewed">Reviewed</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="interested">Interested</SelectItem>
-                <SelectItem value="won">Won</SelectItem>
-                <SelectItem value="lost">Lost</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
+                <SelectItem value="all">{t("exports.allStatuses")}</SelectItem>
+                <SelectItem value="new">{t("leads.statusNew")}</SelectItem>
+                <SelectItem value="reviewed">{t("leads.statusReviewed")}</SelectItem>
+                <SelectItem value="qualified">{t("leads.statusQualified")}</SelectItem>
+                <SelectItem value="contacted">{t("leads.statusContacted")}</SelectItem>
+                <SelectItem value="interested">{t("leads.statusInterested")}</SelectItem>
+                <SelectItem value="won">{t("leads.statusWon")}</SelectItem>
+                <SelectItem value="lost">{t("leads.statusLost")}</SelectItem>
+                <SelectItem value="archived">{t("leads.statusArchived")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
-          <FilterField label="Score band">
+          <FilterField label={t("leads.band")}>
             <Select value={band} onValueChange={(value) => setBand(value as LeadScoreBand | "all")}>
               <SelectTrigger>
-                <SelectValue placeholder="All score bands" />
+                <SelectValue placeholder={t("leads.allScoreBands")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All score bands</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="not_qualified">Not qualified</SelectItem>
+                <SelectItem value="all">{t("leads.allScoreBands")}</SelectItem>
+                <SelectItem value="high">{t("leads.bandHigh")}</SelectItem>
+                <SelectItem value="medium">{t("leads.bandMedium")}</SelectItem>
+                <SelectItem value="low">{t("leads.bandLow")}</SelectItem>
+                <SelectItem value="not_qualified">{t("leads.bandNotQualified")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
-          <FilterField label="Qualification">
+          <FilterField label={t("leads.qualification")}>
             <Select value={qualified} onValueChange={(value) => setQualified(value as "all" | "true" | "false")}>
               <SelectTrigger>
-                <SelectValue placeholder="Any qualification" />
+                <SelectValue placeholder={t("leads.anyQualification")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any qualification</SelectItem>
-                <SelectItem value="true">Qualified only</SelectItem>
-                <SelectItem value="false">Needs qualification</SelectItem>
+                <SelectItem value="all">{t("leads.anyQualification")}</SelectItem>
+                <SelectItem value="true">{t("leads.qualifiedOnly")}</SelectItem>
+                <SelectItem value="false">{t("leads.needsQualification")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
-          <FilterField label="Website">
+          <FilterField label={t("leads.website")}>
             <Select value={hasWebsite} onValueChange={(value) => setHasWebsite(value as "all" | "true" | "false")}>
               <SelectTrigger>
-                <SelectValue placeholder="Any website state" />
+                <SelectValue placeholder={t("leads.anyWebsiteState")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any website state</SelectItem>
-                <SelectItem value="true">Has website</SelectItem>
-                <SelectItem value="false">Missing website</SelectItem>
+                <SelectItem value="all">{t("leads.anyWebsiteState")}</SelectItem>
+                <SelectItem value="true">{t("leads.hasWebsite")}</SelectItem>
+                <SelectItem value="false">{t("leads.missingWebsite")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
-          <FilterField label="Owner">
+          <FilterField label={t("leads.owner")}>
             <Select value={ownerUserId} onValueChange={setOwnerUserId}>
               <SelectTrigger>
-                <SelectValue placeholder="Any owner" />
+                <SelectValue placeholder={t("leads.anyOwner")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any owner</SelectItem>
+                <SelectItem value="all">{t("leads.anyOwner")}</SelectItem>
                 {(usersQuery.data?.items ?? []).map((user) => (
                   <SelectItem key={user.public_id} value={user.public_id}>
                     {user.full_name}
@@ -362,24 +369,24 @@ export function LeadsPage() {
               </SelectContent>
             </Select>
           </FilterField>
-          <FilterField label="Sort">
+          <FilterField label={t("leads.sortBy")}>
             <Select value={sort} onValueChange={(value) => setSort(value as LeadSortOption)}>
               <SelectTrigger>
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="score_desc">Highest score</SelectItem>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="reviews_desc">Most reviews</SelectItem>
-                <SelectItem value="rating_desc">Best rating</SelectItem>
+                <SelectItem value="score_desc">{t("leads.highestScore")}</SelectItem>
+                <SelectItem value="newest">{t("leads.newest")}</SelectItem>
+                <SelectItem value="reviews_desc">{t("leads.mostReviews")}</SelectItem>
+                <SelectItem value="rating_desc">{t("leads.bestRating")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
           <div className="grid grid-cols-2 gap-3">
-            <FilterField label="Min score">
+            <FilterField label={t("leads.minScore")}>
               <Input type="number" value={minScore} onChange={(event) => setMinScore(event.target.value)} />
             </FilterField>
-            <FilterField label="Max score">
+            <FilterField label={t("leads.maxScore")}>
               <Input type="number" value={maxScore} onChange={(event) => setMaxScore(event.target.value)} />
             </FilterField>
           </div>
@@ -390,35 +397,35 @@ export function LeadsPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <CardTitle>Live workspace</CardTitle>
+                  <CardTitle>{t("leads.liveWorkspace")}</CardTitle>
                   <CardDescription>
-                    Imported table, cards, and map modes are now all backed by the active lead query and selection state.
+                    {t("leads.liveWorkspaceDescription")}
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <ViewButton active={view === "table"} onClick={() => setView("table")} icon={<Table2 className="size-3.5" />}>
-                    Table
+                    {t("leads.table")}
                   </ViewButton>
                   <ViewButton active={view === "cards"} onClick={() => setView("cards")} icon={<LayoutGrid className="size-3.5" />}>
-                    Cards
+                    {t("leads.cards")}
                   </ViewButton>
                   <ViewButton active={view === "map"} onClick={() => setView("map")} icon={<Map className="size-3.5" />}>
-                    Map
+                    {t("leads.map")}
                   </ViewButton>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="neutral">{totalLeads} matching leads</Badge>
-                <Badge tone="accent">{selectedIds.size} selected</Badge>
+                <Badge tone="neutral">{t("leads.matchingLeads", { count: totalLeads })}</Badge>
+                <Badge tone="accent">{t("leads.selectedCount", { count: selectedIds.size })}</Badge>
                 {selectedLead ? <Badge tone={bandTone(selectedLead.latest_band)}>{selectedLead.company_name}</Badge> : null}
               </div>
 
               {leads.length === 0 ? (
                 <EmptyState
-                  title="No leads match the current filters"
-                  description="Adjust the filters or queue another discovery job to expand the current lead pool."
+                  title={t("leads.noFilteredLeadsTitle")}
+                  description={t("leads.noFilteredLeadsDescription")}
                 />
               ) : view === "table" ? (
                 <LeadsTable
@@ -432,8 +439,8 @@ export function LeadsPage() {
                 <LeadsCards leads={leads} selectedIds={selectedIds} onToggleSelect={toggleSelected} />
               ) : mappableLeads.length === 0 ? (
                 <EmptyState
-                  title="No map coordinates available"
-                  description="When provider evidence includes location data, matching leads will appear here."
+                  title={t("leads.noMapCoordinatesTitle")}
+                  description={t("leads.noMapCoordinatesDescription")}
                 />
               ) : (
                 <div className="h-[520px] overflow-hidden rounded-2xl border border-border">
@@ -444,14 +451,18 @@ export function LeadsPage() {
               {totalLeads > 0 ? (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                   <p className="text-sm text-muted-foreground">
-                    Showing {(page - 1) * 50 + 1} - {Math.min(page * 50, totalLeads)} of {totalLeads} leads
+                    {t("leads.paginationSummary", {
+                      start: (page - 1) * 50 + 1,
+                      end: Math.min(page * 50, totalLeads),
+                      total: totalLeads,
+                    })}
                   </p>
                   <div className="flex w-full gap-2 sm:w-auto">
                     <Button variant="outline" className="bg-transparent" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-                      Previous
+                      {t("common.back")}
                     </Button>
                     <Button variant="outline" className="bg-transparent" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
-                      Next
+                      {t("common.next")}
                     </Button>
                   </div>
                 </div>
@@ -461,52 +472,52 @@ export function LeadsPage() {
 
           <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Selected lead workspace</CardTitle>
+              <CardTitle>{t("leads.selectedLeadWorkspace")}</CardTitle>
               <CardDescription>
-                The imported quick-action area is now tied to the current API-backed lead record and owner list.
+                {t("leads.selectedLeadWorkspaceDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {selectedLeadId && selectedLeadQuery.isPending ? (
                 <QueryStateNotice
                   tone="loading"
-                  title="Refreshing selected lead"
-                  description="Loading the latest record for quick actions and preview panels."
+                  title={t("leads.refreshingSelectedLeadTitle")}
+                  description={t("leads.refreshingSelectedLeadDescription")}
                 />
               ) : null}
 
-              {actionSuccess ? <QueryStateNotice tone="success" title="Action completed" description={actionSuccess} /> : null}
+              {actionSuccess ? <QueryStateNotice tone="success" title={t("leads.actionCompleted")} description={actionSuccess} /> : null}
 
               {!selectedLead ? (
                 <EmptyState
-                  title="No lead selected"
-                  description="Pick a lead from the workspace to review score signals and trigger quick actions."
+                  title={t("leads.noLeadSelectedTitle")}
+                  description={t("leads.noLeadSelectedDescription")}
                 />
               ) : (
                 <>
                   <div>
                     <p className="text-lg font-semibold">{selectedLead.company_name}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {selectedLead.city ?? "Unknown city"} · {selectedLead.website_domain ?? "No website found"}
+                      {selectedLead.city ?? t("dashboard.unknownCity")} · {selectedLead.website_domain ?? t("leads.noWebsite")}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Badge tone={bandTone(selectedLead.latest_band)}>{selectedLead.latest_band ? titleCaseLabel(selectedLead.latest_band) : "Unscored"}</Badge>
-                    <Badge tone={statusTone(selectedLead.status)}>{titleCaseLabel(selectedLead.status)}</Badge>
+                    <Badge tone={bandTone(selectedLead.latest_band)}>{scoreBandLabel(t, selectedLead.latest_band)}</Badge>
+                    <Badge tone={statusTone(selectedLead.status)}>{leadStatusLabel(t, selectedLead.status)}</Badge>
                     <Badge tone={selectedLead.latest_qualified ? "success" : "warning"}>
-                      {selectedLead.latest_qualified ? "Qualified" : "Needs review"}
+                      {selectedLead.latest_qualified ? t("leads.qualified") : t("leads.needsReview")}
                     </Badge>
                     <Badge tone="neutral">{formatScore(selectedLead.latest_score)}</Badge>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <SignalCard label="Rating" value={selectedLead.rating ? String(selectedLead.rating) : "N/A"} />
-                    <SignalCard label="Reviews" value={String(selectedLead.review_count)} />
+                    <SignalCard label={t("leads.rating")} value={selectedLead.rating ? String(selectedLead.rating) : t("common.notAvailable")} />
+                    <SignalCard label={t("leads.reviews")} value={String(selectedLead.review_count)} />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Assign owner</Label>
+                    <Label>{t("leads.assignOwner")}</Label>
                     <Select
                       value={selectedLead.assigned_to_user_public_id ?? "unassigned"}
                       disabled={assignMutation.isPending}
@@ -518,10 +529,10 @@ export function LeadsPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Unassigned" />
+                        <SelectValue placeholder={t("leads.unassigned")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        <SelectItem value="unassigned">{t("leads.unassigned")}</SelectItem>
                         {(usersQuery.data?.items ?? []).map((user) => (
                           <SelectItem key={user.public_id} value={user.public_id}>
                             {user.full_name}
@@ -533,48 +544,48 @@ export function LeadsPage() {
 
                   <div className="grid gap-2 sm:grid-cols-3">
                     <Button variant="outline" className="bg-transparent" onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "reviewed" })}>
-                      Mark reviewed
+                      {t("leads.markReviewed")}
                     </Button>
                     <Button variant="outline" className="bg-transparent" onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "qualified" })}>
-                      Mark qualified
+                      {t("leads.markQualified")}
                     </Button>
                     <Button variant="outline" className="bg-transparent" onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "contacted" })}>
-                      Mark contacted
+                      {t("leads.markContacted")}
                     </Button>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-3">
                     <Button variant="outline" className="bg-transparent" onClick={() => refreshMutation.mutate(selectedLead.public_id)} disabled={refreshMutation.isPending}>
                       <RefreshCw className="size-3.5" />
-                      {refreshMutation.isPending ? "Refreshing..." : "Refresh"}
+                      {refreshMutation.isPending ? t("leads.refreshing") : t("common.refresh")}
                     </Button>
                     <Button variant="outline" className="bg-transparent" onClick={() => analysisMutation.mutate(selectedLead.public_id)} disabled={analysisMutation.isPending}>
                       <Sparkles className="size-3.5" />
-                      {analysisMutation.isPending ? "Generating..." : "Generate analysis"}
+                      {analysisMutation.isPending ? t("leads.generating") : t("leads.generateAnalysis")}
                     </Button>
                     <Button onClick={() => outreachMutation.mutate(selectedLead.public_id)} disabled={outreachMutation.isPending}>
-                      {outreachMutation.isPending ? "Drafting..." : "Draft outreach"}
+                      {outreachMutation.isPending ? t("leads.drafting") : t("leads.draftOutreach")}
                     </Button>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Outreach tone</Label>
+                    <Label>{t("leads.outreachTone")}</Label>
                     <Select value={outreachTone} onValueChange={(value) => setOutreachTone(value as OutreachTone)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select tone" />
+                        <SelectValue placeholder={t("leads.selectTone")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="consultative">Consultative</SelectItem>
-                        <SelectItem value="friendly">Friendly</SelectItem>
-                        <SelectItem value="formal">Formal</SelectItem>
-                        <SelectItem value="short_pitch">Short pitch</SelectItem>
+                        <SelectItem value="consultative">{t("outreach.toneConsultative")}</SelectItem>
+                        <SelectItem value="friendly">{t("outreach.toneFriendly")}</SelectItem>
+                        <SelectItem value="formal">{t("outreach.toneFormal")}</SelectItem>
+                        <SelectItem value="short_pitch">{t("outreach.toneShortPitch")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {analysisPreview ? (
                     <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                      <p className="font-medium">Latest generated analysis</p>
+                      <p className="font-medium">{t("leads.latestGeneratedAnalysis")}</p>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{analysisPreview.analysis.summary}</p>
                     </div>
                   ) : null}
@@ -582,14 +593,14 @@ export function LeadsPage() {
                     <div className="rounded-2xl border border-border bg-muted/20 p-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{outreachPreview.subject}</p>
-                        <Badge tone="accent">{titleCaseLabel(outreachPreview.tone)}</Badge>
+                        <Badge tone="accent">{t(`outreach.tones.${outreachPreview.tone}`)}</Badge>
                       </div>
                       <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{outreachPreview.message}</p>
                     </div>
                   ) : null}
 
                   <Button asChild className="w-full">
-                    <Link to={appPaths.leadDetail(selectedLead.public_id)}>Open full lead detail</Link>
+                    <Link to={appPaths.leadDetail(selectedLead.public_id)}>{t("leads.openFullLeadDetail")}</Link>
                   </Button>
                 </>
               )}

@@ -24,12 +24,12 @@ export function ThemeSwitcher() {
         <DropdownMenuItem onClick={() => setTheme("light")} className="gap-2" aria-current={theme === "light" ? "true" : undefined}>
           <Sun className="size-4" />
           <span>{t("theme.light")}</span>
-          {theme === "light" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+          {theme === "light" ? <span className="ms-auto text-xs text-muted-foreground">✓</span> : null}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")} className="gap-2" aria-current={theme === "dark" ? "true" : undefined}>
           <Moon className="size-4" />
           <span>{t("theme.dark")}</span>
-          {theme === "dark" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+          {theme === "dark" ? <span className="ms-auto text-xs text-muted-foreground">✓</span> : null}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme("system")}
@@ -38,7 +38,7 @@ export function ThemeSwitcher() {
         >
           <Monitor className="size-4" />
           <span>{t("theme.system")}</span>
-          {theme === "system" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+          {theme === "system" ? <span className="ms-auto text-xs text-muted-foreground">✓</span> : null}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

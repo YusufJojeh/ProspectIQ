@@ -163,7 +163,7 @@ export function DashboardPage() {
           <CardContent className="grid gap-3">
             {topLeads.length === 0 ? (
               <EmptyState
-                title="No leads yet"
+                title={t("dashboard.noLeadsTitle")}
                 description={t("dashboard.noLeadsDescription")}
               />
             ) : (
@@ -206,7 +206,7 @@ export function DashboardPage() {
             <CardContent className="space-y-3">
               {cityCoverage.length === 0 ? (
                 <EmptyState
-                  title="No city coverage yet"
+                  title={t("dashboard.noCityCoverageTitle")}
                   description={t("dashboard.noCityCoverageDescription")}
                 />
               ) : (

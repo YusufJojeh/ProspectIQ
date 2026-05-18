@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { createUser, listUsers, resetUserPassword, updateUser } from "@/features/users/api";
 import { useAuthSession } from "@/features/auth/session";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
@@ -16,7 +17,8 @@ const CREATE_ROLE_OPTIONS: UserRole[] = ["admin", "manager", "member"];
 const STATUS_OPTIONS: UserStatus[] = ["active", "inactive"];
 
 export function TeamPage() {
-  useDocumentTitle("Team");
+  const { t } = useTranslation();
+  useDocumentTitle(t("team.title"));
   const queryClient = useQueryClient();
   const { user } = useAuthSession();
   const [email, setEmail] = useState("");
@@ -62,11 +64,11 @@ export function TeamPage() {
   });
 
   if (usersQuery.isPending) {
-    return <QueryStateNotice tone="loading" title="Loading team" description="Fetching workspace users and access states." />;
+    return <QueryStateNotice tone="loading" title={t("team.loadingTitle")} description={t("team.loadingDescription")} />;
   }
 
   if (usersQuery.isError) {
-    return <QueryStateNotice tone="error" title="Team unavailable" error={usersQuery.error} />;
+    return <QueryStateNotice tone="error" title={t("team.unavailableTitle")} error={usersQuery.error} />;
   }
 
   const getDraft = (userId: string, currentRole: UserRole, currentStatus: UserStatus, currentJobTitle?: string | null) =>
@@ -79,39 +81,39 @@ export function TeamPage() {
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Team users</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("team.usersTitle")}</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Manage users inside the current workspace only. Account isolation is enforced by the backend.
+          {t("team.usersDescription")}
         </p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Team users</CardTitle>
+          <CardTitle>{t("team.usersTitle")}</CardTitle>
           <CardDescription>
-            Every user is bound to the active workspace. Owners and admins can add and manage team members without crossing account boundaries.
+            {t("team.usersCardDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {canManage ? (
             <div className="grid gap-3 rounded-xl border border-border bg-card/50 p-4 md:grid-cols-2 xl:grid-cols-5">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="team-full-name">Full name</Label>
+                <Label htmlFor="team-full-name">{t("team.fullName")}</Label>
                 <Input id="team-full-name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Jordan Lee" />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="team-email">Email</Label>
+                <Label htmlFor="team-email">{t("common.email")}</Label>
                 <Input id="team-email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="jordan@company.com" />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="team-password">Temporary password</Label>
+                <Label htmlFor="team-password">{t("team.temporaryPassword")}</Label>
                 <Input id="team-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="TempPass123!" />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="team-job-title">Job title</Label>
+                <Label htmlFor="team-job-title">{t("team.jobTitle")}</Label>
                 <Input id="team-job-title" value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} placeholder="RevOps Lead" />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Role</Label>
+                <Label>{t("common.role")}</Label>
                 <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -119,7 +121,7 @@ export function TeamPage() {
                   <SelectContent>
                     {CREATE_ROLE_OPTIONS.map((option) => (
                       <SelectItem key={option} value={option}>
-                        {option.replace("_", " ")}
+                        {t(`team.roles.${option}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -138,20 +140,20 @@ export function TeamPage() {
                   })
                 }
               >
-                {createMutation.isPending ? "Creating user..." : "Create team user"}
+                {createMutation.isPending ? t("team.creating") : t("team.createTeamUser")}
               </Button>
               {createMutation.error ? (
-                <QueryStateNotice tone="error" title="Team user not created" error={createMutation.error} />
+                <QueryStateNotice tone="error" title={t("team.createErrorTitle")} error={createMutation.error} />
               ) : (
                 <QueryStateNotice
                   tone="info"
-                  title="Workspace-scoped team access"
-                  description="The first signup user is the account owner. Additional users stay inside this workspace and count against the simulated team-user limit."
+                  title={t("team.workspaceScopedTitle")}
+                  description={t("team.workspaceScopedDescription")}
                 />
               )}
             </div>
           ) : (
-            <QueryStateNotice tone="info" title="Read-only access" description="Only account owners and admins can manage team users." />
+            <QueryStateNotice tone="info" title={t("team.readOnlyTitle")} description={t("team.readOnlyDescription")} />
           )}
 
           <div className="grid gap-3">
@@ -166,17 +168,17 @@ export function TeamPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-medium text-foreground">{item.full_name}</p>
                       <Badge tone={item.status === "active" ? "success" : "warning"}>{item.status}</Badge>
-                      <Badge>{item.role.replace("_", " ")}</Badge>
-                      {isSelf ? <Badge tone="neutral">You</Badge> : null}
+                      <Badge>{t(`team.roles.${item.role}`)}</Badge>
+                      {isSelf ? <Badge tone="neutral">{t("team.you")}</Badge> : null}
                     </div>
                     <p className="text-sm text-muted-foreground">{item.email}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.job_title || "No job title set"}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.job_title || t("team.noJobTitle")}</p>
                   </div>
 
                   {canManage && !isOwner ? (
                     <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
                       <div className="flex flex-col gap-2">
-                        <Label>Role</Label>
+                        <Label>{t("common.role")}</Label>
                         <Select
                           value={draft.role}
                           onValueChange={(value) =>
@@ -192,14 +194,14 @@ export function TeamPage() {
                           <SelectContent>
                             {CREATE_ROLE_OPTIONS.map((option) => (
                               <SelectItem key={option} value={option}>
-                                {option.replace("_", " ")}
+                                {t(`team.roles.${option}`)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Label>Status</Label>
+                        <Label>{t("common.status")}</Label>
                         <Select
                           value={draft.status}
                           onValueChange={(value) =>
@@ -215,14 +217,14 @@ export function TeamPage() {
                           <SelectContent>
                             {STATUS_OPTIONS.map((option) => (
                               <SelectItem key={option} value={option}>
-                                {option}
+                                {t(`team.statuses.${option}`)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Label>Job title</Label>
+                        <Label>{t("team.jobTitle")}</Label>
                         <Input
                           value={draft.jobTitle}
                           onChange={(event) =>
@@ -237,7 +239,7 @@ export function TeamPage() {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                      {isOwner ? "The account owner stays protected inside this workspace." : "Workspace members can view team state only."}
+                      {isOwner ? t("team.ownerProtected") : t("team.membersViewOnly")}
                     </div>
                   )}
 
@@ -257,10 +259,10 @@ export function TeamPage() {
                           })
                         }
                       >
-                        Save changes
+                        {t("team.saveChanges")}
                       </Button>
                       <Button variant="outline" disabled={resetPasswordMutation.isPending} onClick={() => resetPasswordMutation.mutate(item.public_id)}>
-                        Reset password
+                        {t("team.resetPassword")}
                       </Button>
                     </div>
                   ) : null}

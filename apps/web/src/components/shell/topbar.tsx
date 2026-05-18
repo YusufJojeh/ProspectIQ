@@ -73,7 +73,7 @@ export function AppTopbar() {
       </nav>
 
       <button
-        className="order-4 hidden w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 md:flex md:max-w-sm xl:order-none xl:ml-2"
+        className="order-4 hidden w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 md:flex md:max-w-sm xl:order-none xl:ms-2"
         aria-label={t("topbar.searchPlaceholder")}
         onClick={() => {
           const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true });
@@ -87,7 +87,7 @@ export function AppTopbar() {
         </kbd>
       </button>
 
-      <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-1.5 md:ml-0">
+      <div className="ms-auto flex min-w-0 items-center gap-1 sm:gap-1.5 md:ms-0">
         <Button variant="outline" size="sm" className="hidden border-border bg-transparent font-medium sm:inline-flex" asChild>
           <Link to={appPaths.aiAnalysis}>
             <Sparkles className="size-3.5 text-[oklch(var(--signal))]" />

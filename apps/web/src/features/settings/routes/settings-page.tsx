@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch, type Control, type UseFormSetValue } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -70,7 +71,8 @@ type PromptTemplateValues = z.infer<typeof promptTemplateSchema>;
 type WorkspaceSettingsValues = z.infer<typeof workspaceSettingsSchema>;
 
 export function SettingsPage() {
-  useDocumentTitle("Settings");
+  const { t } = useTranslation();
+  useDocumentTitle(t("settings.title"));
   const queryClient = useQueryClient();
   const [adminSuccess, setAdminSuccess] = useState<string | null>(null);
   const workspaceQuery = useQuery({
@@ -176,35 +178,35 @@ export function SettingsPage() {
     mutationFn: updateProviderSettings,
     onSuccess: () => {
       refreshAdminQueries();
-      setAdminSuccess("Provider settings saved.");
+      setAdminSuccess(t("settings.providerSettingsSaved"));
     },
   });
   const workspaceMutation = useMutation({
     mutationFn: updateWorkspaceSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace-settings"] });
-      setAdminSuccess("Workspace settings saved.");
+      setAdminSuccess(t("settings.workspaceSettingsSaved"));
     },
   });
   const createVersionMutation = useMutation({
     mutationFn: createScoringVersion,
     onSuccess: () => {
       refreshAdminQueries();
-      setAdminSuccess("Scoring version created.");
+      setAdminSuccess(t("settings.scoringVersionCreated"));
     },
   });
   const activateMutation = useMutation({
     mutationFn: activateScoringVersion,
     onSuccess: () => {
       refreshAdminQueries();
-      setAdminSuccess("Scoring version activated.");
+      setAdminSuccess(t("settings.scoringVersionActivated"));
     },
   });
   const createPromptTemplateMutation = useMutation({
     mutationFn: createPromptTemplate,
     onSuccess: () => {
       refreshAdminQueries();
-      setAdminSuccess("Prompt template created.");
+      setAdminSuccess(t("settings.promptTemplateCreated"));
       promptTemplateForm.reset({
         name: "",
         template_text: "",
@@ -216,7 +218,7 @@ export function SettingsPage() {
     mutationFn: activatePromptTemplate,
     onSuccess: () => {
       refreshAdminQueries();
-      setAdminSuccess("Prompt template activated.");
+      setAdminSuccess(t("settings.promptTemplateActivated"));
     },
   });
 
@@ -232,8 +234,8 @@ export function SettingsPage() {
     return (
       <QueryStateNotice
         tone="loading"
-        title="Loading settings workspace"
-        description="Fetching provider defaults, scoring versions, prompt templates, and operational health."
+        title={t("settings.loadingTitle")}
+        description={t("settings.loadingDescription")}
       />
     );
   }
@@ -249,8 +251,8 @@ export function SettingsPage() {
   ) {
     return (
       <EmptyState
-        title="Settings configuration is unavailable"
-        description="Make sure the current user has settings access for this workspace and that the API is reachable."
+        title={t("settings.unavailableTitle")}
+        description={t("settings.unavailableDescription")}
       />
     );
   }
@@ -258,31 +260,31 @@ export function SettingsPage() {
   return (
     <div className="space-y-6 p-3 sm:p-4 lg:p-6">
       <PageHeader
-        eyebrow="Settings"
-        title="Operational configuration"
-        description="This route now uses the internal imported workspace treatment for provider defaults, scoring control, prompt management, and audit visibility."
+        eyebrow={t("settings.eyebrow")}
+        title={t("settings.headerTitle")}
+        description={t("settings.headerDescription")}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Workspace profile</CardTitle>
-          <CardDescription>Update the isolated workspace name and slug used across the authenticated account.</CardDescription>
+          <CardTitle>{t("settings.workspaceProfile")}</CardTitle>
+          <CardDescription>{t("settings.workspaceProfileDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4 md:grid-cols-2" onSubmit={workspaceForm.handleSubmit((values) => workspaceMutation.mutate(values))}>
-            <Field label="Workspace name">
-              <Input aria-label="Workspace name" {...workspaceForm.register("name")} />
+            <Field label={t("settings.workspaceName")}>
+              <Input aria-label={t("settings.workspaceName")} {...workspaceForm.register("name")} />
             </Field>
-            <Field label="Workspace slug">
-              <Input aria-label="Workspace slug" {...workspaceForm.register("slug")} />
+            <Field label={t("settings.workspaceSlug")}>
+              <Input aria-label={t("settings.workspaceSlug")} {...workspaceForm.register("slug")} />
             </Field>
             <div className="md:col-span-2 flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={workspaceMutation.isPending}>
-                {workspaceMutation.isPending ? "Saving..." : "Save workspace profile"}
+                {workspaceMutation.isPending ? t("common.saving") : t("settings.saveWorkspaceProfile")}
               </Button>
               {workspaceQuery.data ? (
                 <span className="text-sm text-[color:var(--muted)]">
-                  Owner: {workspaceQuery.data.owner_user_public_id ?? "unassigned"} / Status: {workspaceQuery.data.workspace.status}
+                  {t("settings.owner")}: {workspaceQuery.data.owner_user_public_id ?? t("leads.unassigned")} / {t("common.status")}: {workspaceQuery.data.workspace.status}
                 </span>
               ) : null}
             </div>
@@ -291,40 +293,40 @@ export function SettingsPage() {
       </Card>
 
       {adminSuccess ? (
-        <QueryStateNotice tone="success" title="Admin action completed" description={adminSuccess} />
+        <QueryStateNotice tone="success" title={t("settings.adminActionCompleted")} description={adminSuccess} />
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Failed jobs / 7d" value={String(healthQuery.data?.failed_jobs_last_7_days ?? 0)} />
+        <MetricCard label={t("settings.failedJobs7d")} value={String(healthQuery.data?.failed_jobs_last_7_days ?? 0)} />
         <MetricCard
-          label="Provider failures / 7d"
+          label={t("settings.providerFailures7d")}
           value={String(healthQuery.data?.provider_failures_last_7_days ?? 0)}
         />
-        <MetricCard label="Discovery runtime" value={healthQuery.data?.discovery_runtime ?? "unknown"} />
-        <MetricCard label="Current AI runtime" value={healthQuery.data?.current_ai_runtime ?? "unknown"} />
+        <MetricCard label={t("settings.discoveryRuntime")} value={healthQuery.data?.discovery_runtime ?? t("common.unknown")} />
+        <MetricCard label={t("settings.currentAiRuntime")} value={healthQuery.data?.current_ai_runtime ?? t("common.unknown")} />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-0">
         <TabsList className="grid w-full grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-5">
-          <TabsTrigger value="overview" className="flex-col items-start gap-1 text-left md:items-center">
-            <span className="font-semibold">System overview</span>
-            <span className="text-xs text-[color:var(--muted)]">Health, jobs, and provider failures</span>
+          <TabsTrigger value="overview" className="flex-col items-start gap-1 text-start md:items-center">
+            <span className="font-semibold">{t("settings.systemOverview")}</span>
+            <span className="text-xs text-[color:var(--muted)]">{t("settings.systemOverviewDescription")}</span>
           </TabsTrigger>
-          <TabsTrigger value="provider" className="flex-col items-start gap-1 text-left md:items-center">
-            <span className="font-semibold">Provider settings</span>
-            <span className="text-xs text-[color:var(--muted)]">Search defaults and enrichment scope</span>
+          <TabsTrigger value="provider" className="flex-col items-start gap-1 text-start md:items-center">
+            <span className="font-semibold">{t("settings.providerSettings")}</span>
+            <span className="text-xs text-[color:var(--muted)]">{t("settings.providerSettingsDescription")}</span>
           </TabsTrigger>
-          <TabsTrigger value="scoring" className="flex-col items-start gap-1 text-left md:items-center">
-            <span className="font-semibold">Scoring config</span>
-            <span className="text-xs text-[color:var(--muted)]">Versioned rules and thresholds</span>
+          <TabsTrigger value="scoring" className="flex-col items-start gap-1 text-start md:items-center">
+            <span className="font-semibold">{t("settings.scoringConfig")}</span>
+            <span className="text-xs text-[color:var(--muted)]">{t("settings.scoringConfigDescription")}</span>
           </TabsTrigger>
-          <TabsTrigger value="prompts" className="flex-col items-start gap-1 text-left md:items-center">
-            <span className="font-semibold">Prompt templates</span>
-            <span className="text-xs text-[color:var(--muted)]">AI instruction library</span>
+          <TabsTrigger value="prompts" className="flex-col items-start gap-1 text-start md:items-center">
+            <span className="font-semibold">{t("settings.promptTemplates")}</span>
+            <span className="text-xs text-[color:var(--muted)]">{t("settings.promptTemplatesDescription")}</span>
           </TabsTrigger>
-          <TabsTrigger value="audit" className="flex-col items-start gap-1 text-left md:items-center">
-            <span className="font-semibold">Audit</span>
-            <span className="text-xs text-[color:var(--muted)]">Recent admin activity</span>
+          <TabsTrigger value="audit" className="flex-col items-start gap-1 text-start md:items-center">
+            <span className="font-semibold">{t("settings.audit")}</span>
+            <span className="text-xs text-[color:var(--muted)]">{t("settings.auditDescription")}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -332,70 +334,70 @@ export function SettingsPage() {
             <div className="grid gap-4 2xl:grid-cols-[0.8fr_1.2fr]">
             <Card className="min-w-0">
               <CardHeader>
-                <CardTitle>Operational health</CardTitle>
-                <CardDescription>Recent failure visibility and current runtime readiness for provider-backed jobs.</CardDescription>
+                <CardTitle>{t("settings.operationalHealth")}</CardTitle>
+                <CardDescription>{t("settings.operationalHealthDescription")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <StatusMetric
-                    label="Database"
+                    label={t("settings.database")}
                     ok={healthQuery.data?.database_ok ?? false}
-                    okLabel="Healthy"
-                    badLabel="Unavailable"
+                    okLabel={t("settings.healthy")}
+                    badLabel={t("settings.unavailable")}
                   />
                   <StatusMetric
                     label="SerpAPI"
                     ok={healthQuery.data?.serpapi_live_reachable ?? false}
-                    okLabel="Reachable"
-                    badLabel="Unavailable"
+                    okLabel={t("settings.reachable")}
+                    badLabel={t("settings.unavailable")}
                   />
                   <StatusMetric
                     label="Ollama"
                     ok={healthQuery.data?.ollama_reachable ?? false}
-                    okLabel="Reachable"
-                    badLabel="Unavailable"
+                    okLabel={t("settings.reachable")}
+                    badLabel={t("settings.unavailable")}
                   />
                   <StatusMetric
-                    label="OpenAI fallback"
+                    label={t("settings.openaiFallback")}
                     ok={healthQuery.data?.openai_fallback_configured ?? false}
-                    okLabel="Configured"
-                    badLabel="Missing key"
+                    okLabel={t("settings.configured")}
+                    badLabel={t("settings.missingKey")}
                   />
                   <MetricCard
-                    label="Failed jobs / 7d"
+                    label={t("settings.failedJobs7d")}
                     value={String(healthQuery.data?.failed_jobs_last_7_days ?? 0)}
                   />
                   <MetricCard
-                    label="Provider failures / 7d"
+                    label={t("settings.providerFailures7d")}
                     value={String(healthQuery.data?.provider_failures_last_7_days ?? 0)}
                   />
                   <MetricCard
-                    label="SerpAPI mode"
+                    label={t("settings.serpapiMode")}
                     value={healthQuery.data?.serpapi_runtime_mode ?? "unknown"}
                   />
                   <MetricCard
-                    label="Discovery runtime"
-                    value={healthQuery.data?.discovery_runtime ?? "unknown"}
+                    label={t("settings.discoveryRuntime")}
+                    value={healthQuery.data?.discovery_runtime ?? t("common.unknown")}
                   />
-                  <MetricCard label="Current AI runtime" value={healthQuery.data?.current_ai_runtime ?? "unknown"} />
-                  <MetricCard label="AI fallback runtime" value={healthQuery.data?.analysis_fallback_runtime ?? "none"} />
+                  <MetricCard label={t("settings.currentAiRuntime")} value={healthQuery.data?.current_ai_runtime ?? t("common.unknown")} />
+                  <MetricCard label={t("settings.aiFallbackRuntime")} value={healthQuery.data?.analysis_fallback_runtime ?? t("common.none")} />
                 </div>
                 {(healthQuery.data?.runtime_warnings ?? []).length ? (
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold">Runtime warnings</p>
+                    <p className="text-sm font-semibold">{t("settings.runtimeWarnings")}</p>
                     {(healthQuery.data?.runtime_warnings ?? []).map((warning) => (
                       <QueryStateNotice
                         key={warning}
                         tone="info"
-                        title="Environment warning"
+                        title={t("settings.environmentWarning")}
                         description={warning}
                       />
                     ))}
                   </div>
                 ) : (
                   <EmptyState
-                    title="No runtime warnings"
-                    description="The current environment is not reporting additional operational warnings."
+                    title={t("settings.noRuntimeWarnings")}
+                    description={t("settings.noRuntimeWarningsDescription")}
                   />
                 )}
               </CardContent>
@@ -404,14 +406,14 @@ export function SettingsPage() {
             <div className="space-y-4">
               <Card className="min-w-0">
                 <CardHeader>
-                  <CardTitle>Recent failed jobs</CardTitle>
-                  <CardDescription>Discovery runs that failed within the last seven days.</CardDescription>
+                  <CardTitle>{t("settings.recentFailedJobs")}</CardTitle>
+                  <CardDescription>{t("settings.recentFailedJobsDescription")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(healthQuery.data?.recent_failed_jobs ?? []).length === 0 ? (
                     <EmptyState
-                      title="No failed jobs"
-                      description="No discovery runs have failed in the last seven days."
+                      title={t("settings.noFailedJobs")}
+                      description={t("settings.noFailedJobsDescription")}
                     />
                   ) : (
                     healthQuery.data?.recent_failed_jobs.map((job) => (
@@ -422,10 +424,10 @@ export function SettingsPage() {
                               {job.business_type} / {job.city}
                             </p>
                             <p className="mt-1 text-sm text-[color:var(--muted)]">
-                              {job.provider_error_count} provider errors
+                              {t("settings.providerErrorsCount", { count: job.provider_error_count })}
                             </p>
                           </div>
-                          <div className="text-right text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                          <div className="text-end text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                             <p>{job.status}</p>
                             <p className="mt-1">{formatDate(job.finished_at ?? job.queued_at)}</p>
                           </div>
@@ -438,14 +440,14 @@ export function SettingsPage() {
 
               <Card className="min-w-0">
                 <CardHeader>
-                  <CardTitle>Recent provider failures</CardTitle>
-                  <CardDescription>Latest stored engine-level failures for provider-backed workflows.</CardDescription>
+                  <CardTitle>{t("settings.recentProviderFailures")}</CardTitle>
+                  <CardDescription>{t("settings.recentProviderFailuresDescription")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(healthQuery.data?.recent_provider_failures ?? []).length === 0 ? (
                     <EmptyState
-                      title="No provider failures"
-                      description="No provider failures were recorded in the last seven days."
+                      title={t("settings.noProviderFailures")}
+                      description={t("settings.noProviderFailuresDescription")}
                     />
                   ) : (
                     healthQuery.data?.recent_provider_failures.map((failure) => (
@@ -456,10 +458,10 @@ export function SettingsPage() {
                               {failure.engine} / {failure.mode}
                             </p>
                             <p className="mt-1 text-sm text-[color:var(--muted)]">
-                              {failure.error_message ?? "Provider request failed without a stored message"}
+                              {failure.error_message ?? t("settings.providerFailureNoMessage")}
                             </p>
                           </div>
-                          <div className="text-right text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                          <div className="text-end text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                             <p>{failure.status}</p>
                             <p className="mt-1">{formatDate(failure.finished_at ?? failure.started_at)}</p>
                           </div>
@@ -477,50 +479,50 @@ export function SettingsPage() {
           <div className="grid gap-4 2xl:grid-cols-[0.72fr_1.28fr]">
             <Card className="min-w-0">
               <CardHeader>
-                <CardTitle>Provider runtime profile</CardTitle>
-                <CardDescription>Workspace execution defaults that influence discovery coverage and fallback behavior.</CardDescription>
+                <CardTitle>{t("settings.providerRuntimeProfile")}</CardTitle>
+                <CardDescription>{t("settings.providerRuntimeProfileDescription")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <MetricCard label="SerpAPI mode" value={healthQuery.data?.serpapi_runtime_mode ?? "unknown"} />
-                <MetricCard label="Discovery runtime" value={healthQuery.data?.discovery_runtime ?? "unknown"} />
-                <MetricCard label="Current AI runtime" value={healthQuery.data?.current_ai_runtime ?? "unknown"} />
+                <MetricCard label={t("settings.serpapiMode")} value={healthQuery.data?.serpapi_runtime_mode ?? t("common.unknown")} />
+                <MetricCard label={t("settings.discoveryRuntime")} value={healthQuery.data?.discovery_runtime ?? t("common.unknown")} />
+                <MetricCard label={t("settings.currentAiRuntime")} value={healthQuery.data?.current_ai_runtime ?? t("common.unknown")} />
                 <StatusMetric
-                  label="SerpAPI availability"
+                  label={t("settings.serpapiAvailability")}
                   ok={healthQuery.data?.serpapi_live_reachable ?? false}
-                  okLabel="Reachable"
-                  badLabel="Unavailable"
+                  okLabel={t("settings.reachable")}
+                  badLabel={t("settings.unavailable")}
                 />
               </CardContent>
             </Card>
 
             <Card className="min-w-0">
               <CardHeader>
-                <CardTitle>Provider defaults</CardTitle>
-                <CardDescription>Workspace-specific SerpAPI defaults for language, geography, and enrichment breadth.</CardDescription>
+                <CardTitle>{t("settings.providerDefaults")}</CardTitle>
+                <CardDescription>{t("settings.providerDefaultsDescription")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <form className="space-y-4" onSubmit={providerForm.handleSubmit((values) => providerMutation.mutate(values))}>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Language (`hl`)">
-                      <Input aria-label="Language (hl)" {...providerForm.register("hl")} />
+                    <Field label={t("settings.languageHl")}>
+                      <Input aria-label={t("settings.languageHl")} {...providerForm.register("hl")} />
                     </Field>
-                    <Field label="Geo (`gl`)">
-                      <Input aria-label="Geo (gl)" {...providerForm.register("gl")} />
+                    <Field label={t("settings.geoGl")}>
+                      <Input aria-label={t("settings.geoGl")} {...providerForm.register("gl")} />
                     </Field>
-                    <Field label="Google domain">
-                      <Input aria-label="Google domain" {...providerForm.register("google_domain")} />
+                    <Field label={t("settings.googleDomain")}>
+                      <Input aria-label={t("settings.googleDomain")} {...providerForm.register("google_domain")} />
                     </Field>
-                    <Field label="Enrich top N">
-                      <Input aria-label="Enrich top N" type="number" {...providerForm.register("enrich_top_n")} />
+                    <Field label={t("settings.enrichTopN")}>
+                      <Input aria-label={t("settings.enrichTopN")} type="number" {...providerForm.register("enrich_top_n")} />
                     </Field>
                   </div>
                   <Button type="submit" disabled={providerMutation.isPending}>
-                    {providerMutation.isPending ? "Saving..." : "Save provider settings"}
+                    {providerMutation.isPending ? t("common.saving") : t("settings.saveProviderSettings")}
                   </Button>
                   {providerMutation.isError ? (
                     <QueryStateNotice
                       tone="error"
-                      title="Provider settings not saved"
+                      title={t("settings.providerSettingsNotSaved")}
                       description={providerMutation.error.message}
                     />
                   ) : null}
@@ -533,16 +535,16 @@ export function SettingsPage() {
         <TabsContent value="scoring" className="space-y-4">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Scoring configuration</CardTitle>
-              <CardDescription>Create versioned scoring rules and activate the one the workspace should use.</CardDescription>
+              <CardTitle>{t("settings.scoringConfiguration")}</CardTitle>
+              <CardDescription>{t("settings.scoringConfigurationDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {scoringQuery.data ? (
                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">Active version</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">{t("settings.activeVersion")}</p>
                   <p className="mt-2 text-lg font-bold">{scoringQuery.data.active_version.public_id}</p>
                   <p className="mt-2 text-sm text-[color:var(--muted)]">
-                    Created {formatDate(scoringQuery.data.active_version.created_at)} by{" "}
+                    {t("settings.created")} {formatDate(scoringQuery.data.active_version.created_at)} {t("settings.by")}{" "}
                     {scoringQuery.data.active_version.created_by_user_public_id}
                   </p>
                 </div>
@@ -599,16 +601,16 @@ export function SettingsPage() {
                       <Input aria-label="confidence_min" type="number" step="0.01" {...scoringForm.register("confidence_min")} />
                     </Field>
                   </div>
-                  <Field label="Version note">
-                    <Textarea aria-label="Version note" {...scoringForm.register("note")} />
+                  <Field label={t("settings.versionNote")}>
+                    <Textarea aria-label={t("settings.versionNote")} {...scoringForm.register("note")} />
                   </Field>
                   <Button type="submit" disabled={createVersionMutation.isPending}>
-                    {createVersionMutation.isPending ? "Creating..." : "Create scoring version"}
+                    {createVersionMutation.isPending ? t("common.creating") : t("settings.createScoringVersion")}
                   </Button>
                   {createVersionMutation.isError ? (
                     <QueryStateNotice
                       tone="error"
-                      title="Scoring version not created"
+                      title={t("settings.scoringVersionNotCreated")}
                       description={createVersionMutation.error.message}
                     />
                   ) : null}
@@ -618,15 +620,15 @@ export function SettingsPage() {
                   {activateMutation.isError ? (
                     <QueryStateNotice
                       tone="error"
-                      title="Could not activate scoring version"
+                      title={t("settings.couldNotActivateScoring")}
                       description={activateMutation.error.message}
                     />
                   ) : null}
 
                   {(versionsQuery.data?.items ?? []).length === 0 ? (
                     <EmptyState
-                      title="No scoring versions"
-                      description="Create a new version to start tracking deterministic score changes over time."
+                      title={t("settings.noScoringVersions")}
+                      description={t("settings.noScoringVersionsDescription")}
                     />
                   ) : (
                     (versionsQuery.data?.items ?? []).map((version) => (
@@ -634,7 +636,7 @@ export function SettingsPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <p className="font-semibold">{version.public_id}</p>
-                            <p className="mt-1 text-sm text-[color:var(--muted)]">{version.note ?? "No note"}</p>
+                            <p className="mt-1 text-sm text-[color:var(--muted)]">{version.note ?? t("settings.noNote")}</p>
                           </div>
                           <Button
                             variant="secondary"
@@ -643,7 +645,7 @@ export function SettingsPage() {
                             }
                             onClick={() => activateMutation.mutate(version.public_id)}
                           >
-                            {scoringQuery.data?.active_version.public_id === version.public_id ? "Active" : "Activate"}
+                            {scoringQuery.data?.active_version.public_id === version.public_id ? t("common.active") : t("common.activate")}
                           </Button>
                         </div>
                       </div>
@@ -658,8 +660,8 @@ export function SettingsPage() {
         <TabsContent value="prompts" className="space-y-4">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Prompt templates</CardTitle>
-              <CardDescription>Version prompt text cleanly and activate the template used for future AI snapshots.</CardDescription>
+              <CardTitle>{t("settings.promptTemplates")}</CardTitle>
+              <CardDescription>{t("settings.promptTemplatesCardDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 2xl:grid-cols-[0.95fr_1.05fr]">
@@ -667,12 +669,12 @@ export function SettingsPage() {
                   className="space-y-4"
                   onSubmit={promptTemplateForm.handleSubmit((values) => createPromptTemplateMutation.mutate(values))}
                 >
-                  <Field label="Template name">
-                    <Input aria-label="Template name" {...promptTemplateForm.register("name")} />
+                  <Field label={t("settings.templateName")}>
+                    <Input aria-label={t("settings.templateName")} {...promptTemplateForm.register("name")} />
                   </Field>
-                  <Field label="Template text">
+                  <Field label={t("settings.templateText")}>
                     <Textarea
-                      aria-label="Template text"
+                      aria-label={t("settings.templateText")}
                       className="min-h-[180px]"
                       {...promptTemplateForm.register("template_text")}
                     />
@@ -682,12 +684,12 @@ export function SettingsPage() {
                     setValue={promptTemplateForm.setValue}
                   />
                   <Button type="submit" disabled={createPromptTemplateMutation.isPending}>
-                    {createPromptTemplateMutation.isPending ? "Creating..." : "Create prompt template"}
+                    {createPromptTemplateMutation.isPending ? t("common.creating") : t("settings.createPromptTemplate")}
                   </Button>
                   {createPromptTemplateMutation.isError ? (
                     <QueryStateNotice
                       tone="error"
-                      title="Prompt template not created"
+                      title={t("settings.promptTemplateNotCreated")}
                       description={createPromptTemplateMutation.error.message}
                     />
                   ) : null}
@@ -697,15 +699,15 @@ export function SettingsPage() {
                   {activatePromptTemplateMutation.isError ? (
                     <QueryStateNotice
                       tone="error"
-                      title="Could not activate prompt template"
+                      title={t("settings.couldNotActivatePrompt")}
                       description={activatePromptTemplateMutation.error.message}
                     />
                   ) : null}
 
                   {(promptTemplatesQuery.data?.items ?? []).length === 0 ? (
                     <EmptyState
-                      title="No prompt templates"
-                      description="Create a reusable prompt template to standardize future AI analysis."
+                      title={t("settings.noPromptTemplates")}
+                      description={t("settings.noPromptTemplatesDescription")}
                     />
                   ) : (
                     (promptTemplatesQuery.data?.items ?? []).map((template) => (
@@ -715,7 +717,7 @@ export function SettingsPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-semibold">{template.name}</p>
                               <Badge tone={template.is_active ? "success" : "neutral"}>
-                                {template.is_active ? "Active" : "Inactive"}
+                                {template.is_active ? t("common.active") : t("common.inactive")}
                               </Badge>
                             </div>
                             <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
@@ -727,7 +729,7 @@ export function SettingsPage() {
                             disabled={activatePromptTemplateMutation.isPending || template.is_active}
                             onClick={() => activatePromptTemplateMutation.mutate(template.public_id)}
                           >
-                            {template.is_active ? "Active" : "Activate"}
+                            {template.is_active ? t("common.active") : t("common.activate")}
                           </Button>
                         </div>
                         <pre className="mt-3 overflow-x-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3 text-xs leading-6 text-[color:var(--muted)]">
@@ -745,14 +747,14 @@ export function SettingsPage() {
         <TabsContent value="audit" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Audit log</CardTitle>
-              <CardDescription>Most recent admin and lead workflow events recorded by the API.</CardDescription>
+              <CardTitle>{t("settings.auditLog")}</CardTitle>
+              <CardDescription>{t("settings.auditLogDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {(auditQuery.data?.items ?? []).length === 0 ? (
                 <EmptyState
-                  title="No audit entries yet"
-                  description="Events such as job creation, lead status changes, exports, and scoring activation will be listed here."
+                  title={t("settings.noAuditEntries")}
+                  description={t("settings.noAuditEntriesDescription")}
                 />
               ) : (
                 auditQuery.data?.items.map((entry) => (
@@ -762,8 +764,8 @@ export function SettingsPage() {
                         <p className="font-semibold">{entry.event_name}</p>
                         <p className="mt-1 text-sm text-[color:var(--muted)]">{entry.details}</p>
                       </div>
-                      <div className="text-right text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                        <p>{entry.actor_user_public_id ?? "system"}</p>
+                      <div className="text-end text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                        <p>{entry.actor_user_public_id ?? t("common.system")}</p>
                         <p className="mt-1">{formatDate(entry.created_at)}</p>
                       </div>
                     </div>
@@ -824,6 +826,7 @@ function PromptTemplateActivateField({
   control: Control<PromptTemplateValues>;
   setValue: UseFormSetValue<PromptTemplateValues>;
 }) {
+  const { t } = useTranslation();
   const activate = useWatch({
     control,
     name: "activate",
@@ -835,7 +838,7 @@ function PromptTemplateActivateField({
         checked={activate}
         onCheckedChange={(checked) => setValue("activate", checked === true, { shouldDirty: true })}
       />
-      Activate immediately
+      {t("settings.activateImmediately")}
     </label>
   );
 }

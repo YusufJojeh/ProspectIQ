@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ShieldCheck,
   Zap,
@@ -28,7 +29,8 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { cn } from "@/lib/utils";
 
 export function AdminPage() {
-  useDocumentTitle("Admin");
+  const { t } = useTranslation();
+  useDocumentTitle(t("admin.title"));
   const queryClient = useQueryClient();
 
   const healthQuery = useQuery({
@@ -82,9 +84,9 @@ export function AdminPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Admin"
-        title="Workspace administration"
-        description="Manage scoring configuration, provider settings, prompt templates, and monitor operational health."
+        eyebrow={t("admin.title")}
+        title={t("admin.workspaceAdministration")}
+        description={t("admin.workspaceAdministrationDescription")}
         actions={
           <Button
             size="sm"
@@ -92,7 +94,7 @@ export function AdminPage() {
             className="bg-transparent"
             onClick={() => void queryClient.invalidateQueries({ queryKey: ["admin"] })}
           >
-            <RefreshCw className="size-3.5" /> Refresh
+            <RefreshCw className="size-3.5" /> {t("common.refresh")}
           </Button>
         }
       />
@@ -110,10 +112,10 @@ export function AdminPage() {
           >
             {isHealthy ? <CheckCircle2 className="size-4 shrink-0" /> : <AlertTriangle className="size-4 shrink-0" />}
             <div>
-              <span className="font-medium">{isHealthy ? "All systems operational" : "Degraded service"}</span>
-              <span className="ml-2 text-muted-foreground">
-                SerpAPI: {health?.serpapi_live_reachable ? "OK" : "Down"} · Ollama: {health?.ollama_reachable ? "OK" : "Down"} · DB:{" "}
-                {health?.database_ok ? "OK" : "Down"} · Mode:{" "}
+              <span className="font-medium">{isHealthy ? t("admin.allSystemsOperational") : t("admin.degradedService")}</span>
+              <span className="ms-2 text-muted-foreground">
+                SerpAPI: {health?.serpapi_live_reachable ? t("admin.ok") : t("admin.down")} · Ollama: {health?.ollama_reachable ? t("admin.ok") : t("admin.down")} · DB:{" "}
+                {health?.database_ok ? t("admin.ok") : t("admin.down")} · {t("admin.mode")}:{" "}
                 {health?.discovery_runtime}
               </span>
             </div>
@@ -123,29 +125,29 @@ export function AdminPage() {
         <Tabs defaultValue="scoring">
           <TabsList className="mb-4">
             <TabsTrigger value="scoring">
-              <Settings className="mr-1.5 size-3.5" /> Scoring
+              <Settings className="me-1.5 size-3.5" /> {t("admin.scoringConfig")}
             </TabsTrigger>
             <TabsTrigger value="providers">
-              <Zap className="mr-1.5 size-3.5" /> Providers
+              <Zap className="me-1.5 size-3.5" /> {t("admin.providers")}
             </TabsTrigger>
             <TabsTrigger value="prompts">
-              <FileText className="mr-1.5 size-3.5" /> Prompts
+              <FileText className="me-1.5 size-3.5" /> {t("admin.prompts")}
             </TabsTrigger>
             <TabsTrigger value="health">
-              <Activity className="mr-1.5 size-3.5" /> Health
+              <Activity className="me-1.5 size-3.5" /> {t("admin.health")}
             </TabsTrigger>
           </TabsList>
 
           {/* ─── Scoring tab ─── */}
           <TabsContent value="scoring" className="grid gap-4">
             {scoringQuery.isPending && (
-              <QueryStateNotice tone="loading" title="Loading scoring config" description="Fetching active configuration…" />
+              <QueryStateNotice tone="loading" title={t("admin.loadingScoringTitle")} description={t("admin.fetchingConfiguration")} />
             )}
             {scoringQuery.isSuccess && (
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="mb-3 flex items-center gap-2 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                   <ShieldCheck className="size-3.5 text-[oklch(var(--evidence))]" />
-                  Active scoring configuration
+                  {t("admin.activeScoringConfiguration")}
                 </div>
                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {Object.entries(scoringQuery.data.active_version.weights).map(([k, v]) => (
@@ -175,14 +177,14 @@ export function AdminPage() {
             {versionsQuery.isSuccess && (
               <div className="rounded-xl border border-border bg-card">
                 <header className="border-b border-border px-4 py-3">
-                  <div className="text-[12.5px] font-medium">Version history</div>
+                  <div className="text-[12.5px] font-medium">{t("admin.versionHistory")}</div>
                 </header>
                 <ul className="divide-y divide-border">
                   {versionsQuery.data.items.map((v) => (
                     <li key={v.public_id} className="flex items-center gap-3 px-4 py-3">
                       <Database className="size-3.5 shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-medium">{v.note ?? `Version ${v.public_id.slice(0, 8)}`}</div>
+                        <div className="text-[12.5px] font-medium">{v.note ?? t("admin.versionWithId", { id: v.public_id.slice(0, 8) })}</div>
                         <div className="font-mono text-[11px] text-muted-foreground">{v.public_id}</div>
                       </div>
                       <Button
@@ -195,13 +197,13 @@ export function AdminPage() {
                         {activateVersionMutation.isPending ? (
                           <Loader2 className="size-3 animate-spin" />
                         ) : null}
-                        Activate
+                        {t("common.activate")}
                       </Button>
                     </li>
                   ))}
                   {versionsQuery.data.items.length === 0 && (
                     <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">
-                      No scoring versions configured.
+                      {t("admin.noScoringVersions")}
                     </li>
                   )}
                 </ul>
@@ -212,13 +214,13 @@ export function AdminPage() {
           {/* ─── Providers tab ─── */}
           <TabsContent value="providers">
             {providerQuery.isPending && (
-              <QueryStateNotice tone="loading" title="Loading provider settings" description="Fetching configuration…" />
+              <QueryStateNotice tone="loading" title={t("admin.loadingProviderTitle")} description={t("admin.fetchingConfiguration")} />
             )}
             {providerQuery.isSuccess && (
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="mb-3 flex items-center gap-2 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                   <Zap className="size-3.5 text-[oklch(var(--signal))]" />
-                  Provider configuration
+                  {t("admin.providerConfiguration")}
                 </div>
                 <dl className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                   {Object.entries(providerQuery.data).map(([k, v]) => (
@@ -237,12 +239,12 @@ export function AdminPage() {
           {/* ─── Prompts tab ─── */}
           <TabsContent value="prompts">
             {promptsQuery.isPending && (
-              <QueryStateNotice tone="loading" title="Loading prompt templates" description="Fetching templates…" />
+              <QueryStateNotice tone="loading" title={t("admin.loadingPromptsTitle")} description={t("admin.fetchingTemplates")} />
             )}
             {promptsQuery.isSuccess && (
               <div className="rounded-xl border border-border bg-card">
                 <header className="border-b border-border px-4 py-3">
-                  <div className="text-[12.5px] font-medium">Prompt templates</div>
+                  <div className="text-[12.5px] font-medium">{t("admin.promptTemplates")}</div>
                 </header>
                 <ul className="divide-y divide-border">
                   {promptsQuery.data.items.map((pt) => (
@@ -253,7 +255,7 @@ export function AdminPage() {
                           <span className="text-[12.5px] font-medium">{pt.name}</span>
                           {pt.is_active && (
                             <span className="inline-flex items-center rounded-full border border-[oklch(var(--evidence)/0.3)] bg-[oklch(var(--evidence)/0.08)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[oklch(var(--evidence))]">
-                              active
+                              {t("common.active")}
                             </span>
                           )}
                         </div>
@@ -267,14 +269,14 @@ export function AdminPage() {
                           onClick={() => activatePromptMutation.mutate(pt.public_id)}
                           disabled={activatePromptMutation.isPending}
                         >
-                          Activate
+                          {t("common.activate")}
                         </Button>
                       )}
                     </li>
                   ))}
                   {promptsQuery.data.items.length === 0 && (
                     <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">
-                      No prompt templates configured.
+                      {t("admin.noPromptTemplates")}
                     </li>
                   )}
                 </ul>
@@ -285,15 +287,15 @@ export function AdminPage() {
           {/* ─── Health tab ─── */}
           <TabsContent value="health">
             {healthQuery.isPending && (
-              <QueryStateNotice tone="loading" title="Checking system health" description="Pinging all services…" />
+              <QueryStateNotice tone="loading" title={t("admin.checkingHealthTitle")} description={t("admin.pingingServices")} />
             )}
             {healthQuery.isSuccess && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {[
-                  { k: "SerpAPI", ok: health!.serpapi_live_reachable, desc: `Mode: ${health!.discovery_runtime}` },
-                  { k: "Ollama", ok: health!.ollama_reachable, desc: `Primary runtime: ${health!.current_ai_runtime}` },
-                  { k: "OpenAI fallback", ok: health!.openai_fallback_configured, desc: health!.openai_fallback_configured ? "Configured" : "Not configured" },
-                  { k: "Database", ok: health!.database_ok, desc: "Persistence layer" },
+                  { k: "SerpAPI", ok: health!.serpapi_live_reachable, desc: t("admin.modeValue", { mode: health!.discovery_runtime }) },
+                  { k: "Ollama", ok: health!.ollama_reachable, desc: t("admin.primaryRuntimeValue", { runtime: health!.current_ai_runtime }) },
+                  { k: "OpenAI fallback", ok: health!.openai_fallback_configured, desc: health!.openai_fallback_configured ? t("admin.configured") : t("admin.notConfigured") },
+                  { k: t("admin.dbStatus"), ok: health!.database_ok, desc: t("admin.persistenceLayer") },
                 ].map((s) => (
                   <div
                     key={s.k}
@@ -319,7 +321,7 @@ export function AdminPage() {
                         s.ok ? "text-[oklch(var(--evidence))]" : "text-[oklch(var(--risk))]",
                       )}
                     >
-                      {s.ok ? "Operational" : "Degraded"}
+                      {s.ok ? t("admin.operational") : t("admin.degraded")}
                     </div>
                   </div>
                 ))}

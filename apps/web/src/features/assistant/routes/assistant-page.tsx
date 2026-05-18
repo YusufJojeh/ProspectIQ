@@ -157,7 +157,7 @@ export function AssistantPage() {
                   <button
                     key={prompt}
                     type="button"
-                    className="rounded-xl border border-border bg-background/70 px-3 py-3 text-left text-sm transition hover:border-[oklch(var(--signal)/0.45)] hover:bg-background"
+                    className="rounded-xl border border-border bg-background/70 px-3 py-3 text-start text-sm transition hover:border-[oklch(var(--signal)/0.45)] hover:bg-background"
                     onClick={() => {
                       void submitPrompt(prompt);
                     }}

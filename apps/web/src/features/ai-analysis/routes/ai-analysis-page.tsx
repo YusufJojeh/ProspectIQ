@@ -168,13 +168,13 @@ export function AiAnalysisPage() {
               <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">{tab.count}</span>
             </button>
           ))}
-          <div className="relative w-full md:ml-auto md:w-64">
+          <div className="relative w-full md:ms-auto md:w-64">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("ai.searchLeads")}
-              className="h-8 bg-background pl-8 text-[12.5px]"
+              className="h-8 bg-background ps-8 text-[12.5px]"
             />
           </div>
         </section>

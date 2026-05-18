@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
 
 export function LeadScoreBreakdownCard({
   totalScore,
@@ -11,18 +12,19 @@ export function LeadScoreBreakdownCard({
   scoringVersionId?: string | null;
   items: Array<{ key: string; label: string; contribution: number; reason: string; percent: number }>;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="rounded-2xl border border-border bg-card/95">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
         <div>
-          <h2 className="text-sm font-semibold">Score breakdown</h2>
+          <h2 className="text-sm font-semibold">{t("leads.scoreBreakdown")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Deterministic model output from stored facts and scoring weights.
+            {t("leadDetail.scoreBreakdownDescription")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {scoringVersionId ? <Badge tone="neutral">{scoringVersionId}</Badge> : null}
-          <Badge tone={qualified ? "success" : "warning"}>{qualified ? "Qualified" : "Below threshold"}</Badge>
+          <Badge tone={qualified ? "success" : "warning"}>{qualified ? t("leads.qualified") : t("leadDetail.belowThreshold")}</Badge>
           <Badge tone="accent">{totalScore}</Badge>
         </div>
       </header>
@@ -35,9 +37,9 @@ export function LeadScoreBreakdownCard({
                 <p className="font-medium">{item.label}</p>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.reason}</p>
               </div>
-              <div className="text-right">
+              <div className="text-end">
                 <p className="font-mono text-base font-semibold tabular-nums">{item.contribution.toFixed(1)}</p>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{item.percent}% impact</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{t("leadDetail.impactPercent", { percent: item.percent })}</p>
               </div>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
