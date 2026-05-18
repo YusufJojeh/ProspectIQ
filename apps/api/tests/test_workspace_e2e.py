@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import clear_settings_cache
 from app.core.database import Base, get_db
 from app.core.security import hash_password
 from app.main import app
@@ -356,6 +357,8 @@ def _login(client: TestClient, seed: _SeededWorkspace) -> str:
 
 
 def test_workspace_operator_journey_e2e(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
+    clear_settings_cache()
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
     monkeypatch.setattr(
@@ -560,3 +563,5 @@ def test_workspace_operator_journey_e2e(monkeypatch) -> None:
             "lead.outreach_generated",
             "leads.exported_csv",
         }.issubset(audit_events)
+    clear_settings_cache()
+    monkeypatch.delenv("SERPAPI_RUNTIME_MODE", raising=False)

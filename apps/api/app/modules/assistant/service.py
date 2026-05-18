@@ -5,6 +5,7 @@ import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy.orm import Session
@@ -18,12 +19,18 @@ from app.modules.assistant.repository import ChatSessionRepository
 from app.modules.assistant.schemas import AssistantMessageInput, AssistantMessagePartInput
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
+from app.modules.provider_serpapi.exceptions import ProviderConfigError
+from app.modules.provider_serpapi.service import SerpApiService
+from app.shared.enums.jobs import ProviderFetchStatus
 from app.shared.services.lead_intelligence import LeadIntelligenceService
 
 logger = logging.getLogger(__name__)
 
 _MAX_CONTEXT_MESSAGES = 24
 _MAX_CONTEXT_CHARS = 12000
+_MAX_SEARCH_SOURCES = 5
+
+SearchStatus = str
 
 
 @dataclass(frozen=True)
@@ -32,12 +39,51 @@ class StreamingRuntimeCandidate:
     stream_fn: str
 
 
+@dataclass(frozen=True)
+class AssistantSearchSource:
+    title: str
+    url: str
+    snippet: str | None
+    provider: str = "serpapi"
+
+    def model_dump(self) -> dict[str, str | None]:
+        return {
+            "title": self.title,
+            "url": self.url,
+            "snippet": self.snippet,
+            "provider": self.provider,
+        }
+
+
+@dataclass(frozen=True)
+class AssistantSearchContext:
+    used_search: bool
+    search_status: SearchStatus
+    sources: list[AssistantSearchSource]
+    query: str | None = None
+    error_message: str | None = None
+
+    def model_dump(self) -> dict[str, Any]:
+        return {
+            "used_search": self.used_search,
+            "search_status": self.search_status,
+            "sources": [source.model_dump() for source in self.sources],
+        }
+
+
+@dataclass(frozen=True)
+class AssistantStreamChunk:
+    type: str
+    data: dict[str, Any]
+
+
 class AssistantService:
     def __init__(self) -> None:
         self.leads_repository = LeadsRepository()
         self.lead_intelligence = LeadIntelligenceService()
         self.analysis_repository = AIAnalysisRepository()
         self.session_repository = ChatSessionRepository()
+        self._active_search_context: AssistantSearchContext | None = None
 
     def resolve_lead(
         self,
@@ -113,20 +159,31 @@ class AssistantService:
         messages: list[AssistantMessageInput],
         lead: Lead | None,
         session: ChatSession,
-    ) -> Iterator[str]:
+    ) -> Iterator[str | AssistantStreamChunk]:
         """Persist user message, yield tokens, then persist the assembled response."""
         user_text = self._latest_user_message(messages)
         self.session_repository.add_message(
             db, session_id=session.id, role="user", content=user_text
         )
         generation_messages = self._messages_from_session_history(db, session=session)
+        search_context = self._resolve_search_context(
+            db,
+            workspace_id=workspace_id,
+            messages=generation_messages,
+            lead=lead,
+        )
+        yield AssistantStreamChunk(type="search", data=search_context.model_dump())
 
         assembled: list[str] = []
-        for token in self._generate_tokens(
-            db, workspace_id=workspace_id, messages=generation_messages, lead=lead
-        ):
-            assembled.append(token)
-            yield token
+        self._active_search_context = search_context
+        try:
+            for token in self._generate_tokens(
+                db, workspace_id=workspace_id, messages=generation_messages, lead=lead
+            ):
+                assembled.append(token)
+                yield token
+        finally:
+            self._active_search_context = None
 
         full_response = "".join(assembled)
         self.session_repository.add_message(
@@ -142,8 +199,9 @@ class AssistantService:
         lead: Lead | None,
     ) -> Iterator[str]:
         """Yield raw text tokens from the LLM or the deterministic fallback."""
+        search_context = self._get_active_search_context()
         if lead is None:
-            yield self._build_workspace_response(messages)
+            yield self._build_workspace_response(messages, search_context=search_context)
             return
 
         context = self.lead_intelligence.build(db, lead=lead)
@@ -160,6 +218,7 @@ class AssistantService:
             facts=context.facts.model_dump(mode="json"),
             score_context=context.score_context.model_dump(mode="json") if context.score_context else None,
             latest_analysis=latest_analysis_result.model_dump(mode="json") if latest_analysis_result else None,
+            search_context=search_context,
         )
         settings = get_settings()
         candidates = self._resolve_runtime_candidates(settings)
@@ -224,6 +283,212 @@ class AssistantService:
             if part.type == "text" and part.text and part.text.strip()
         )
 
+    def _get_active_search_context(self) -> AssistantSearchContext:
+        context = getattr(self, "_active_search_context", None)
+        if isinstance(context, AssistantSearchContext):
+            return context
+        return AssistantSearchContext(used_search=False, search_status="not_needed", sources=[])
+
+    def _resolve_search_context(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
+        lead: Lead | None,
+    ) -> AssistantSearchContext:
+        latest_text = self._latest_user_message(messages)
+        if not self._should_use_search(latest_text, lead=lead):
+            return AssistantSearchContext(used_search=False, search_status="not_needed", sources=[])
+
+        query = self._build_search_query(latest_text, lead=lead)
+        try:
+            fetch, payload = SerpApiService().web_search(
+                db,
+                workspace_id=workspace_id,
+                search_job_id=lead.search_job_id if lead is not None else None,
+                query=query,
+            )
+            if fetch.status != ProviderFetchStatus.OK.value:
+                return AssistantSearchContext(
+                    used_search=False,
+                    search_status="failed",
+                    sources=[],
+                    query=query,
+                    error_message="External search failed; answer from stored CRM evidence only.",
+                )
+        except ProviderConfigError:
+            logger.info(
+                "assistant.search.unavailable provider=serpapi workspace_id=%s lead_id=%s",
+                workspace_id,
+                lead.id if lead is not None else None,
+            )
+            return AssistantSearchContext(
+                used_search=False,
+                search_status="unavailable",
+                sources=[],
+                query=query,
+                error_message="External search is unavailable because SerpAPI is not configured.",
+            )
+        except Exception as exc:
+            logger.warning(
+                "assistant.search.failed provider=serpapi workspace_id=%s lead_id=%s error_type=%s",
+                workspace_id,
+                lead.id if lead is not None else None,
+                type(exc).__name__,
+                exc_info=True,
+            )
+            return AssistantSearchContext(
+                used_search=False,
+                search_status="failed",
+                sources=[],
+                query=query,
+                error_message="External search failed; answer from stored CRM evidence only.",
+            )
+
+        sources = self._extract_search_sources(payload)
+        return AssistantSearchContext(
+            used_search=True,
+            search_status="used",
+            sources=sources,
+            query=query,
+        )
+
+    def _should_use_search(self, text: str, *, lead: Lead | None) -> bool:
+        normalized = text.casefold()
+        stripped = normalized.strip()
+        if not stripped:
+            return False
+
+        internal_terms = (
+            "stored",
+            "saved",
+            "crm",
+            "score",
+            "scored",
+            "rating",
+            "review count",
+            "reviews",
+            "follow-up",
+            "follow up",
+            "remember",
+            "previous",
+            "summary",
+            "summarize",
+            "why did",
+            "why was",
+            "درجة",
+            "التقييم",
+            "المحفوظ",
+            "السابق",
+            "تذكر",
+            "لخص",
+        )
+        explicit_search_terms = (
+            "search",
+            "latest",
+            "current",
+            "competitor",
+            "competitors",
+            "market",
+            "website",
+            "seo",
+            "public web",
+            "web presence",
+            "online presence",
+            "enrich",
+            "ابحث",
+            "بحث",
+            "الأحدث",
+            "حالي",
+            "المنافس",
+            "المنافسين",
+            "السوق",
+            "الموقع",
+            "المواقع",
+            "تحسين محركات",
+            "الويب",
+        )
+        if any(term in stripped for term in explicit_search_terms):
+            if lead is not None and any(term in stripped for term in internal_terms):
+                if not any(
+                    term in stripped
+                    for term in (
+                        "search",
+                        "latest",
+                        "competitor",
+                        "market",
+                        "seo",
+                        "ابحث",
+                        "الأحدث",
+                        "المنافس",
+                        "السوق",
+                    )
+                ):
+                    return False
+            return True
+        return False
+
+    def _build_search_query(self, text: str, *, lead: Lead | None) -> str:
+        cleaned_text = " ".join(text.split()).strip()
+        if lead is None:
+            return cleaned_text
+        parts = [
+            lead.company_name,
+            lead.category,
+            lead.city,
+            "official website competitors SEO market",
+            cleaned_text,
+        ]
+        return " ".join(str(part).strip() for part in parts if part)
+
+    def _extract_search_sources(self, payload: dict[str, Any]) -> list[AssistantSearchSource]:
+        organic_results = payload.get("organic_results")
+        if not isinstance(organic_results, list):
+            return []
+
+        seen_urls: set[str] = set()
+        sources: list[AssistantSearchSource] = []
+        for item in organic_results:
+            if not isinstance(item, dict):
+                continue
+            link = item.get("link")
+            if not isinstance(link, str) or not link.strip():
+                continue
+            normalized_url = self._normalize_source_url(link)
+            if not normalized_url or normalized_url in seen_urls:
+                continue
+            seen_urls.add(normalized_url)
+            title_value = item.get("title")
+            snippet_value = item.get("snippet")
+            title = (
+                str(title_value).strip()
+                if isinstance(title_value, str) and title_value.strip()
+                else normalized_url
+            )
+            snippet = (
+                str(snippet_value).strip()
+                if isinstance(snippet_value, str) and snippet_value.strip()
+                else None
+            )
+            sources.append(
+                AssistantSearchSource(
+                    title=title[:180],
+                    url=normalized_url,
+                    snippet=snippet[:320] if snippet else None,
+                )
+            )
+            if len(sources) >= _MAX_SEARCH_SOURCES:
+                break
+        return sources
+
+    def _normalize_source_url(self, value: str) -> str | None:
+        stripped = value.strip()
+        parsed = urlparse(stripped)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return None
+        return stripped
+
     def _messages_from_session_history(
         self, db: Session, *, session: ChatSession
     ) -> list[AssistantMessageInput]:
@@ -261,13 +526,26 @@ class AssistantService:
             lines.append(f"{role}: {text}")
         return "\n\n".join(lines)
 
-    def _build_workspace_response(self, messages: list[AssistantMessageInput]) -> str:
+    def _build_workspace_response(
+        self,
+        messages: list[AssistantMessageInput],
+        *,
+        search_context: AssistantSearchContext,
+    ) -> str:
         user_need = self._latest_user_message(messages)
+        search_line = ""
+        if search_context.search_status == "unavailable":
+            search_line = "\nExternal search is unavailable, so this answer is limited to stored system context.\n"
+        elif search_context.search_status == "failed":
+            search_line = "\nExternal search failed, so this answer is limited to stored system context.\n"
+        elif search_context.used_search:
+            search_line = "\nI used external search evidence where available and kept it separate from system data.\n"
         return "\n".join(
             [
                 "## Workspace assistant",
                 "",
                 "I can help with lead qualification, outreach planning, and evidence review.",
+                search_line,
                 "",
                 f"Your latest request: **{user_need}**",
                 "",
@@ -374,11 +652,14 @@ class AssistantService:
         facts: dict[str, Any],
         score_context: dict[str, Any] | None,
         latest_analysis: dict[str, Any] | None,
+        search_context: AssistantSearchContext,
     ) -> list[dict[str, str]]:
         system_prompt = "\n".join(
             [
                 "You are an evidence-first sales assistant for ProspectIQ.",
                 "Use only the supplied lead record, deterministic score context, and latest stored analysis.",
+                "When external search evidence is supplied, clearly distinguish it from stored CRM/system data.",
+                "If external search was unavailable or failed, say that briefly and do not invent web evidence.",
                 "Do not invent facts, providers, or outcomes that are not present in the supplied context.",
                 "Reply in concise markdown with direct recommendations.",
                 "When the evidence is incomplete, say so explicitly.",
@@ -398,6 +679,7 @@ class AssistantService:
             "facts": facts,
             "score_context": score_context,
             "latest_analysis": latest_analysis,
+            "external_search": search_context.model_dump(),
         }
         chat_messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
         chat_messages.append(

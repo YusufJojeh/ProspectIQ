@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests"]
+pythonpath = ["apps/api"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["app"]
+mypy_path = ["apps/api"]
+exclude = ["migrations"]
+warn_unused_configs = true

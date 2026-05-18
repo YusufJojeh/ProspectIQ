@@ -6,9 +6,15 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.core.errors import ServiceUnavailableError
-from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder
+from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder, OpenAILLMAdapter
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
-from app.modules.ai_analysis.schemas import LeadAnalysisInput, LeadScoreContext
+from app.modules.ai_analysis.schemas import (
+    LeadAnalysisInput,
+    LeadScoreContext,
+    LocalBusinessFactsInput,
+    PlaceEnrichmentSummary,
+    WebVisibilitySummary,
+)
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.leads.models import Lead
 from app.modules.outreach.models import OutreachMessage
@@ -111,6 +117,58 @@ class ServiceCatalogAwareAdapter:
             "confidence": 0.74,
             "recommended_tone": "consultative",
         }
+
+
+class _FakeOpenAIResponse:
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, object]:
+        return {
+            "output_text": (
+                '{"summary":"Evidence-based summary","weaknesses":[],"opportunities":[],'
+                '"recommended_services":[],"outreach_subject":"Subject",'
+                '"outreach_message":"Message","confidence":0.8,"recommended_tone":null}'
+            )
+        }
+
+
+class _CapturingOpenAIClient:
+    def __init__(self) -> None:
+        self.payload: dict[str, object] | None = None
+
+    def post(self, _url: str, *, json: dict[str, object]) -> _FakeOpenAIResponse:
+        self.payload = json
+        return _FakeOpenAIResponse()
+
+    def close(self) -> None:
+        return None
+
+
+def test_openai_responses_payload_disables_server_side_storage() -> None:
+    adapter = OpenAILLMAdapter(api_key="test-key", model="gpt-test")
+    fake_client = _CapturingOpenAIClient()
+    adapter._client = fake_client
+    payload = LeadAnalysisInput(
+        local_business=LocalBusinessFactsInput(
+            company_name="Acme Dental",
+            category="Dentist",
+            city="Istanbul",
+            data_completeness=0.8,
+            data_confidence=0.8,
+            phone_present=True,
+            address_present=True,
+            hours_present=True,
+            category_clarity=1.0,
+        ),
+        place_enrichment=PlaceEnrichmentSummary(local_presence_signal=0.0),
+        web_visibility=WebVisibilitySummary(directory_dominance=0.0),
+    )
+
+    adapter.analyze(payload)
+
+    assert fake_client.payload is not None
+    assert fake_client.payload["store"] is False
 
 
 def test_ai_analysis_persists_and_reuses_snapshot() -> None:

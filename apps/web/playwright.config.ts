@@ -2,11 +2,8 @@ import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4173";
-const apiBaseURL = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:8000";
 const artifactRoot = process.env.PLAYWRIGHT_ARTIFACT_ROOT ?? "test-artifacts/playwright";
 const authStatePath = path.resolve(process.cwd(), "tests/e2e/.auth/admin.json");
-const viteBin = "node ./node_modules/vite/bin/vite.js";
-const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER === "1";
 const configuredGlobalTimeout = process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS
   ? Number(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS)
   : undefined;
@@ -28,6 +25,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
   outputDir: `${artifactRoot}/test-results`,
+  globalSetup: "./tests/e2e/setup/global-setup.ts",
+  globalTeardown: "./tests/e2e/setup/global-teardown.ts",
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: `${artifactRoot}/report` }],
@@ -88,19 +87,6 @@ export default defineConfig({
     },
   ],
   globalTimeout: configuredGlobalTimeout ?? (process.env.CI ? 300_000 : 0),
-  webServer: skipWebServer ? undefined : {
-    command: process.env.CI
-      ? `${viteBin} preview --host 127.0.0.1 --port 4173`
-      : `${viteBin} --host 127.0.0.1 --port 4173`,
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: process.env.CI ? 180_000 : 60_000,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: {
-      VITE_API_BASE_URL: apiBaseURL,
-    },
-  },
   metadata: {
     authStatePath,
   },

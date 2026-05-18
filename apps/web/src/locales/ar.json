@@ -705,7 +705,13 @@
     "scopeLabelWorkspace": "مساعد مقيّد بمساحة العمل",
     "starterPrompt1": "لخّص أقوى الأدلة المتاحة لهذا العميل.",
     "starterPrompt2": "ما أوضح زاوية تواصل من الإشارات المخزنة؟",
-    "starterPrompt3": "اشرح الأسباب الرئيسية وراء درجة هذا العميل الحالية."
+    "starterPrompt3": "اشرح الأسباب الرئيسية وراء درجة هذا العميل الحالية.",
+    "sources": "المصادر",
+    "searchUsed": "تم استخدام البحث",
+    "searchUnavailable": "البحث الخارجي غير متاح",
+    "searchFailed": "فشل البحث الخارجي",
+    "externalEvidence": "أدلة خارجية",
+    "basedOnSystemData": "بناءً على بيانات النظام"
   },
   "billing": {
     "title": "الفوترة",
