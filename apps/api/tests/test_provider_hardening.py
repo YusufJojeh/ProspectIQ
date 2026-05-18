@@ -13,6 +13,7 @@ from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.client import SerpApiClient
 from app.modules.provider_serpapi.engines.maps_place import build_maps_place_params
 from app.modules.provider_serpapi.engines.maps_search import build_maps_search_params
+from app.modules.provider_serpapi.engines.web_search import build_web_search_params
 from app.modules.provider_serpapi.models import LeadIdentity, ProviderNormalizedFact
 from app.modules.provider_serpapi.normalizers.maps_local_normalizer import MapsLocalNormalizer
 from app.modules.provider_serpapi.normalizers.maps_place_normalizer import MapsPlaceNormalizer
@@ -392,6 +393,38 @@ def test_maps_search_params_normalize_whitespace_and_limit_query_length() -> Non
     assert params["q"].startswith("cosmetic dentist in Istanbul Kadikoy within 25 km implants")
     assert "  " not in params["q"]
     assert len(params["q"]) <= 220
+
+
+def test_web_search_params_validate_query_and_support_location_pagination() -> None:
+    params = build_web_search_params(
+        query="  Acme   Dental official website  ",
+        hl="ar",
+        gl="tr",
+        google_domain="google.com",
+        location="  Istanbul   Turkey ",
+        num=150,
+        start=-10,
+    )
+
+    assert params == {
+        "engine": "google",
+        "q": "Acme Dental official website",
+        "hl": "ar",
+        "gl": "tr",
+        "google_domain": "google.com",
+        "location": "Istanbul Turkey",
+        "num": 100,
+        "start": 0,
+    }
+
+
+def test_web_search_params_reject_empty_query() -> None:
+    try:
+        build_web_search_params(query="   ", hl="en", gl="us", google_domain="google.com")
+    except ValueError as exc:
+        assert "query must not be empty" in str(exc)
+    else:
+        raise AssertionError("Expected empty SerpAPI query to fail closed.")
 
 
 def test_maps_place_normalizer_coerces_numeric_strings_and_curates_facts() -> None:

@@ -85,6 +85,8 @@ def _login(client: TestClient) -> str:
 
 
 def test_create_search_job_endpoint_persists_request_and_returns_status(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
+    clear_settings_cache()
     session_factory = _build_session_factory()
     _seed_workspace_admin(session_factory)
     monkeypatch.setattr(
@@ -136,6 +138,8 @@ def test_create_search_job_endpoint_persists_request_and_returns_status(monkeypa
         assert search_request.website_preference == "must_have"
         assert search_request.radius_km == 15
         assert search_request.max_reviews == 50
+    clear_settings_cache()
+    monkeypatch.delenv("SERPAPI_RUNTIME_MODE", raising=False)
 
 
 def test_create_search_job_endpoint_rejects_invalid_filter_ranges(monkeypatch) -> None:

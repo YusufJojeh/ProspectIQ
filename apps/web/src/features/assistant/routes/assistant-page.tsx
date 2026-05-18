@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { Bot, CornerDownRight, MessageSquareText, Sparkles } from "lucide-react";
+import { Bot, CornerDownRight, ExternalLink, MessageSquareText, SearchCheck, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   Conversation,
@@ -35,6 +35,21 @@ import { createAssistantTransport, type AssistantChatRequestBody } from "@/featu
 import { getLead } from "@/features/leads/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { formatScore } from "@/lib/presenters";
+
+type AssistantSearchStatus = "not_needed" | "used" | "unavailable" | "failed";
+
+type AssistantSearchSource = {
+  title: string;
+  url: string;
+  snippet?: string | null;
+  provider: string;
+};
+
+type AssistantSearchData = {
+  used_search: boolean;
+  search_status: AssistantSearchStatus;
+  sources?: AssistantSearchSource[];
+};
 
 export function AssistantPage() {
   const { t } = useTranslation();
@@ -213,6 +228,9 @@ export function AssistantPage() {
                             </MessageResponse>
                           );
                         })}
+                        {message.role === "assistant" ? (
+                          <AssistantSearchEvidence message={message} />
+                        ) : null}
                       </MessageContent>
                     </Message>
                   ))
@@ -266,4 +284,79 @@ function ContextMetric({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm font-medium">{value}</div>
     </div>
   );
+}
+
+export function AssistantSearchEvidence({ message }: { message: UIMessage }) {
+  const { t } = useTranslation();
+  const searchData = getSearchData(message);
+  if (!searchData) {
+    return null;
+  }
+
+  const sources = searchData.sources ?? [];
+  if (searchData.search_status === "not_needed" && sources.length === 0) {
+    return null;
+  }
+
+  const statusLabel =
+    searchData.search_status === "used"
+      ? t("assistant.searchUsed")
+      : searchData.search_status === "unavailable"
+        ? t("assistant.searchUnavailable")
+        : searchData.search_status === "failed"
+          ? t("assistant.searchFailed")
+          : t("assistant.basedOnSystemData");
+
+  return (
+    <div className="mt-3 w-full max-w-xl rounded-lg border border-border bg-muted/20 p-3 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+        <SearchCheck className="size-3.5" />
+        <span className="font-medium text-foreground">{statusLabel}</span>
+        {sources.length > 0 ? <span>{t("assistant.externalEvidence")}</span> : null}
+      </div>
+
+      {sources.length > 0 ? (
+        <div className="mt-2 grid gap-2">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            {t("assistant.sources")}
+          </div>
+          {sources.map((source) => (
+            <a
+              key={source.url}
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-md border border-border bg-background/70 p-2 transition hover:border-[oklch(var(--signal)/0.45)]"
+            >
+              <div className="flex min-w-0 items-center gap-1.5 font-medium text-foreground">
+                <ExternalLink className="size-3 shrink-0" />
+                <span className="truncate">{source.title || source.url}</span>
+              </div>
+              {source.snippet ? (
+                <p className="mt-1 line-clamp-2 text-muted-foreground">{source.snippet}</p>
+              ) : null}
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function getSearchData(message: UIMessage): AssistantSearchData | null {
+  for (const part of message.parts) {
+    if (part.type !== "data-search") {
+      continue;
+    }
+    const data = part.data as Partial<AssistantSearchData> | undefined;
+    if (!data || typeof data.search_status !== "string") {
+      continue;
+    }
+    return {
+      used_search: Boolean(data.used_search),
+      search_status: data.search_status as AssistantSearchStatus,
+      sources: Array.isArray(data.sources) ? data.sources : [],
+    };
+  }
+  return null;
 }

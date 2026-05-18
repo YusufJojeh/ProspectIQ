@@ -4,7 +4,7 @@ from pathlib import Path
 import math
 import random
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "src" / "assets" / "marketing"
@@ -304,4 +304,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

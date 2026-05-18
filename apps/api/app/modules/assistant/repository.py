@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -64,6 +66,10 @@ class ChatSessionRepository:
         content: str,
     ) -> ChatMessage:
         message = ChatMessage(session_id=session_id, role=role, content=content)
+        session = db.get(ChatSession, session_id)
+        if session is not None:
+            session.updated_at = datetime.now(tz=UTC)
+            db.add(session)
         db.add(message)
         db.commit()
         db.refresh(message)
@@ -82,6 +88,23 @@ class ChatSessionRepository:
                 .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
             )
         )
+
+    def list_recent_messages(
+        self,
+        db: Session,
+        *,
+        session_id: int,
+        limit: int,
+    ) -> list[ChatMessage]:
+        items = list(
+            db.scalars(
+                select(ChatMessage)
+                .where(ChatMessage.session_id == session_id)
+                .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+                .limit(limit)
+            )
+        )
+        return list(reversed(items))
 
     def update_session_title(
         self,
