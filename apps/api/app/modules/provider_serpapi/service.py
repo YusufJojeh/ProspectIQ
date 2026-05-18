@@ -120,7 +120,10 @@ class SerpApiService:
     ) -> tuple[ProviderFetch, dict[str, Any]]:
         settings = self.get_settings(db, workspace_id)
         params = build_web_search_params(
-            query=query, hl=settings.hl, gl=settings.gl, google_domain=settings.google_domain
+            query=query,
+            hl=settings.hl,
+            gl=settings.gl,
+            google_domain=settings.google_domain,
         )
         return self._run_and_persist(
             db,

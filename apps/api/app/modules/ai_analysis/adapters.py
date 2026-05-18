@@ -170,6 +170,7 @@ class OpenAILLMAdapter:
                     },
                     {"role": "user", "content": prompt},
                 ],
+                "store": False,
                 "text": {
                     "format": {
                         "type": "json_schema",

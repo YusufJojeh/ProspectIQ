@@ -15,12 +15,15 @@ from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import LeadAnalysisResult
 from app.modules.assistant.models import ChatSession
 from app.modules.assistant.repository import ChatSessionRepository
-from app.modules.assistant.schemas import AssistantMessageInput
+from app.modules.assistant.schemas import AssistantMessageInput, AssistantMessagePartInput
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
 from app.shared.services.lead_intelligence import LeadIntelligenceService
 
 logger = logging.getLogger(__name__)
+
+_MAX_CONTEXT_MESSAGES = 24
+_MAX_CONTEXT_CHARS = 12000
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,9 @@ class AssistantService:
             )
             if session is None:
                 raise NotFoundError("Chat session was not found.")
+            requested_lead_id = lead.id if lead else None
+            if session.lead_id != requested_lead_id:
+                raise NotFoundError("Chat session was not found for this lead context.")
             return session
         title = (first_user_message[:80].strip()) or "New Chat"
         return self.session_repository.create_session(
@@ -113,10 +119,11 @@ class AssistantService:
         self.session_repository.add_message(
             db, session_id=session.id, role="user", content=user_text
         )
+        generation_messages = self._messages_from_session_history(db, session=session)
 
         assembled: list[str] = []
         for token in self._generate_tokens(
-            db, workspace_id=workspace_id, messages=messages, lead=lead
+            db, workspace_id=workspace_id, messages=generation_messages, lead=lead
         ):
             assembled.append(token)
             yield token
@@ -216,6 +223,33 @@ class AssistantService:
             for part in message.parts
             if part.type == "text" and part.text and part.text.strip()
         )
+
+    def _messages_from_session_history(
+        self, db: Session, *, session: ChatSession
+    ) -> list[AssistantMessageInput]:
+        stored_messages = self.session_repository.list_recent_messages(
+            db, session_id=session.id, limit=_MAX_CONTEXT_MESSAGES
+        )
+        messages: list[AssistantMessageInput] = []
+        used_chars = 0
+        for stored in reversed(stored_messages):
+            content = stored.content.strip()
+            if not content:
+                continue
+            remaining = _MAX_CONTEXT_CHARS - used_chars
+            if remaining <= 0:
+                break
+            if len(content) > remaining:
+                content = content[-remaining:]
+            messages.append(
+                AssistantMessageInput(
+                    id=stored.public_id,
+                    role=stored.role,
+                    parts=[AssistantMessagePartInput(type="text", text=content)],
+                )
+            )
+            used_chars += len(content)
+        return list(reversed(messages))
 
     def _conversation_transcript(self, messages: list[AssistantMessageInput]) -> str:
         lines: list[str] = []
@@ -399,6 +433,7 @@ class AssistantService:
                     "model": settings.openai_model,
                     "input": llm_messages,
                     "stream": True,
+                    "store": False,
                 },
             ) as response:
                 response.raise_for_status()

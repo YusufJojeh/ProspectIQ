@@ -10,6 +10,7 @@ from test_workspace_e2e import (
 
 from app.modules.assistant.models import ChatMessage
 from app.modules.assistant.service import AssistantService
+from app.modules.leads.models import Lead
 
 
 def _fake_tokens(self, db, *, workspace_id, messages, lead):
@@ -50,6 +51,7 @@ def test_chat_creates_new_session_when_no_session_id_given(monkeypatch) -> None:
     items = list_response.json()["items"]
     assert len(items) == 1
     assert items[0]["title"] == "Tell me about this lead"
+    assert items[0]["lead_id"] == seed.lead_public_id
 
 
 def test_chat_reuses_session_when_session_id_provided(monkeypatch) -> None:
@@ -67,7 +69,13 @@ def test_chat_reuses_session_when_session_id_provided(monkeypatch) -> None:
         )
         session_id = list_resp.json()["items"][0]["public_id"]
 
-        _chat(client, token, session_id=session_id, text="Follow-up question")
+        _chat(
+            client,
+            token,
+            lead_id=seed.lead_public_id,
+            session_id=session_id,
+            text="Follow-up question",
+        )
 
         list_resp2 = client.get(
             "/api/v1/assistant/sessions",
@@ -75,6 +83,86 @@ def test_chat_reuses_session_when_session_id_provided(monkeypatch) -> None:
         )
 
     assert len(list_resp2.json()["items"]) == 1
+
+
+def test_chat_follow_up_uses_persisted_session_context(monkeypatch) -> None:
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    seen_transcripts: list[list[str]] = []
+
+    def _capture_tokens(self, db, *, workspace_id, messages, lead):
+        seen_transcripts.append(
+            [
+                "\n".join(part.text or "" for part in message.parts if part.type == "text")
+                for message in messages
+            ]
+        )
+        yield "Assistant reply."
+
+    monkeypatch.setattr(AssistantService, "_generate_tokens", _capture_tokens)
+
+    with _override_client(session_factory) as client:
+        token = _login(client, seed)
+        _chat(client, token, lead_id=seed.lead_public_id, text="First question")
+
+        list_resp = client.get(
+            "/api/v1/assistant/sessions",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        session_id = list_resp.json()["items"][0]["public_id"]
+
+        _chat(
+            client,
+            token,
+            lead_id=seed.lead_public_id,
+            session_id=session_id,
+            text="Follow-up question",
+        )
+
+    assert seen_transcripts[-1] == [
+        "First question",
+        "Assistant reply.",
+        "Follow-up question",
+    ]
+
+
+def test_chat_session_rejects_mismatched_lead_context(monkeypatch) -> None:
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(AssistantService, "_generate_tokens", _fake_tokens)
+
+    with session_factory() as db:
+        original = db.query(Lead).filter(Lead.public_id == seed.lead_public_id).one()
+        other = Lead(
+            workspace_id=original.workspace_id,
+            company_name="Other Dental",
+            city="Istanbul",
+            data_completeness=0.4,
+            data_confidence=0.4,
+            has_website=False,
+        )
+        db.add(other)
+        db.commit()
+        db.refresh(other)
+        other_public_id = other.public_id
+
+    with _override_client(session_factory) as client:
+        token = _login(client, seed)
+        _chat(client, token, lead_id=seed.lead_public_id, text="First question")
+        list_resp = client.get(
+            "/api/v1/assistant/sessions",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        session_id = list_resp.json()["items"][0]["public_id"]
+        response = _chat(
+            client,
+            token,
+            lead_id=other_public_id,
+            session_id=session_id,
+            text="Use a different lead",
+        )
+
+    assert response.status_code == 404
 
 
 def test_chat_returns_404_for_unknown_session_id(monkeypatch) -> None:
@@ -109,6 +197,39 @@ def test_chat_persists_user_and_assistant_messages(monkeypatch) -> None:
     assert msgs[1].content == "Assistant reply."
 
 
+def test_chat_context_uses_recent_window_for_long_sessions() -> None:
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    service = AssistantService()
+
+    with session_factory() as db:
+        lead = db.query(Lead).filter(Lead.public_id == seed.lead_public_id).one()
+        session = service.get_or_create_session(
+            db,
+            workspace_id=lead.workspace_id,
+            session_public_id=None,
+            lead=lead,
+            first_user_message="Long thread",
+        )
+        for index in range(30):
+            service.session_repository.add_message(
+                db,
+                session_id=session.id,
+                role="user" if index % 2 == 0 else "assistant",
+                content=f"Message {index}",
+            )
+
+        messages = service._messages_from_session_history(db, session=session)
+
+    rendered = [
+        "\n".join(part.text or "" for part in message.parts if part.type == "text")
+        for message in messages
+    ]
+    assert len(rendered) == 24
+    assert rendered[0] == "Message 6"
+    assert rendered[-1] == "Message 29"
+
+
 def test_chat_messages_ordered_by_creation_time(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
@@ -122,7 +243,7 @@ def test_chat_messages_ordered_by_creation_time(monkeypatch) -> None:
             "/api/v1/assistant/sessions", headers={"Authorization": f"Bearer {token}"}
         )
         session_id = list_resp.json()["items"][0]["public_id"]
-        _chat(client, token, session_id=session_id, text="Second")
+        _chat(client, token, lead_id=seed.lead_public_id, session_id=session_id, text="Second")
 
         detail_resp = client.get(
             f"/api/v1/assistant/sessions/{session_id}",

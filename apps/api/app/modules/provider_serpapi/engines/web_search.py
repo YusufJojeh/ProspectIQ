@@ -11,14 +11,34 @@ def _clean_query(value: str) -> str:
     return " ".join(value.split()).strip()[:_MAX_QUERY_LENGTH]
 
 
-def build_web_search_params(*, query: str, hl: str, gl: str, google_domain: str) -> dict[str, Any]:
-    return {
+def build_web_search_params(
+    *,
+    query: str,
+    hl: str,
+    gl: str,
+    google_domain: str,
+    location: str | None = None,
+    num: int | None = None,
+    start: int | None = None,
+) -> dict[str, Any]:
+    cleaned_query = _clean_query(query)
+    if not cleaned_query:
+        raise ValueError("SerpAPI web search query must not be empty.")
+
+    params: dict[str, Any] = {
         "engine": "google",
-        "q": _clean_query(query),
+        "q": cleaned_query,
         "hl": hl,
         "gl": gl,
         "google_domain": google_domain,
     }
+    if location and location.strip():
+        params["location"] = " ".join(location.split()).strip()
+    if num is not None:
+        params["num"] = max(1, min(num, 100))
+    if start is not None:
+        params["start"] = max(0, start)
+    return params
 
 
 def run_web_search(client: SerpApiClient, *, params: dict[str, Any]) -> ProviderCallResult:

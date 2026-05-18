@@ -18,6 +18,7 @@ from app.modules.assistant.schemas import (
 )
 from app.modules.assistant.service import AssistantService
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
+from app.modules.leads.models import Lead
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
@@ -40,6 +41,13 @@ def _to_ui_message_stream(token_iter: Iterator[str]) -> Iterator[str]:
     yield _to_sse({"type": "text-end", "id": text_id})
     yield _to_sse({"type": "finish"})
     yield _to_sse("[DONE]")
+
+
+def _session_lead_public_id(db: Session, lead_id: int | None) -> str | None:
+    if lead_id is None:
+        return None
+    lead = db.get(Lead, lead_id)
+    return lead.public_id if lead is not None else None
 
 
 @router.post("/chat")
@@ -89,7 +97,7 @@ def list_sessions(
         items=[
             ChatSessionResponse(
                 public_id=s.public_id,
-                lead_id=None,
+                lead_id=_session_lead_public_id(db, s.lead_id),
                 title=s.title,
                 created_at=s.created_at,
                 updated_at=s.updated_at,
@@ -113,7 +121,7 @@ def get_session(
     messages = service.session_repository.list_messages(db, session_id=session.id)
     return ChatSessionDetailResponse(
         public_id=session.public_id,
-        lead_id=None,
+        lead_id=_session_lead_public_id(db, session.lead_id),
         title=session.title,
         created_at=session.created_at,
         updated_at=session.updated_at,
