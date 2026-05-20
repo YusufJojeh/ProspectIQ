@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { createUser, listUsers, resetUserPassword, updateUser } from "@/features/users/api";
 import { useAuthSession } from "@/features/auth/session";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,23 @@ import type { UserRole, UserStatus } from "@/types/api";
 const CREATE_ROLE_OPTIONS: UserRole[] = ["admin", "manager", "member"];
 const STATUS_OPTIONS: UserStatus[] = ["active", "inactive"];
 
+function generateTempPassword(): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const special = "!@#$%^&*";
+  const all = upper + lower + digits + special;
+  const buf = new Uint8Array(16);
+  window.crypto.getRandomValues(buf);
+  const chars = Array.from(buf).map((b) => all[b % all.length]);
+  // Guarantee one of each required class in the first 4 positions
+  chars[0] = upper[buf[0] % upper.length];
+  chars[1] = lower[buf[1] % lower.length];
+  chars[2] = digits[buf[2] % digits.length];
+  chars[3] = special[buf[3] % special.length];
+  return chars.join("");
+}
+
 export function TeamPage() {
   const { t } = useTranslation();
   useDocumentTitle(t("team.title"));
@@ -27,6 +45,8 @@ export function TeamPage() {
   const [jobTitle, setJobTitle] = useState("");
   const [role, setRole] = useState<UserRole>("member");
   const [drafts, setDrafts] = useState<Record<string, { role: UserRole; status: UserStatus; jobTitle: string }>>({});
+  const [resetResult, setResetResult] = useState<{ userId: string; tempPassword: string } | null>(null);
+  const tempPasswordRef = useRef<HTMLInputElement>(null);
 
   const usersQuery = useQuery({
     queryKey: ["team-users"],
@@ -59,8 +79,15 @@ export function TeamPage() {
   });
 
   const resetPasswordMutation = useMutation({
-    mutationFn: async (userId: string) => resetUserPassword(userId, { password: "TempReset123!" }),
-    onSuccess: refreshTeam,
+    mutationFn: async (userId: string) => {
+      const tempPassword = generateTempPassword();
+      await resetUserPassword(userId, { password: tempPassword });
+      return { userId, tempPassword };
+    },
+    onSuccess: (result) => {
+      setResetResult(result);
+      refreshTeam();
+    },
   });
 
   if (usersQuery.isPending) {
@@ -86,6 +113,40 @@ export function TeamPage() {
           {t("team.usersDescription")}
         </p>
       </div>
+
+      {resetResult ? (
+        <Alert className="border-warning bg-warning/10">
+          <AlertTitle>{t("team.passwordResetTitle")}</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>{t("team.passwordResetDescription")}</p>
+            <div className="flex items-center gap-2">
+              <input
+                ref={tempPasswordRef}
+                readOnly
+                value={resetResult.tempPassword}
+                className="flex-1 rounded border border-border bg-background px-3 py-1 font-mono text-sm"
+                aria-label={t("team.tempPasswordLabel")}
+              />
+              <button
+                className="rounded border border-border px-2 py-1 text-xs"
+                onClick={() => {
+                  tempPasswordRef.current?.select();
+                  navigator.clipboard.writeText(resetResult.tempPassword);
+                }}
+              >
+                {t("team.copy")}
+              </button>
+              <button
+                className="rounded border border-border px-2 py-1 text-xs"
+                onClick={() => setResetResult(null)}
+              >
+                {t("team.dismiss")}
+              </button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>{t("team.usersTitle")}</CardTitle>

@@ -187,7 +187,11 @@
     "starterTrialTitle": "Starter plan trial",
     "starterTrialDescription": "This flow creates a real workspace and owner account, then provisions a simulated starter trial for internal billing tests.",
     "resetPendingDescription": "The reset API is not live yet, but the authentication flow is ready for it.",
-    "passwordsMustMatch": "Passwords must match."
+    "passwordsMustMatch": "Passwords must match.",
+    "forgotPasswordUnavailableTitle": "Email reset not available",
+    "forgotPasswordUnavailableDescription": "Self-service password reset via email is not configured. Ask your workspace administrator to reset your password from the Team page.",
+    "backToSignIn": "Back to sign in",
+    "signIn": "Sign in"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -866,6 +870,11 @@
     "ownerProtected": "Owner protected",
     "membersViewOnly": "Members view only",
     "saveChanges": "Save changes",
+    "passwordResetTitle": "Temporary password generated",
+    "passwordResetDescription": "Share this password with the user. It will not be shown again.",
+    "tempPasswordLabel": "Temporary password",
+    "copy": "Copy",
+    "dismiss": "Dismiss",
     "roles": {
       "account_owner": "Account owner",
       "admin": "Admin",

@@ -12,6 +12,7 @@ import {
   simulateInvoiceFailure,
 } from "@/features/billing/api";
 import { useAuthSession } from "@/features/auth/session";
+import { env } from "@/lib/env";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,7 +113,7 @@ export function BillingPage() {
                   <Button variant="outline" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
                     {t("billing.cancelSubscription")}
                   </Button>
-                  {latestInvoice ? (
+                  {env.VITE_ENABLE_BILLING_SIMULATION && latestInvoice ? (
                     <Button
                       variant="outline"
                       onClick={() => simulateFailureMutation.mutate(latestInvoice.public_id)}

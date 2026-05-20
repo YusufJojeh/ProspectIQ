@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     discovery_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=20)
     discovery_circuit_breaker_cooldown_seconds: int = Field(default=60, ge=1, le=3600)
 
+    # Billing simulation is a developer-only tool; disabled by default.
+    # Set ENABLE_BILLING_SIMULATION=true only in non-production environments.
+    enable_billing_simulation: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
@@ -316,6 +320,10 @@ class Settings(BaseSettings):
     @property
     def allow_demo_fallbacks(self) -> bool:
         return self.analysis_runtime == "demo"
+
+    @property
+    def billing_simulation_enabled(self) -> bool:
+        return self.is_testing or self.enable_billing_simulation
 
     @property
     def allowed_web_origins(self) -> list[str]:

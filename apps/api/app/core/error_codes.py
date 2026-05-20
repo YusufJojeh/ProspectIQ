@@ -21,6 +21,7 @@ class ErrorCodes:
     FORBIDDEN = "auth.forbidden"
     TOKEN_EXPIRED = "auth.token_expired"
     INVALID_TOKEN = "auth.invalid_token"
+    RATE_LIMITED = "auth.rate_limited"
 
     # Workspace & Users
     WORKSPACE_NOT_FOUND = "workspace.not_found"

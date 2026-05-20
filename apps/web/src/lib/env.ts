@@ -16,6 +16,10 @@ const envSchema = z.object({
         value === "" || value.startsWith("/") || /^https?:\/\//.test(value),
       "VITE_API_BASE_URL must be empty, a relative path, or an absolute HTTP(S) URL.",
     ),
+  VITE_ENABLE_BILLING_SIMULATION: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 function normalizeApiBaseUrl(value: string | undefined): string {
@@ -33,4 +37,5 @@ export const env = envSchema.parse({
   VITE_API_BASE_URL: normalizeApiBaseUrl(
     runtimeApiBaseUrl ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
   ),
+  VITE_ENABLE_BILLING_SIMULATION: import.meta.env.VITE_ENABLE_BILLING_SIMULATION,
 });

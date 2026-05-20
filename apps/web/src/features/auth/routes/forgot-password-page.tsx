@@ -1,19 +1,14 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { appPaths } from "@/app/paths";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
   useDocumentTitle(t("auth.forgotPasswordTitle"));
-  const [sent, setSent] = useState(false);
 
   return (
     <AuthShell
@@ -29,26 +24,16 @@ export function ForgotPasswordPage() {
         </p>
       }
     >
-      {!sent ? (
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setSent(true);
-          }}
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">{t("auth.workEmail")}</Label>
-            <Input id="email" type="email" autoComplete="email" required placeholder={t("auth.emailPlaceholder") as string} />
-          </div>
-          <Button type="submit">
-            {t("auth.sendResetLink")}
-            <ArrowRight data-icon="inline-end" />
-          </Button>
-        </form>
-      ) : (
-        <QueryStateNotice tone="success" title={t("auth.resetLinkSent")} description={t("auth.resetPendingDescription")} />
-      )}
+      <div className="flex flex-col gap-4">
+        <QueryStateNotice
+          tone="info"
+          title={t("auth.forgotPasswordUnavailableTitle")}
+          description={t("auth.forgotPasswordUnavailableDescription")}
+        />
+        <Button asChild variant="outline">
+          <Link to={appPaths.login}>{t("auth.backToSignIn")}</Link>
+        </Button>
+      </div>
     </AuthShell>
   );
 }

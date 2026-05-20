@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.rate_limit import check_rate_limit
 from app.modules.auth.policies import get_current_user
 from app.modules.auth.schemas import (
     AuthenticatedUser,
@@ -17,12 +18,14 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    check_rate_limit(request, scope="auth:login", limit=10, window_seconds=60)
     return AuthService().authenticate(db, payload)
 
 
 @router.post("/signup", response_model=TokenResponse)
-def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def signup(request: Request, payload: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    check_rate_limit(request, scope="auth:signup", limit=5, window_seconds=60)
     return AuthService().signup(db, payload)
 
 

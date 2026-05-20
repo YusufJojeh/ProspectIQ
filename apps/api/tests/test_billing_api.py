@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import get_settings, clear_settings_cache
 from app.core.database import Base, get_db
 from app.core.security import hash_password
 from app.main import app
@@ -102,6 +103,7 @@ def test_billing_simulation_endpoints_work() -> None:
     session_factory = _build_session_factory()
     _seed_workspace(session_factory)
 
+    # Tests run with APP_ENV=test so billing_simulation_enabled returns True
     with _override_client(session_factory) as client:
         token = _login(client)
         headers = {"Authorization": f"Bearer {token}"}
@@ -131,3 +133,43 @@ def test_billing_simulation_endpoints_work() -> None:
         )
         assert paid.status_code == 200
         assert paid.json()["status"] == "paid"
+
+
+def test_billing_simulation_disabled_returns_501() -> None:
+    """Simulation endpoints must return 501 when ENABLE_BILLING_SIMULATION is false."""
+    import os
+
+    session_factory = _build_session_factory()
+    _seed_workspace(session_factory)
+
+    # Override conftest's ENABLE_BILLING_SIMULATION=true to test the disabled path
+    saved = os.environ.pop("ENABLE_BILLING_SIMULATION", None)
+    clear_settings_cache()
+    try:
+        with _override_client(session_factory) as client:
+            token = _login(client)
+            headers = {"Authorization": f"Bearer {token}"}
+            invoices = client.get("/api/v1/billing/invoices", headers=headers)
+            assert invoices.status_code == 200
+
+            invoice_public_id = invoices.json()["items"][0]["public_id"]
+
+            failure = client.post(
+                "/api/v1/billing/invoices/simulate-failure",
+                headers=headers,
+                json={"invoice_public_id": invoice_public_id},
+            )
+            assert failure.status_code == 501
+            assert failure.json()["error"]["code"] == "feature.not_ready"
+
+            paid = client.post(
+                "/api/v1/billing/invoices/mark-paid",
+                headers=headers,
+                json={"invoice_public_id": invoice_public_id},
+            )
+            assert paid.status_code == 501
+            assert paid.json()["error"]["code"] == "feature.not_ready"
+    finally:
+        if saved is not None:
+            os.environ["ENABLE_BILLING_SIMULATION"] = saved
+        clear_settings_cache()

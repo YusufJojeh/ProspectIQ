@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { listInvoices, markInvoicePaid, simulateInvoiceFailure } from "@/features/billing/api";
 import { useAuthSession } from "@/features/auth/session";
+import { env } from "@/lib/env";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export function InvoicesPage() {
                   </p>
                   <p className="text-sm text-muted-foreground">{t("billing.due")} {formatDate(invoice.due_at)} | {t("billing.paid")} {formatDate(invoice.paid_at)}</p>
                 </div>
-                {canManageBilling ? (
+                {canManageBilling && env.VITE_ENABLE_BILLING_SIMULATION ? (
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" disabled={invoice.status === "paid" || markPaidMutation.isPending} onClick={() => markPaidMutation.mutate(invoice.public_id)}>
                       {t("billing.markSuccess")}

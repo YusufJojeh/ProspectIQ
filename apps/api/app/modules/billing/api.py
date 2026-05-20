@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, FeatureNotReadyError
 from app.modules.auth.policies import get_current_user
 from app.modules.billing.schemas import (
     BillingSimulationRequest,
@@ -17,6 +18,13 @@ from app.modules.billing.service import BillingService
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
+
+
+def _require_billing_simulation() -> None:
+    if not get_settings().billing_simulation_enabled:
+        raise FeatureNotReadyError(
+            "Billing simulation is disabled. Set ENABLE_BILLING_SIMULATION=true to enable it."
+        )
 
 
 @router.get("/plans", response_model=PlanListResponse)
@@ -83,6 +91,7 @@ def mark_invoice_paid(
     payload: BillingSimulationRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _: None = Depends(_require_billing_simulation),
 ) -> InvoiceResponse:
     if payload.invoice_public_id is None:
         raise ConflictError("invoice_public_id is required.")
@@ -99,6 +108,7 @@ def simulate_invoice_failure(
     payload: BillingSimulationRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _: None = Depends(_require_billing_simulation),
 ) -> InvoiceResponse:
     if payload.invoice_public_id is None:
         raise ConflictError("invoice_public_id is required.")
