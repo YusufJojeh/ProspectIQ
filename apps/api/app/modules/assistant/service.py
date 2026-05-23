@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -19,6 +20,16 @@ from app.modules.assistant.repository import ChatSessionRepository
 from app.modules.assistant.schemas import AssistantMessageInput, AssistantMessagePartInput
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
+from app.modules.provider_serpapi.engines.google_jobs import (
+    build_google_jobs_params,
+    extract_jobs_items,
+    run_google_jobs,
+)
+from app.modules.provider_serpapi.engines.google_news import (
+    build_google_news_params,
+    extract_news_items,
+    run_google_news,
+)
 from app.modules.provider_serpapi.exceptions import ProviderConfigError
 from app.modules.provider_serpapi.service import SerpApiService
 from app.shared.enums.jobs import ProviderFetchStatus
@@ -62,13 +73,20 @@ class AssistantSearchContext:
     sources: list[AssistantSearchSource]
     query: str | None = None
     error_message: str | None = None
+    news_results: list[dict[str, Any]] | None = None
+    hiring_signals: list[dict[str, Any]] | None = None
 
     def model_dump(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "used_search": self.used_search,
             "search_status": self.search_status,
             "sources": [source.model_dump() for source in self.sources],
         }
+        if self.news_results:
+            result["news_results"] = self.news_results
+        if self.hiring_signals:
+            result["hiring_signals"] = self.hiring_signals
+        return result
 
 
 @dataclass(frozen=True)
@@ -130,8 +148,16 @@ class AssistantService:
             title=title,
         )
 
-    def list_sessions(self, db: Session, *, workspace_id: int) -> list[ChatSession]:
-        return self.session_repository.list_sessions(db, workspace_id=workspace_id)
+    def list_sessions(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_id: int | None = None,
+    ) -> list[ChatSession]:
+        return self.session_repository.list_sessions(
+            db, workspace_id=workspace_id, lead_id=lead_id
+        )
 
     def get_session_detail(
         self, db: Session, *, workspace_id: int, session_public_id: str
@@ -347,12 +373,75 @@ class AssistantService:
             )
 
         sources = self._extract_search_sources(payload)
+        # Run news + hiring lookups concurrently to minimise added latency.
+        news_results: list[dict[str, Any]] | None = None
+        hiring_signals: list[dict[str, Any]] | None = None
+        if lead is not None:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                news_future = pool.submit(self._fetch_news_for_lead, lead)
+                jobs_future = pool.submit(self._fetch_hiring_signals_for_lead, lead)
+                news_results = news_future.result()
+                hiring_signals = jobs_future.result()
         return AssistantSearchContext(
             used_search=True,
             search_status="used",
             sources=sources,
             query=query,
+            news_results=news_results,
+            hiring_signals=hiring_signals,
         )
+
+    def _fetch_news_for_lead(self, lead: Lead) -> list[dict[str, Any]] | None:
+        """
+        Fetch recent Google News mentions for the lead's company.
+        Returns a list of news items or None if unavailable / not configured.
+        """
+        if not lead.company_name:
+            return None
+        try:
+            from app.modules.provider_serpapi.client import SerpApiClient
+
+            client = SerpApiClient()
+            news_query = f"{lead.company_name} {lead.city or ''}".strip()
+            params = build_google_news_params(query=news_query)
+            result = run_google_news(client, params=params)
+            items = extract_news_items(result, max_items=5)
+            return items if items else None
+        except Exception:
+            logger.debug(
+                "assistant.news_search.unavailable company=%s",
+                lead.company_name,
+                exc_info=False,
+            )
+            return None
+
+    def _fetch_hiring_signals_for_lead(self, lead: Lead) -> list[dict[str, Any]] | None:
+        """
+        Fetch Google Jobs postings for the lead's company.
+        Job postings indicate growth/expansion — a high-signal sales timing indicator.
+        Returns a list of job items or None if unavailable / not configured.
+        """
+        if not lead.company_name:
+            return None
+        try:
+            from app.modules.provider_serpapi.client import SerpApiClient
+
+            client = SerpApiClient()
+            jobs_query = lead.company_name
+            params = build_google_jobs_params(
+                query=jobs_query,
+                location=lead.city or "",
+            )
+            result = run_google_jobs(client, params=params)
+            items = extract_jobs_items(result, max_items=5)
+            return items if items else None
+        except Exception:
+            logger.debug(
+                "assistant.hiring_signals.unavailable company=%s",
+                lead.company_name,
+                exc_info=False,
+            )
+            return None
 
     def _should_use_search(self, text: str, *, lead: Lead | None) -> bool:
         normalized = text.casefold()
@@ -656,15 +745,27 @@ class AssistantService:
     ) -> list[dict[str, str]]:
         system_prompt = "\n".join(
             [
-                "You are an evidence-first sales assistant for ProspectIQ.",
-                "Use only the supplied lead record, deterministic score context, and latest stored analysis.",
-                "When external search evidence is supplied, clearly distinguish it from stored CRM/system data.",
-                "If external search was unavailable or failed, say that briefly and do not invent web evidence.",
-                "Do not invent facts, providers, or outcomes that are not present in the supplied context.",
-                "Reply in concise markdown with direct recommendations.",
-                "When the evidence is incomplete, say so explicitly.",
-                "Never mention internal JSON keys or implementation details.",
-                "Support Arabic and English: reply in the same language the user writes in.",
+                "You are an evidence-first B2B sales intelligence assistant for ProspectIQ.",
+                "Your job is to help sales professionals qualify leads, craft outreach, and prioritize opportunities.",
+                "",
+                "RULES:",
+                "1. Only cite facts present in the supplied grounding context (lead record, score context, analysis, search results, news).",
+                "2. Clearly distinguish sources: stored CRM data vs. live SerpAPI search vs. live web_search tool results vs. news mentions.",
+                "3. If evidence is missing or unclear, say so explicitly — never invent facts, URLs, names, or outcomes.",
+                "4. Reply in concise, scannable markdown: use bullet points and **bold** for key insights.",
+                "5. When you cite a search result or news item, include the source URL.",
+                "6. When you use the web_search tool, always cite the source URL in your response.",
+                "7. Prefer tool-based live search over training knowledge for company-specific facts.",
+                "8. Never expose internal JSON keys, field names, or implementation details.",
+                "9. Language: reply in the same language the user writes in (Arabic or English).",
+                "",
+                "RESPONSE FORMAT (for lead analysis requests):",
+                "- **Summary**: 2-3 sentence lead overview",
+                "- **Evidence**: key facts with source citations",
+                "- **Opportunity**: why this lead is worth pursuing (or not)",
+                "- **Next action**: one concrete recommended step",
+                "",
+                "If news_results are in the context, highlight any relevant recent mentions.",
             ]
         )
         context_payload: dict[str, Any] = {
@@ -695,58 +796,204 @@ class AssistantService:
             chat_messages.append({"role": "user", "content": "Summarize this lead and recommend the next best action."})
         return chat_messages
 
+    def _build_web_search_tool_def(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": "web_search",
+                "description": (
+                    "Search the live web for up-to-date information about a company, "
+                    "industry, topic, or competitor. Use this when the user asks about "
+                    "recent news, current market position, or specific company facts "
+                    "that may not be in the stored CRM context."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The search query to look up on the web",
+                        }
+                    },
+                    "required": ["query"],
+                },
+            },
+        }
+
+    def _execute_web_search_tool(self, query: str, *, settings: Settings) -> str:
+        """Execute a SerpAPI web search for an LLM tool call. Returns formatted text."""
+        if not query.strip():
+            return "No query provided for web search."
+        try:
+            from app.modules.provider_serpapi.client import SerpApiClient
+            from app.modules.provider_serpapi.engines.web_search import (
+                build_web_search_params,
+                run_web_search,
+            )
+
+            client = SerpApiClient()
+            params = build_web_search_params(
+                query=query,
+                hl="en",
+                gl="us",
+                google_domain="google.com",
+                num=settings.llm_web_search_max_results,
+            )
+            result = run_web_search(client, params=params)
+            if not result.ok or not result.payload:
+                return f"Web search for '{query}' returned no results."
+            organic = result.payload.get("organic_results", [])
+            if not organic:
+                return f"No web results found for: {query}"
+            lines = [f"Web search results for: {query}", ""]
+            for i, item in enumerate(organic[: settings.llm_web_search_max_results], 1):
+                title = item.get("title", "")
+                link = item.get("link", "")
+                snippet = item.get("snippet", "")
+                lines.append(f"{i}. {title}")
+                if link:
+                    lines.append(f"   URL: {link}")
+                if snippet:
+                    lines.append(f"   {snippet}")
+                lines.append("")
+            return "\n".join(lines)
+        except Exception as exc:
+            logger.warning(
+                "assistant.web_search_tool.failed query=%s error=%s",
+                query,
+                exc,
+                exc_info=False,
+            )
+            return f"Web search failed: {exc}"
+
     def _stream_with_openai(
         self,
         *,
         settings: Settings,
         llm_messages: list[dict[str, str]],
     ) -> Iterator[str]:
+        offer_tool = settings.enable_llm_web_search and settings.has_serpapi_configured
+        request_body: dict[str, Any] = {
+            "model": settings.openai_model,
+            "messages": llm_messages,
+            "stream": True,
+        }
+        if offer_tool:
+            request_body["tools"] = [self._build_web_search_tool_def()]
+            request_body["tool_choice"] = "auto"
+
         with httpx.Client(
-            timeout=httpx.Timeout(30.0, connect=10.0),
+            timeout=httpx.Timeout(60.0, connect=10.0),
             headers={
                 "Authorization": f"Bearer {settings.openai_api_key}",
                 "Content-Type": "application/json",
             },
         ) as client:
+            accumulated_tool_args = ""
+            tool_call_name = ""
+            tool_call_id = ""
+            finish_reason: str | None = None
+
             with client.stream(
                 "POST",
-                f"{settings.openai_base_url.rstrip('/')}/responses",
-                json={
-                    "model": settings.openai_model,
-                    "input": llm_messages,
-                    "stream": True,
-                    "store": False,
-                },
+                f"{settings.openai_base_url.rstrip('/')}/chat/completions",
+                json=request_body,
             ) as response:
                 response.raise_for_status()
-                event_type = ""
                 for line in response.iter_lines():
-                    if not line:
-                        event_type = ""
+                    if not line or not line.startswith("data: "):
                         continue
-                    if line.startswith("event: "):
-                        event_type = line[7:]
-                        continue
-                    if not line.startswith("data: "):
-                        continue
-
                     data = line[6:]
                     if data.strip() == "[DONE]":
                         break
+                    try:
+                        payload = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = payload.get("choices")
+                    if not choices:
+                        err = payload.get("error")
+                        if err:
+                            raise ServiceUnavailableError(
+                                str(err.get("message", "OpenAI streaming failed."))
+                            )
+                        continue
+                    choice = choices[0]
+                    finish_reason = choice.get("finish_reason") or finish_reason
+                    delta = choice.get("delta", {})
+                    content = delta.get("content")
+                    if isinstance(content, str) and content:
+                        yield content
+                    # Accumulate tool_call fragments
+                    tool_calls = delta.get("tool_calls")
+                    if tool_calls:
+                        for tc in tool_calls:
+                            if tc.get("id"):
+                                tool_call_id = tc["id"]
+                            func = tc.get("function", {})
+                            if func.get("name"):
+                                tool_call_name = func["name"]
+                            args_frag = func.get("arguments", "")
+                            if isinstance(args_frag, str):
+                                accumulated_tool_args += args_frag
 
-                    payload = json.loads(data)
-                    payload_type = payload.get("type") or event_type
-                    if payload_type == "response.output_text.delta":
-                        delta = payload.get("delta", "")
-                        if isinstance(delta, str) and delta:
-                            yield delta
-                    elif payload_type == "response.refusal.delta":
-                        delta = payload.get("delta", "")
-                        if isinstance(delta, str) and delta:
-                            yield delta
-                    elif payload_type == "error":
-                        message = payload.get("message") or payload.get("error") or "OpenAI streaming failed."
-                        raise ServiceUnavailableError(str(message))
+            # If the LLM chose to call web_search, execute it and continue
+            if finish_reason == "tool_calls" and tool_call_name == "web_search":
+                try:
+                    args = json.loads(accumulated_tool_args) if accumulated_tool_args else {}
+                except json.JSONDecodeError:
+                    args = {}
+                query = args.get("query", "")
+                tool_result = self._execute_web_search_tool(query, settings=settings)
+
+                follow_up_messages = list(llm_messages) + [
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": tool_call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": "web_search",
+                                    "arguments": accumulated_tool_args,
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": tool_result,
+                    },
+                ]
+                with client.stream(
+                    "POST",
+                    f"{settings.openai_base_url.rstrip('/')}/chat/completions",
+                    json={
+                        "model": settings.openai_model,
+                        "messages": follow_up_messages,
+                        "stream": True,
+                    },
+                ) as response2:
+                    response2.raise_for_status()
+                    for line in response2.iter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        data = line[6:]
+                        if data.strip() == "[DONE]":
+                            break
+                        try:
+                            payload = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        choices = payload.get("choices")
+                        if not choices:
+                            continue
+                        delta = choices[0].get("delta", {})
+                        content = delta.get("content")
+                        if isinstance(content, str) and content:
+                            yield content
 
     def _stream_with_ollama(
         self,
@@ -754,14 +1001,13 @@ class AssistantService:
         settings: Settings,
         llm_messages: list[dict[str, str]],
     ) -> Iterator[str]:
-        prompt = "\n\n".join(msg["content"] for msg in llm_messages)
         with httpx.Client(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
             with client.stream(
                 "POST",
-                f"{settings.ollama_base_url.rstrip('/')}/api/generate",
+                f"{settings.ollama_base_url.rstrip('/')}/api/chat",
                 json={
                     "model": settings.ollama_model,
-                    "prompt": prompt,
+                    "messages": llm_messages,
                     "stream": True,
                 },
             ) as response:
@@ -769,8 +1015,12 @@ class AssistantService:
                 for line in response.iter_lines():
                     if not line:
                         continue
-                    chunk = json.loads(line)
-                    token = chunk.get("response", "")
+                    try:
+                        chunk = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    message = chunk.get("message", {})
+                    token = message.get("content", "")
                     if token:
                         yield token
                     if chunk.get("done"):

@@ -1,8 +1,11 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 DiscoveryRuntime = Literal["live", "demo", "stub", "blocked"]
 AnalysisRuntime = Literal["ollama", "openai", "demo", "blocked"]
@@ -66,8 +69,20 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DISCOVERY_MULTI_ENGINE_ENABLED"),
     )
     discovery_enabled_engines: str = Field(
-        default="google_maps_search,google_maps_place,google_web",
+        default="google_maps_search,google_web",
         validation_alias=AliasChoices("DISCOVERY_ENABLED_ENGINES", "DISCOVERY_ENGINE_LIST"),
+    )
+    # LLM-native web search tool (passed as a function/tool to OpenAI-compat providers).
+    # When enabled, the assistant can call SerpAPI on demand via an LLM tool_call.
+    enable_llm_web_search: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("ENABLE_LLM_WEB_SEARCH"),
+    )
+    llm_web_search_max_results: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        validation_alias=AliasChoices("LLM_WEB_SEARCH_MAX_RESULTS"),
     )
     discovery_max_concurrency: int = Field(default=4, ge=1, le=32)
     discovery_max_calls_per_job: int = Field(default=24, ge=1, le=200)
@@ -83,7 +98,7 @@ class Settings(BaseSettings):
     enable_billing_simulation: bool = False
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         case_sensitive=False,
         extra="ignore",
     )

@@ -105,34 +105,6 @@ def _build_llm_prompt(payload: LeadAnalysisInput) -> str:
     )
 
 
-def _extract_output_text(payload_json: dict[str, Any]) -> str:
-    output_text = payload_json.get("output_text")
-    if isinstance(output_text, str) and output_text.strip():
-        return output_text
-
-    output_items = payload_json.get("output")
-    if not isinstance(output_items, list):
-        raise ValueError("OpenAI response did not include structured output text.")
-
-    text_parts: list[str] = []
-    for item in output_items:
-        if not isinstance(item, dict):
-            continue
-        content_items = item.get("content")
-        if not isinstance(content_items, list):
-            continue
-        for content in content_items:
-            if not isinstance(content, dict):
-                continue
-            text_value = content.get("text")
-            if isinstance(text_value, str) and text_value.strip():
-                text_parts.append(text_value)
-
-    if not text_parts:
-        raise ValueError("OpenAI response did not include message content.")
-    return "\n".join(text_parts)
-
-
 class OpenAILLMAdapter:
     def __init__(
         self,
@@ -160,30 +132,29 @@ class OpenAILLMAdapter:
     def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
         prompt = _build_llm_prompt(payload)
         response = self._client.post(
-            f"{self.base_url}/responses",
+            f"{self.base_url}/chat/completions",
             json={
                 "model": self.model,
-                "input": [
+                "messages": [
                     {
                         "role": "system",
                         "content": "You are an evidence-first lead-analysis assistant. Return only schema-compliant JSON.",
                     },
                     {"role": "user", "content": prompt},
                 ],
-                "store": False,
-                "text": {
-                    "format": {
-                        "type": "json_schema",
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
                         "name": "lead_analysis_result",
                         "strict": True,
                         "schema": _analysis_json_schema(),
-                    }
+                    },
                 },
             },
         )
         response.raise_for_status()
         payload_json = response.json()
-        return _coerce_json_object(_extract_output_text(payload_json))
+        return _coerce_json_object(payload_json["choices"][0]["message"]["content"])
 
 
 class OllamaLLMAdapter:
@@ -202,18 +173,26 @@ class OllamaLLMAdapter:
         self._client.close()
 
     def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]:
+        prompt = _build_llm_prompt(payload)
         response = self._client.post(
-            f"{self.base_url}/api/generate",
+            f"{self.base_url}/api/chat",
             json={
                 "model": self.model,
-                "prompt": _build_llm_prompt(payload),
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are an evidence-first lead-analysis assistant. Return only schema-compliant JSON.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
                 "stream": False,
                 "format": "json",
             },
         )
         response.raise_for_status()
         payload_json = response.json()
-        content = payload_json.get("response", "")
+        message = payload_json.get("message", {})
+        content = message.get("content", "")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("Ollama response did not include generated text.")
         return _coerce_json_object(content)

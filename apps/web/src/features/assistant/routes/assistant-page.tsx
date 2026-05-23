@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { Bot, CornerDownRight, ExternalLink, MessageSquareText, SearchCheck, Sparkles } from "lucide-react";
+import { Bot, CornerDownRight, ExternalLink, History, MessageSquareText, SearchCheck, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   Conversation,
@@ -31,7 +31,20 @@ import { PageHeader } from "@/components/shell/page-header";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { createAssistantTransport, type AssistantChatRequestBody } from "@/features/assistant/api";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { ChatHistoryPanel } from "@/features/assistant/components/chat-history-panel";
+import {
+  createAssistantTransport,
+  getChatSession,
+  type AssistantChatRequestBody,
+} from "@/features/assistant/api";
 import { getLead } from "@/features/leads/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { formatScore } from "@/lib/presenters";
@@ -51,12 +64,26 @@ type AssistantSearchData = {
   sources?: AssistantSearchSource[];
 };
 
+function uiMessageFromDb(
+  m: { public_id: string; role: string; content: string },
+): UIMessage {
+  const role = m.role === "assistant" || m.role === "system" ? m.role : "user";
+  return {
+    id: m.public_id,
+    role,
+    parts: [{ type: "text", text: m.content }],
+  } as UIMessage;
+}
+
 export function AssistantPage() {
   const { t } = useTranslation();
   useDocumentTitle(t("nav.assistant"));
   const [searchParams] = useSearchParams();
   const leadId = searchParams.get("leadId") ?? "";
   const [input, setInput] = useState("");
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const leadQuery = useQuery({
     queryKey: ["lead", leadId, "assistant-context"],
@@ -65,11 +92,14 @@ export function AssistantPage() {
   });
 
   const transport = useMemo(() => {
-    const body: AssistantChatRequestBody | undefined = leadId
+    const body: AssistantChatRequestBody = leadId
       ? { lead_id: leadId, mode: "lead-assistant" }
       : { mode: "lead-assistant" };
+    if (currentSessionId) {
+      body.session_id = currentSessionId;
+    }
     return createAssistantTransport(body);
-  }, [leadId]);
+  }, [leadId, currentSessionId]);
 
   const { messages, sendMessage, status, stop, error, setMessages } = useChat<UIMessage>({
     transport,
@@ -89,30 +119,80 @@ export function AssistantPage() {
     if (!trimmed || isStreaming) {
       return;
     }
-    await sendMessage(
-      { text: trimmed },
-      {
-        body: leadId ? { lead_id: leadId, mode: "lead-assistant" } : { mode: "lead-assistant" },
-      },
-    );
+    const body: AssistantChatRequestBody = leadId
+      ? { lead_id: leadId, mode: "lead-assistant" }
+      : { mode: "lead-assistant" };
+    if (currentSessionId) {
+      body.session_id = currentSessionId;
+    }
+    await sendMessage({ text: trimmed }, { body });
     setInput("");
+    // Refresh history list once the message lands so previews/counts update.
+    void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+  };
+
+  const handleResumeSession = async (sessionId: string) => {
+    try {
+      const detail = await getChatSession(sessionId);
+      setCurrentSessionId(detail.public_id);
+      setMessages(detail.messages.map(uiMessageFromDb));
+      setHistoryOpen(false);
+    } catch {
+      // Errors surface in the history panel itself; swallow here.
+    }
+  };
+
+  const handleNewChat = () => {
+    setCurrentSessionId(undefined);
+    setMessages([]);
+    setHistoryOpen(false);
   };
 
   return (
-    <div className="grid gap-4 p-3 sm:p-4 lg:p-6">
+    <div className="mx-auto grid max-w-screen-2xl gap-4 p-3 sm:p-4 lg:p-6">
       <PageHeader
         eyebrow={t("assistant.eyebrow")}
         title={t("assistant.title")}
         description={t("assistant.description")}
         actions={
-          <Button variant="outline" className="bg-transparent" onClick={() => setMessages([])}>
-            <MessageSquareText className="size-3.5" />
-            {t("assistant.clearThread")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="bg-transparent">
+                  <History className="size-3.5" />
+                  {t("assistant.openHistory")}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md">
+                <SheetHeader>
+                  <SheetTitle>{t("assistant.conversationHistory")}</SheetTitle>
+                  <SheetDescription>
+                    {leadId
+                      ? t("assistant.noPreviousChatsDescription")
+                      : t("assistant.noRepliesWorkspace")}
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 h-[calc(100dvh-7rem)]">
+                  <ChatHistoryPanel
+                    leadId={leadId || undefined}
+                    currentSessionId={currentSessionId}
+                    onResume={(id) => {
+                      void handleResumeSession(id);
+                    }}
+                    onNewChat={handleNewChat}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+            <Button variant="outline" className="bg-transparent" onClick={handleNewChat}>
+              <MessageSquareText className="size-3.5" />
+              {t("assistant.newChat")}
+            </Button>
+          </div>
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[0.78fr_1.22fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.78fr_1.22fr] 2xl:grid-cols-[0.65fr_1.35fr]">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
             <CardTitle>{t("assistant.groundingContext")}</CardTitle>

@@ -152,7 +152,8 @@ function lazyPage(
   );
 }
 
-const router = createBrowserRouter([
+function buildRouter() {
+  return createBrowserRouter([
   {
     path: appPaths.home,
     element: lazyPage(HomePage, {
@@ -338,7 +339,10 @@ const router = createBrowserRouter([
     path: "/settings",
     element: <Navigate replace to={appPaths.settings} />,
   },
-]);
+  ]);
+}
+
+const router = buildRouter();
 
 export function AppRouterProvider() {
   return (

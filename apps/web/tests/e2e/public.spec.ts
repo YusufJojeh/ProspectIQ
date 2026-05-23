@@ -76,14 +76,14 @@ test("signup layout remains stable on tablet", async ({ page }, testInfo) => {
   await expectStableScreenshot(page.locator("body"), "tablet-sign-up-page.png");
 });
 
-test("forgot-password request flow renders and remains stable", async ({ page }) => {
+test("forgot-password page renders unavailable notice and back-to-sign-in link", async ({ page }) => {
   await gotoPath(page, routes.forgotPassword);
 
-  await expect(page.getByText(/reset your password/i)).toBeVisible();
-  await page.getByLabel(/work email/i).fill("admin@prospectiq.dev");
-  await page.getByRole("button", { name: /send reset link/i }).click();
-  await expect(page.getByRole("status")).toContainText(/(reset link sent|تم إرسال رابط إعادة التعيين)/i);
-  await expect(page.getByRole("status")).toContainText(/(reset api is not live yet|واجهة إعادة التعيين غير مفعّلة بعد)/i);
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByText(/reset your password/i).first()).toBeVisible();
+  // The page shows a notice that self-service reset is not configured
+  await expect(page.getByText(/email reset not available/i)).toBeVisible();
+  await expect(page.getByText(/ask your workspace administrator/i)).toBeVisible();
+  // Back to sign in link is present
+  await expect(page.getByRole("link", { name: /back to sign in/i })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

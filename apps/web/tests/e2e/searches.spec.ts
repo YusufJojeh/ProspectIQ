@@ -5,6 +5,39 @@ import { routes } from "./helpers/routes";
 
 test.use({ storageState: authStatePath });
 
+test("searches page shows AI prompt input as the primary entry point with structured form collapsed", async ({
+  page,
+}) => {
+  await gotoPath(page, routes.searches);
+
+  // Part 2: NLP textarea should be visible at the top of the create-job card
+  const promptTextarea = page.getByPlaceholder(/Describe what you're looking for/i);
+  await expect(promptTextarea).toBeVisible();
+
+  // Primary CTA is "Search with AI"
+  await expect(page.getByRole("button", { name: /Search with AI/i })).toBeVisible();
+
+  // Structured form is hidden behind the "Advanced options" collapsible — its
+  // required field (business type input) should NOT be visible by default.
+  await expect(page.getByTestId("search-form-business-type")).toBeHidden();
+
+  // Click the "Advanced options" collapsible trigger → form becomes visible
+  await page.getByRole("button", { name: /Advanced options/i }).click();
+  await expect(page.getByTestId("search-form-business-type")).toBeVisible();
+  await expect(page.getByTestId("search-form-city")).toBeVisible();
+});
+
+test("Part 6: search-job cards do not render raw i18n placeholders", async ({ page }) => {
+  await gotoPath(page, routes.searches);
+  await expect(page.getByText(/run history/i)).toBeVisible();
+
+  // jobCardSummary template used to be "{{businessType}} in {{city}}" with wrong
+  // variables passed → rendered raw {{placeholders}}. Verify that's fixed.
+  const mainBody = page.locator("main");
+  await expect(mainBody).not.toContainText("{{");
+  await expect(mainBody).not.toContainText("}}");
+});
+
 test("searches page supports job inspection, clone, rerun, and lead navigation", async ({ page }, testInfo) => {
   await gotoPath(page, routes.searches);
 

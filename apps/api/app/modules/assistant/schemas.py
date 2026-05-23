@@ -34,6 +34,8 @@ class ChatSessionResponse(BaseModel):
     title: str
     created_at: datetime
     updated_at: datetime
+    message_count: int = 0
+    last_message_preview: str | None = None
 
 
 class ChatSessionDetailResponse(ChatSessionResponse):

@@ -606,6 +606,93 @@ def test_chat_empty_search_results_do_not_hallucinate_sources(monkeypatch) -> No
     assert _event_data(response, "source-url") == []
 
 
+def test_list_sessions_filters_by_lead_public_id(monkeypatch) -> None:
+    """Part 9: GET /api/v1/assistant/sessions?lead_id=<lead> returns only that lead's sessions."""
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(AssistantService, "_generate_tokens", _fake_tokens)
+
+    # Create a second lead in the same workspace
+    with session_factory() as db:
+        first_lead = db.query(Lead).filter(Lead.public_id == seed.lead_public_id).one()
+        other_lead = Lead(
+            workspace_id=first_lead.workspace_id,
+            company_name="Other Co",
+            city="Istanbul",
+            data_completeness=0.5,
+            data_confidence=0.5,
+            has_website=False,
+        )
+        db.add(other_lead)
+        db.commit()
+        db.refresh(other_lead)
+        other_lead_public_id = other_lead.public_id
+
+    with _override_client(session_factory) as client:
+        token = _login(client, seed)
+        _chat(client, token, lead_id=seed.lead_public_id, text="First-lead question")
+        _chat(client, token, lead_id=other_lead_public_id, text="Other-lead question")
+
+        # No filter → both sessions visible
+        all_resp = client.get(
+            "/api/v1/assistant/sessions",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert len(all_resp.json()["items"]) == 2
+
+        # Filter by first lead → only that session
+        filtered_resp = client.get(
+            f"/api/v1/assistant/sessions?lead_id={seed.lead_public_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = filtered_resp.json()["items"]
+        assert len(items) == 1
+        assert items[0]["lead_id"] == seed.lead_public_id
+
+
+def test_list_sessions_includes_message_count_and_preview(monkeypatch) -> None:
+    """Part 9: session list items expose message_count + last_message_preview."""
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(AssistantService, "_generate_tokens", _fake_tokens)
+
+    with _override_client(session_factory) as client:
+        token = _login(client, seed)
+        _chat(client, token, lead_id=seed.lead_public_id, text="What is the score driver?")
+
+        list_resp = client.get(
+            "/api/v1/assistant/sessions",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    items = list_resp.json()["items"]
+    assert len(items) == 1
+    item = items[0]
+    # Each chat round persists 2 messages (user + assistant)
+    assert item["message_count"] == 2
+    assert item["last_message_preview"] is not None
+    # Last message is the assistant reply
+    assert "Assistant reply" in item["last_message_preview"]
+
+
+def test_list_sessions_with_unknown_lead_id_returns_empty(monkeypatch) -> None:
+    """Filtering by an unknown lead public_id returns an empty list, not 404."""
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    monkeypatch.setattr(AssistantService, "_generate_tokens", _fake_tokens)
+
+    with _override_client(session_factory) as client:
+        token = _login(client, seed)
+        _chat(client, token, lead_id=seed.lead_public_id, text="Indexed under real lead")
+        resp = client.get(
+            "/api/v1/assistant/sessions?lead_id=ld_doesnotexist",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["items"] == []
+
+
 def test_chat_search_metadata_does_not_expose_api_keys_or_raw_payload(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)

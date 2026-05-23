@@ -95,19 +95,19 @@ DEMO_USERS = [
     DemoUserSpec(
         email="admin@example.test",
         full_name="Super Admin",
-        password="password",
+        password="AdminPass123!",
         role="account_owner",
     ),
     DemoUserSpec(
         email="manager@example.test",
         full_name="Tenant Manager",
-        password="password",
+        password="ManagerPass123!",
         role="manager",
     ),
     DemoUserSpec(
         email="user1@example.test",
         full_name="Team User",
-        password="password",
+        password="UserPass123!",
         role="member",
     ),
 ]

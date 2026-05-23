@@ -124,12 +124,20 @@ class _FakeOpenAIResponse:
         return None
 
     def json(self) -> dict[str, object]:
+        # Standard chat/completions response shape (OpenAI-compatible)
         return {
-            "output_text": (
-                '{"summary":"Evidence-based summary","weaknesses":[],"opportunities":[],'
-                '"recommended_services":[],"outreach_subject":"Subject",'
-                '"outreach_message":"Message","confidence":0.8,"recommended_tone":null}'
-            )
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            '{"summary":"Evidence-based summary","weaknesses":[],"opportunities":[],'
+                            '"recommended_services":[],"outreach_subject":"Subject",'
+                            '"outreach_message":"Message","confidence":0.8,"recommended_tone":null}'
+                        ),
+                    }
+                }
+            ]
         }
 
 
@@ -145,7 +153,14 @@ class _CapturingOpenAIClient:
         return None
 
 
-def test_openai_responses_payload_disables_server_side_storage() -> None:
+def test_openai_adapter_uses_chat_completions_with_structured_response_format() -> None:
+    """
+    OpenAILLMAdapter must call the standard /chat/completions endpoint with a
+    messages array and a json_schema response_format — NOT the proprietary
+    /responses endpoint. This ensures compatibility with Groq, LM Studio,
+    vLLM, Ollama's OpenAI-compat layer, and every other OpenAI-compatible
+    provider.
+    """
     adapter = OpenAILLMAdapter(api_key="test-key", model="gpt-test")
     fake_client = _CapturingOpenAIClient()
     adapter._client = fake_client
@@ -168,7 +183,17 @@ def test_openai_responses_payload_disables_server_side_storage() -> None:
     adapter.analyze(payload)
 
     assert fake_client.payload is not None
-    assert fake_client.payload["store"] is False
+    # Must use the standard messages array (NOT the Responses API "input")
+    assert "messages" in fake_client.payload
+    assert "input" not in fake_client.payload
+    assert "store" not in fake_client.payload  # store is Responses-API only
+    # Must use response_format (NOT the Responses API "text")
+    assert "response_format" in fake_client.payload
+    assert "text" not in fake_client.payload
+    response_format = fake_client.payload["response_format"]
+    assert isinstance(response_format, dict)
+    assert response_format.get("type") == "json_schema"
+    assert "json_schema" in response_format
 
 
 def test_ai_analysis_persists_and_reuses_snapshot() -> None:

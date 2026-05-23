@@ -10,6 +10,7 @@ export const routes = {
   leads: "/app/leads",
   leadDetail: `/app/leads/${MOCK_IDS.primaryLeadId}`,
   aiAnalysis: "/app/ai-analysis",
+  assistant: "/app/assistant",
   outreach: "/app/outreach",
   admin: "/app/admin",
   auditLogs: "/app/audit-logs",

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Compass, Copy, DatabaseZap, Play, SearchCheck } from "lucide-react";
+import { ChevronDown, Compass, Copy, DatabaseZap, Play, SearchCheck, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
@@ -14,9 +14,11 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createSearchJob } from "@/features/searches/api";
+import { createSearchJob, createSearchJobFromPrompt } from "@/features/searches/api";
 import { useInvalidateLeadsWhileDiscoveryActive } from "@/hooks/use-invalidate-leads-while-discovery-active";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useSearchJobsQuery } from "@/hooks/use-search-jobs-query";
@@ -89,6 +91,8 @@ export function SearchesPage() {
   useDocumentTitle(t("searches.title"));
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<SearchJobResponse | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [smartPrompt, setSmartPrompt] = useState("");
 
   const form = useForm<SearchValues>({
     resolver: zodResolver(searchSchema),
@@ -117,6 +121,23 @@ export function SearchesPage() {
     },
   });
 
+  const smartMutation = useMutation({
+    mutationFn: (prompt: string) => createSearchJobFromPrompt(prompt),
+    onSuccess: (job) => {
+      void queryClient.invalidateQueries({ queryKey: ["search-jobs"] });
+      void queryClient.invalidateQueries({ queryKey: ["leads"] });
+      setSmartPrompt("");
+      setSelectedJob(job);
+    },
+  });
+
+  // When the user clones an existing job, expand the structured form so they
+  // can immediately see and edit the populated fields.
+  const handleClone = (job: SearchJobResponse) => {
+    cloneIntoForm(job, form.reset);
+    setShowAdvanced(true);
+  };
+
   const jobs = jobsQuery.data?.items ?? [];
   const activeJobs = jobs.filter((job) => job.status === "queued" || job.status === "running");
   const historyJobs = jobs.filter((job) => job.status !== "queued" && job.status !== "running");
@@ -127,7 +148,7 @@ export function SearchesPage() {
     createMutation.data?.discovery_runtime ?? jobsQuery.data?.items[0]?.discovery_runtime ?? null;
 
   return (
-    <div className="space-y-6 p-3 sm:p-4 lg:p-6">
+    <div className="mx-auto max-w-screen-2xl space-y-6 p-3 sm:p-4 lg:p-6">
       <PageHeader
         eyebrow={t("searches.title")}
         title={t("searches.workspaceTitle")}
@@ -169,100 +190,184 @@ export function SearchesPage() {
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
             <CardTitle>{t("searches.createNewJob")}</CardTitle>
-            <CardDescription>
+            <CardDescription className="mt-1.5">
               {t("searches.createNewJobDescription")}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label={t("searches.businessType")} error={form.formState.errors.business_type?.message}>
-                  <Input
-                    data-testid="search-form-business-type"
-                    placeholder="Dentist, lawyer, clinic, salon"
-                    {...form.register("business_type")}
-                  />
-                </Field>
-                <Field label={t("searches.city")} error={form.formState.errors.city?.message}>
-                  <Input data-testid="search-form-city" placeholder="Istanbul" {...form.register("city")} />
-                </Field>
-                <Field label={t("searches.region")} error={form.formState.errors.region?.message}>
-                  <Input placeholder="District, state, or broader geography" {...form.register("region")} />
-                </Field>
-                <Field label={t("searches.keywordFilter")} error={form.formState.errors.keyword_filter?.message}>
-                  <Input placeholder="implant, emergency, cosmetic" {...form.register("keyword_filter")} />
-                </Field>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <Field label={t("searches.radiusKm")} error={form.formState.errors.radius_km?.message}>
-                  <Input type="number" min={1} max={500} {...form.register("radius_km")} />
-                </Field>
-                <Field label={t("searches.maxResults")} error={form.formState.errors.max_results?.message}>
-                  <Input type="number" min={1} max={100} {...form.register("max_results")} />
-                </Field>
-                <Field label={t("searches.websitePreference")}>
-                  <Select
-                    value={form.watch("website_preference")}
-                    onValueChange={(value) =>
-                      form.setValue("website_preference", value as SearchValues["website_preference"], {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("searches.selectWebsitePreference")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">{t("searches.websiteAny")}</SelectItem>
-                      <SelectItem value="must_have">{t("searches.websiteRequired")}</SelectItem>
-                      <SelectItem value="must_be_missing">{t("searches.websiteNone")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-4">
-                <Field label={t("searches.minRating")} error={form.formState.errors.min_rating?.message}>
-                  <Input type="number" min={0} max={5} step="0.1" {...form.register("min_rating")} />
-                </Field>
-                <Field label={t("searches.maxRating")} error={form.formState.errors.max_rating?.message}>
-                  <Input type="number" min={0} max={5} step="0.1" {...form.register("max_rating")} />
-                </Field>
-                <Field label={t("searches.minReviews")} error={form.formState.errors.min_reviews?.message}>
-                  <Input type="number" min={0} {...form.register("min_reviews")} />
-                </Field>
-                <Field label={t("searches.maxReviews")} error={form.formState.errors.max_reviews?.message}>
-                  <Input type="number" min={0} {...form.register("max_reviews")} />
-                </Field>
-              </div>
-
+          <CardContent className="space-y-6">
+            {/* Primary: AI-powered natural language search */}
+            <div className="space-y-3">
+              <Textarea
+                placeholder={t("searches.smartSearchPrimaryPlaceholder")}
+                rows={3}
+                value={smartPrompt}
+                onChange={(e) => setSmartPrompt(e.target.value)}
+                disabled={smartMutation.isPending}
+                className="resize-none"
+              />
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="submit" disabled={createMutation.isPending}>
-                  <Play className="size-3.5" />
-                  {createMutation.isPending ? t("searches.submitting") : t("searches.queueDiscoveryJob")}
+                <Button
+                  type="button"
+                  disabled={smartMutation.isPending || smartPrompt.trim().length < 5}
+                  onClick={() => smartMutation.mutate(smartPrompt.trim())}
+                >
+                  <Sparkles className="size-3.5" />
+                  {smartMutation.isPending ? t("searches.smartSearchParsing") : t("searches.aiSearchButton")}
                 </Button>
-                <Button type="button" variant="outline" className="bg-transparent" onClick={() => form.reset(defaultValues)}>
-                  {t("searches.resetForm")}
-                </Button>
+                {smartPrompt.trim().length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="bg-transparent"
+                    onClick={() => { setSmartPrompt(""); smartMutation.reset(); }}
+                  >
+                    {t("searches.resetForm")}
+                  </Button>
+                )}
               </div>
-
-              {createMutation.isSuccess ? (
+              {smartMutation.isSuccess ? (
                 <QueryStateNotice
                   tone="success"
                   title={t("searches.discoveryQueuedTitle")}
                   description={t("searches.discoveryQueuedDescription")}
                 />
               ) : null}
-              {createMutation.isError ? (
-                <QueryStateNotice
-                  tone="error"
-                  title={t("searches.queueErrorTitle")}
-                  error={createMutation.error}
-                />
+              {smartMutation.isError ? (
+                <div className="space-y-2">
+                  <QueryStateNotice
+                    tone="error"
+                    title={t("searches.smartSearchErrorTitle")}
+                    error={smartMutation.error}
+                  />
+                  <p className="text-sm text-muted-foreground">{t("searches.smartSearchFallbackHint")}</p>
+                </div>
               ) : null}
-            </form>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">or</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {/* Advanced: structured form in collapsible */}
+            <Collapsible
+              open={showAdvanced || smartMutation.isError}
+              onOpenChange={setShowAdvanced}
+            >
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="bg-transparent">
+                  <SlidersHorizontal className="size-3.5" />
+                  {t("searches.advancedOptions")}
+                  <ChevronDown
+                    className="size-3.5 transition-transform duration-200"
+                    style={{ transform: (showAdvanced || smartMutation.isError) ? "rotate(180deg)" : "rotate(0deg)" }}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <form
+                  className="space-y-4 pt-4"
+                  onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label={t("searches.businessType")} error={form.formState.errors.business_type?.message}>
+                      <Input
+                        data-testid="search-form-business-type"
+                        placeholder="Dentist, lawyer, clinic, salon"
+                        {...form.register("business_type")}
+                      />
+                    </Field>
+                    <Field label={t("searches.city")} error={form.formState.errors.city?.message}>
+                      <Input data-testid="search-form-city" placeholder="Istanbul" {...form.register("city")} />
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label={t("searches.region")} error={form.formState.errors.region?.message}>
+                      <Input placeholder="District, state, or broader geography" {...form.register("region")} />
+                    </Field>
+                    <Field label={t("searches.keywordFilter")} error={form.formState.errors.keyword_filter?.message}>
+                      <Input placeholder="implant, emergency, cosmetic" {...form.register("keyword_filter")} />
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Field label={t("searches.radiusKm")} error={form.formState.errors.radius_km?.message}>
+                      <Input type="number" min={1} max={500} {...form.register("radius_km")} />
+                    </Field>
+                    <Field label={t("searches.maxResults")} error={form.formState.errors.max_results?.message}>
+                      <Input type="number" min={1} max={100} {...form.register("max_results")} />
+                    </Field>
+                    <Field label={t("searches.websitePreference")}>
+                      <Select
+                        value={form.watch("website_preference")}
+                        onValueChange={(value) =>
+                          form.setValue("website_preference", value as SearchValues["website_preference"], {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("searches.selectWebsitePreference")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="any">{t("searches.websiteAny")}</SelectItem>
+                          <SelectItem value="must_have">{t("searches.websiteRequired")}</SelectItem>
+                          <SelectItem value="must_be_missing">{t("searches.websiteNone")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <Field label={t("searches.minRating")} error={form.formState.errors.min_rating?.message}>
+                      <Input type="number" min={0} max={5} step="0.1" {...form.register("min_rating")} />
+                    </Field>
+                    <Field label={t("searches.maxRating")} error={form.formState.errors.max_rating?.message}>
+                      <Input type="number" min={0} max={5} step="0.1" {...form.register("max_rating")} />
+                    </Field>
+                    <Field label={t("searches.minReviews")} error={form.formState.errors.min_reviews?.message}>
+                      <Input type="number" min={0} {...form.register("min_reviews")} />
+                    </Field>
+                    <Field label={t("searches.maxReviews")} error={form.formState.errors.max_reviews?.message}>
+                      <Input type="number" min={0} {...form.register("max_reviews")} />
+                    </Field>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="submit" disabled={createMutation.isPending} variant="outline" className="bg-transparent">
+                      <Play className="size-3.5" />
+                      {createMutation.isPending ? t("searches.submitting") : t("searches.queueDiscoveryJob")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => form.reset(defaultValues)}
+                    >
+                      {t("searches.resetForm")}
+                    </Button>
+                  </div>
+
+                  {createMutation.isSuccess ? (
+                    <QueryStateNotice
+                      tone="success"
+                      title={t("searches.discoveryQueuedTitle")}
+                      description={t("searches.discoveryQueuedDescription")}
+                    />
+                  ) : null}
+                  {createMutation.isError ? (
+                    <QueryStateNotice
+                      tone="error"
+                      title={t("searches.queueErrorTitle")}
+                      error={createMutation.error}
+                    />
+                  ) : null}
+                </form>
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
 
@@ -301,7 +406,7 @@ export function SearchesPage() {
                 <SearchJobPreview
                   job={selectedJob}
                   onOpen={() => setSelectedJob(selectedJob)}
-                  onClone={() => cloneIntoForm(selectedJob, form.reset)}
+                  onClone={() => handleClone(selectedJob)}
                 />
               ) : (
                 <EmptyState
@@ -332,7 +437,7 @@ export function SearchesPage() {
                   key={job.public_id}
                   job={job}
                   onInspect={() => setSelectedJob(job)}
-                  onClone={() => cloneIntoForm(job, form.reset)}
+                  onClone={() => handleClone(job)}
                   onRerun={() => rerunMutation.mutate(job)}
                   rerunning={rerunMutation.isPending && selectedJob?.public_id === job.public_id}
                 />
@@ -358,7 +463,7 @@ export function SearchesPage() {
                   key={job.public_id}
                   job={job}
                   onInspect={() => setSelectedJob(job)}
-                  onClone={() => cloneIntoForm(job, form.reset)}
+                  onClone={() => handleClone(job)}
                   onRerun={() => rerunMutation.mutate(job)}
                   rerunning={rerunMutation.isPending && selectedJob?.public_id === job.public_id}
                 />
@@ -372,7 +477,7 @@ export function SearchesPage() {
         job={selectedJob}
         open={Boolean(selectedJob)}
         onClose={() => setSelectedJob(null)}
-        onClone={(job) => cloneIntoForm(job, form.reset)}
+        onClone={(job) => handleClone(job)}
         onRerun={(job) => rerunMutation.mutate(job)}
         rerunning={rerunMutation.isPending}
       />

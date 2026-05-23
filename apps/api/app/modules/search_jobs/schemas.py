@@ -5,6 +5,10 @@ from pydantic import BaseModel, Field, model_validator
 from app.shared.enums.jobs import SearchJobStatus, WebsitePreference
 
 
+class SearchJobFromPromptRequest(BaseModel):
+    prompt: str = Field(min_length=5, max_length=1000)
+
+
 class SearchJobCreateRequest(BaseModel):
     business_type: str = Field(min_length=2, max_length=255)
     city: str = Field(min_length=2, max_length=255)

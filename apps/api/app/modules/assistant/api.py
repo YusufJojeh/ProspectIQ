@@ -4,7 +4,7 @@ import json
 from collections.abc import Iterator
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from app.modules.assistant.schemas import (
 from app.modules.assistant.service import AssistantService, AssistantStreamChunk
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
 from app.modules.leads.models import Lead
+from app.modules.leads.repository import LeadsRepository
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
@@ -112,24 +113,41 @@ def chat_with_assistant(
 
 @router.get("/sessions", response_model=ChatSessionListResponse)
 def list_sessions(
+    lead_id: str | None = Query(default=None, description="Filter by lead public_id"),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> ChatSessionListResponse:
     service = AssistantService()
-    sessions = service.list_sessions(db, workspace_id=workspace_id)
-    return ChatSessionListResponse(
-        items=[
+    # Resolve lead public_id to internal id (if provided)
+    internal_lead_id: int | None = None
+    if lead_id:
+        lead = LeadsRepository().get_by_public_id_for_workspace(
+            db, workspace_id=workspace_id, public_id=lead_id
+        )
+        if lead is None:
+            # Lead not found → empty list rather than 404
+            return ChatSessionListResponse(items=[])
+        internal_lead_id = lead.id
+
+    sessions = service.list_sessions(
+        db, workspace_id=workspace_id, lead_id=internal_lead_id
+    )
+    items: list[ChatSessionResponse] = []
+    for s in sessions:
+        count, preview = service.session_repository.get_session_preview(db, session_id=s.id)
+        items.append(
             ChatSessionResponse(
                 public_id=s.public_id,
                 lead_id=_session_lead_public_id(db, s.lead_id),
                 title=s.title,
                 created_at=s.created_at,
                 updated_at=s.updated_at,
+                message_count=count,
+                last_message_preview=preview,
             )
-            for s in sessions
-        ]
-    )
+        )
+    return ChatSessionListResponse(items=items)
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionDetailResponse)

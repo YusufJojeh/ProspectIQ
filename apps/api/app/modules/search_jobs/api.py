@@ -5,6 +5,7 @@ from app.core.database import get_db
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
 from app.modules.search_jobs.schemas import (
     SearchJobCreateRequest,
+    SearchJobFromPromptRequest,
     SearchJobListResponse,
     SearchJobResponse,
 )
@@ -28,6 +29,29 @@ def create_search_job(
     job = service.create_search_job(
         db,
         payload,
+        workspace_id=workspace_id,
+        requested_by_user_id=current_user.id,
+    )
+    background_tasks.add_task(LeadDiscoveryOrchestrator().run, job.public_id)
+    return service.to_response(job)
+
+
+@router.post("/from-prompt", response_model=SearchJobResponse, status_code=status.HTTP_202_ACCEPTED)
+async def create_search_job_from_prompt(
+    payload: SearchJobFromPromptRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> SearchJobResponse:
+    from app.modules.search_jobs.prompt_parser import SearchPromptParser
+
+    service = SearchJobService()
+    service.assert_discovery_runtime_available()
+    parsed_request = await SearchPromptParser().parse(payload.prompt)
+    job = service.create_search_job(
+        db,
+        parsed_request,
         workspace_id=workspace_id,
         requested_by_user_id=current_user.id,
     )

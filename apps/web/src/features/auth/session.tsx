@@ -1,5 +1,6 @@
 import {
   createContext,
+  type Context,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -24,7 +25,14 @@ type AuthSessionContextValue = {
   logout: () => void;
 };
 
-const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
+const authSessionContextGlobal = globalThis as typeof globalThis & {
+  __prospectiqAuthSessionContext__?: Context<AuthSessionContextValue | null>;
+};
+
+const AuthSessionContext =
+  authSessionContextGlobal.__prospectiqAuthSessionContext__ ??
+  (authSessionContextGlobal.__prospectiqAuthSessionContext__ =
+    createContext<AuthSessionContextValue | null>(null));
 
 export function AuthSessionProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();

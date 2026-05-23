@@ -89,7 +89,7 @@ for (const route of governanceRoutes) {
     } else if (route.path === routes.auditLogs) {
       await expect(page.getByText(/\d+ \/ \d+ events/i)).toBeVisible();
     } else if (route.path === routes.exports) {
-      await expect(page.getByText(/preview/i)).toBeVisible();
+      await expect(page.getByText(/preview/i).first()).toBeVisible();
     } else if (route.path === routes.settings) {
       await expect(page.getByText(/system overview/i)).toBeVisible();
     }

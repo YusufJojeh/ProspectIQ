@@ -46,16 +46,44 @@ class ChatSessionRepository:
         db: Session,
         *,
         workspace_id: int,
+        lead_id: int | None = None,
         limit: int = 50,
     ) -> list[ChatSession]:
+        stmt = select(ChatSession).where(ChatSession.workspace_id == workspace_id)
+        if lead_id is not None:
+            stmt = stmt.where(ChatSession.lead_id == lead_id)
         return list(
             db.scalars(
-                select(ChatSession)
-                .where(ChatSession.workspace_id == workspace_id)
-                .order_by(ChatSession.created_at.desc(), ChatSession.id.desc())
-                .limit(limit)
+                stmt.order_by(ChatSession.updated_at.desc(), ChatSession.id.desc()).limit(limit)
             )
         )
+
+    def get_session_preview(
+        self,
+        db: Session,
+        *,
+        session_id: int,
+    ) -> tuple[int, str | None]:
+        """
+        Return (message_count, last_message_preview) for a session.
+        last_message_preview is the first 120 chars of the most recent message.
+        """
+        from sqlalchemy import func
+
+        count = db.scalar(
+            select(func.count(ChatMessage.id)).where(ChatMessage.session_id == session_id)
+        ) or 0
+        last = db.scalar(
+            select(ChatMessage)
+            .where(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+            .limit(1)
+        )
+        preview: str | None = None
+        if last is not None and last.content:
+            content = last.content.strip().replace("\n", " ")
+            preview = content[:120] + ("…" if len(content) > 120 else "")
+        return int(count), preview
 
     def add_message(
         self,
