@@ -40,6 +40,9 @@ class NormalizedLeadFacts(BaseModel):
     source_agreement: float = 0.0
     maps_reviews_present: bool = False
     website_evidence_consistent: bool = False
+    enriched_rating: float | None = None
+    enriched_review_count: int = 0
+    news_present: bool = False
 
 
 class DeterministicScoreContext(BaseModel):

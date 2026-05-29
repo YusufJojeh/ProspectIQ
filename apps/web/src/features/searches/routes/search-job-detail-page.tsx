@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ListFilter, Radar, Rows3, ShieldAlert, TimerReset } from "lucide-react";
+import { ArrowLeft, ListFilter, Radar, RefreshCw, Rows3, ShieldAlert, TimerReset } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { appPaths } from "@/app/paths";
@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSearchJob } from "@/features/searches/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+import { useJobStream } from "@/hooks/use-job-stream";
 import { discoveryRuntimeLabel, searchJobStatusLabel, websitePreferenceLabel } from "@/lib/i18n-labels";
 import { formatDate, searchJobTone } from "@/lib/presenters";
+import { Progress } from "@/components/ui/progress";
 
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running"]);
 
@@ -21,6 +23,7 @@ export function SearchJobDetailPage() {
   const { t } = useTranslation();
   const { jobId = "" } = useParams();
   useDocumentTitle(t("searches.detailTitle"));
+  const isActive = (status: string) => status === "queued" || status === "running";
 
   const jobQuery = useQuery({
     queryKey: ["search-jobs", "detail", jobId],
@@ -34,6 +37,9 @@ export function SearchJobDetailPage() {
       return ACTIVE_JOB_STATUSES.has(job.status) ? 4_000 : false;
     },
   });
+
+  const streamJobId = jobId && jobQuery.data && isActive(jobQuery.data.status) ? jobId : null;
+  const stream = useJobStream(streamJobId);
 
   if (!jobId) {
     return <Navigate replace to={appPaths.searches} />;
@@ -103,12 +109,30 @@ export function SearchJobDetailPage() {
         <Badge tone="neutral">{runtimeLabel}</Badge>
       </div>
 
-      {job.status === "queued" || job.status === "running" ? (
-        <QueryStateNotice
-          tone="loading"
-          title={t("searches.runInProgressTitle")}
-          description={t("searches.runInProgressDescription")}
-        />
+      {isActive(job.status) ? (
+        <div className="space-y-2 rounded-[1.5rem] border border-border bg-card/95 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">
+              {stream.stage
+                ? t(`searches.stage_${stream.stage}`, { defaultValue: stream.stage })
+                : t("searches.runInProgressTitle")}
+            </p>
+            <span className="text-xs text-muted-foreground">{stream.progress}%</span>
+          </div>
+          <Progress value={stream.progress} className="h-2" />
+          {stream.message ? (
+            <p className="text-xs text-muted-foreground">{stream.message}</p>
+          ) : null}
+          {stream.canReconnect ? (
+            <button
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={stream.reconnect}
+            >
+              <RefreshCw className="size-3" />
+              {t("common.refresh")}
+            </button>
+          ) : null}
+        </div>
       ) : job.status === "failed" ? (
         <QueryStateNotice
           tone="error"

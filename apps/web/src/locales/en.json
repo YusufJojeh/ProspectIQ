@@ -383,6 +383,8 @@
     "selectedCount": "{{count}} selected",
     "noFilteredLeadsTitle": "No leads match the current filters",
     "noFilteredLeadsDescription": "Adjust filters or clear search to show results.",
+    "noLeadsYetTitle": "No leads yet",
+    "noLeadsYetDescription": "Run a search to start discovering leads.",
     "noMapCoordinatesTitle": "No map coordinates yet",
     "noMapCoordinatesDescription": "Map markers appear when leads include coordinates.",
     "paginationSummary": "Showing {{start}}-{{end}} of {{total}}",
@@ -411,7 +413,15 @@
     "bandHigh": "High",
     "bandMedium": "Medium",
     "bandLow": "Low",
-    "bandNotQualified": "Not qualified"
+    "bandNotQualified": "Not qualified",
+    "outreach": "Outreach",
+    "outreachStatus": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "replied": "Replied"
+    },
+    "columns": "Columns",
+    "hasPhone": "Has phone"
   },
   "searches": {
     "title": "Search Jobs",
@@ -638,7 +648,11 @@
     "toneOptionsSummary": "formal, friendly, consultative, pitch",
     "searchPlaceholder": "Search by company, city, or category...",
     "noSearchMatches": "No leads match your search",
-    "noSearchMatchesDescription": "Try widening the search terms."
+    "noSearchMatchesDescription": "Try widening the search terms.",
+    "copiedToast": "Draft copied to clipboard.",
+    "send": "Send",
+    "sentSuccess": "Outreach marked as sent.",
+    "sentError": "Failed to mark outreach as sent."
   },
   "ai": {
     "title": "AI Analysis",
@@ -1602,7 +1616,10 @@
         "negative": "No website is stored yet."
       }
     },
-    "scoreBreakdownDescription": "Weighted scoring factors for the current lead."
+    "scoreBreakdownDescription": "Weighted scoring factors for the current lead.",
+    "strengthStrong": "Strong (≥60%)",
+    "strengthModerate": "Moderate (30–59%)",
+    "strengthWeak": "Weak (<30%)"
   },
   "errors": {
     "generic": "An error occurred. Please try again.",

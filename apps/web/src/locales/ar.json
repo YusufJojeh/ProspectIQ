@@ -190,8 +190,7 @@
     "passwordsMustMatch": "يجب أن تتطابق كلمتا المرور.",
     "forgotPasswordUnavailableTitle": "إعادة التعيين عبر البريد الإلكتروني غير متوفرة",
     "forgotPasswordUnavailableDescription": "إعادة تعيين كلمة المرور الذاتية عبر البريد الإلكتروني غير مُهيّأة. اطلب من مسؤول مساحة العمل إعادة تعيين كلمة المرور عبر صفحة الفريق.",
-    "backToSignIn": "العودة إلى تسجيل الدخول",
-    "signIn": "تسجيل الدخول"
+    "backToSignIn": "العودة إلى تسجيل الدخول"
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -412,7 +411,17 @@
     "bandHigh": "مرتفع",
     "bandMedium": "متوسط",
     "bandLow": "منخفض",
-    "bandNotQualified": "غير مؤهل"
+    "bandNotQualified": "غير مؤهل",
+    "noLeadsYetTitle": "لا توجد عملاء بعد",
+    "noLeadsYetDescription": "ابدأ بحثاً للبدء في اكتشاف العملاء المحتملين.",
+    "outreach": "التواصل",
+    "outreachStatus": {
+      "draft": "مسودة",
+      "sent": "مُرسل",
+      "replied": "مُرَدّ عليه"
+    },
+    "columns": "الأعمدة",
+    "hasPhone": "لديه هاتف"
   },
   "searches": {
     "title": "مهام البحث",
@@ -639,7 +648,11 @@
     "toneOptionsSummary": "رسمي، ودّي، استشاري، عرض مختصر",
     "searchPlaceholder": "ابحث باسم الشركة أو المدينة أو النطاق...",
     "noSearchMatches": "لا توجد نتائج مطابقة للبحث",
-    "noSearchMatchesDescription": "عدّل البحث لعرض العملاء."
+    "noSearchMatchesDescription": "عدّل البحث لعرض العملاء.",
+    "copiedToast": "تم نسخ المسودة إلى الحافظة.",
+    "send": "إرسال",
+    "sentSuccess": "تم تحديد التواصل على أنه مُرسَل.",
+    "sentError": "فشل تحديد حالة التواصل."
   },
   "ai": {
     "title": "تحليل الذكاء الاصطناعي",
@@ -1603,7 +1616,10 @@
         "negative": "معلومات الموقع غير مكتملة."
       }
     },
-    "scoreBreakdownDescription": "العوامل التي كوّنت درجة العميل."
+    "scoreBreakdownDescription": "العوامل التي كوّنت درجة العميل.",
+    "strengthStrong": "قوي (≥60%)",
+    "strengthModerate": "متوسط (30–59%)",
+    "strengthWeak": "ضعيف (<30%)"
   },
   "errors": {
     "generic": "حدث خطأ. يرجى المحاولة مرة أخرى.",

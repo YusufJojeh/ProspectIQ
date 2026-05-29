@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -40,6 +41,7 @@ class Lead(Base):
     data_completeness: Mapped[float] = mapped_column(Float, default=0.0)
     data_confidence: Mapped[float] = mapped_column(Float, default=0.0)
     has_website: Mapped[bool] = mapped_column(Boolean, default=False)
+    enrichments: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True, default=None)
     status: Mapped[str] = mapped_column(String(32), default=LeadStatus.NEW.value)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, TypeVar
 
@@ -10,6 +11,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import get_settings
 from app.core.database import get_session_factory
 from app.core.errors import ServiceUnavailableError
+from app.enrichers.base import BaseLeadEnricher
+from app.enrichers.google_maps_reviews import GoogleMapsReviewsEnricher
+from app.enrichers.google_news import GoogleNewsEnricher
+from app.enrichers.yelp import YelpEnricher
 from app.modules.leads.models import Lead
 from app.modules.provider_serpapi.demo_service import DemoSerpApiService
 from app.modules.provider_serpapi.models import (
@@ -44,6 +49,7 @@ from app.workers.orchestration.discovery_pipeline import (
 
 logger = logging.getLogger(__name__)
 ValueT = TypeVar("ValueT")
+ProgressEmitFn = Callable[[str, int, str], None]  # (stage, progress, message)
 
 ORCHESTRATION_TIMEOUT_SECONDS = 300
 
@@ -101,6 +107,7 @@ class LeadDiscoveryOrchestrator:
         scoring_engine: ScoringEngine | None = None,
         scoring_config_service: ScoringConfigService | None = None,
         fact_builder: EvidenceFactBuilder | None = None,
+        emit_fn: ProgressEmitFn | None = None,
     ) -> None:
         self.session_factory = session_factory or get_session_factory()
         self.provider_service = provider_service
@@ -112,6 +119,17 @@ class LeadDiscoveryOrchestrator:
         self.scoring_engine = scoring_engine or ScoringEngine()
         self.scoring_config_service = scoring_config_service or ScoringConfigService()
         self.fact_builder = fact_builder or EvidenceFactBuilder()
+        self._emit_fn = emit_fn
+
+    def _emit(self, job_public_id: str, stage: str, progress: int, message: str) -> None:
+        try:
+            if self._emit_fn is not None:
+                self._emit_fn(stage, progress, message)
+            else:
+                from app.core.progress_bus import emit as bus_emit
+                bus_emit(job_public_id, stage, progress, message)
+        except Exception:
+            pass  # never let progress emission crash the pipeline
 
     def run(self, job_public_id: str) -> None:
         with self.session_factory() as db:
@@ -122,6 +140,7 @@ class LeadDiscoveryOrchestrator:
 
             try:
                 self._mark_running(db, job)
+                self._emit(job_public_id, "fetching", 5, "Discovery started")
                 settings = get_settings()
                 timeout_seconds = min(
                     settings.discovery_global_job_deadline_seconds or ORCHESTRATION_TIMEOUT_SECONDS,
@@ -132,14 +151,22 @@ class LeadDiscoveryOrchestrator:
                     lead_ids = self._discover_leads_single_path(db, job)
                 else:
                     lead_ids = self._discover_leads(db, job, deadline=deadline)
+                self._emit(job_public_id, "fetching", 40, f"Found {len(lead_ids)} candidates")
                 if lead_ids:
                     self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
+                    self._emit(job_public_id, "normalizing", 65, "Enrichment complete")
                     self._validate_web_presence(db, job, lead_ids, deadline=deadline)
+                    self._emit(job_public_id, "normalizing", 80, "Web presence validated")
+                    self._run_enrichment(db, lead_ids)
+                    self._emit(job_public_id, "enriching", 88, "External enrichment complete")
                     self._score_leads(db, job, lead_ids)
+                    self._emit(job_public_id, "scoring", 95, "Scoring complete")
                 self._finalize_status(db, job)
+                self._emit(job_public_id, "done", 100, "Discovery complete")
             except Exception as exc:
                 logger.exception("Lead discovery failed for search job '%s'.", job_public_id)
                 self._mark_failed(db, job, str(exc))
+                self._emit(job_public_id, "error", 0, str(exc))
 
     def _discover_leads(self, db: Session, job: SearchJob, *, deadline: datetime) -> list[int]:
         settings = get_settings()
@@ -484,6 +511,42 @@ class LeadDiscoveryOrchestrator:
                 scoring_config_version_id=version.id,
                 result=result,
             )
+
+    def _get_active_enrichers(self) -> list[BaseLeadEnricher]:
+        settings = get_settings()
+        if not settings.has_serpapi_configured:
+            return []
+        from app.modules.provider_serpapi.client import SerpApiClient
+
+        client = SerpApiClient()
+        registry: dict[str, BaseLeadEnricher] = {
+            "google_maps_reviews": GoogleMapsReviewsEnricher(
+                client, evidence_repository=self.evidence_repository
+            ),
+            "yelp": YelpEnricher(client),
+            "google_news": GoogleNewsEnricher(client),
+        }
+        return [registry[name] for name in settings.enrichers if name in registry]
+
+    def _run_enrichment(self, db: Session, lead_ids: list[int]) -> None:
+        if not lead_ids:
+            return
+        enrichers = self._get_active_enrichers()
+        if not enrichers:
+            logger.warning(
+                "enrichment.skipped reason=no_active_enrichers "
+                "(SERPAPI_API_KEY missing/empty or ENRICHERS unset)"
+            )
+            return
+        for lead in self._list_leads(db, lead_ids):
+            aggregated: dict[str, Any] = dict(lead.enrichments or {})
+            for enricher in enrichers:
+                payload = enricher.safe_enrich(lead, db=db)
+                if payload.data:
+                    aggregated[payload.source] = payload.data
+            lead.enrichments = aggregated or None
+            lead.updated_at = datetime.now(tz=UTC)
+            self.evidence_repository.save_lead(db, lead)
 
     def _upsert_candidate(
         self,

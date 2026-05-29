@@ -72,6 +72,11 @@ class Settings(BaseSettings):
         default="google_maps_search,google_web",
         validation_alias=AliasChoices("DISCOVERY_ENABLED_ENGINES", "DISCOVERY_ENGINE_LIST"),
     )
+    # Multi-source enrichers run after discovery (comma-separated, empty disables all).
+    enrichers_raw: str = Field(
+        default="",
+        validation_alias=AliasChoices("ENRICHERS"),
+    )
     # LLM-native web search tool (passed as a function/tool to OpenAI-compat providers).
     # When enabled, the assistant can call SerpAPI on demand via an LLM tool_call.
     enable_llm_web_search: bool = Field(
@@ -370,6 +375,11 @@ class Settings(BaseSettings):
     @property
     def enabled_discovery_engines(self) -> list[str]:
         values = [item.strip() for item in self.discovery_enabled_engines.split(",")]
+        return [item for item in values if item]
+
+    @property
+    def enrichers(self) -> list[str]:
+        values = [item.strip() for item in self.enrichers_raw.split(",")]
         return [item for item in values if item]
 
 

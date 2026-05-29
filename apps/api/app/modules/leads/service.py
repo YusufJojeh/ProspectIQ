@@ -25,6 +25,7 @@ from app.modules.leads.schemas import (
     LeadSortOption,
     LeadStatusUpdateRequest,
 )
+from app.modules.outreach.repository import OutreachRepository
 from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.outreach.service import OutreachGenerationService
 from app.modules.scoring.models import LeadScore
@@ -40,6 +41,7 @@ class LeadsService:
         self.repository = LeadsRepository()
         self.analysis_service = AIAnalysisService()
         self.outreach_service = OutreachGenerationService()
+        self.outreach_repository = OutreachRepository()
         self.audit_logs = AuditLogService()
         self.billing = BillingService()
         self.scoring_repository = ScoringRepository()
@@ -85,14 +87,17 @@ class LeadsService:
             lead_public_ids=lead_public_ids,
             sort=sort,
         )
-        latest_scores = self.repository.get_latest_scores(db, [item.id for item in items])
+        lead_ids = [item.id for item in items]
+        latest_scores = self.repository.get_latest_scores(db, lead_ids)
         assignees = self._get_assignee_public_ids(db, items)
+        outreach_statuses = self.outreach_repository.get_latest_outreach_statuses(db, lead_ids)
         return LeadListResponse(
             items=[
                 self._to_response(
                     item,
                     latest_scores.get(item.id),
                     self._lookup_cached_assignee_public_id(item, assignees),
+                    outreach_statuses.get(item.id),
                 )
                 for item in items
             ],
@@ -103,7 +108,8 @@ class LeadsService:
         lead = self._get_or_raise(db, workspace_id, lead_id)
         latest = self.repository.get_latest_scores(db, [lead.id]).get(lead.id)
         assignee_public_id = self._lookup_assignee_public_id(db, lead)
-        return self._to_response(lead, latest, assignee_public_id)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [lead.id]).get(lead.id)
+        return self._to_response(lead, latest, assignee_public_id, outreach_status)
 
     def list_activity(self, db: Session, workspace_id: int, lead_id: str) -> LeadActivityResponse:
         lead = self._get_or_raise(db, workspace_id, lead_id)
@@ -156,7 +162,8 @@ class LeadsService:
         )
         latest = self.repository.get_latest_scores(db, [lead.id]).get(lead.id)
         assignee_public_id = self._lookup_assignee_public_id(db, lead)
-        return self._to_response(lead, latest, assignee_public_id)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [lead.id]).get(lead.id)
+        return self._to_response(lead, latest, assignee_public_id, outreach_status)
 
     def analyze_lead(
         self,
@@ -302,7 +309,8 @@ class LeadsService:
         )
         latest = self.repository.get_latest_scores(db, [saved.id]).get(saved.id)
         assignee_public_id = self._lookup_assignee_public_id(db, saved)
-        return self._to_response(saved, latest, assignee_public_id)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [saved.id]).get(saved.id)
+        return self._to_response(saved, latest, assignee_public_id, outreach_status)
 
     def assign(
         self,
@@ -339,7 +347,8 @@ class LeadsService:
         )
         latest = self.repository.get_latest_scores(db, [saved.id]).get(saved.id)
         assignee_public_id = self._lookup_assignee_public_id(db, saved)
-        return self._to_response(saved, latest, assignee_public_id)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [saved.id]).get(saved.id)
+        return self._to_response(saved, latest, assignee_public_id, outreach_status)
 
     def evidence(self, db: Session, workspace_id: int, lead_id: str) -> LeadEvidenceResponse:
         lead = self._get_or_raise(db, workspace_id, lead_id)
@@ -367,6 +376,7 @@ class LeadsService:
         lead: Lead,
         latest_score: LeadScore | None,
         assignee_public_id: str | None,
+        latest_outreach_status: str | None = None,
     ) -> LeadResponse:
         return LeadResponse(
             public_id=lead.public_id,
@@ -389,6 +399,7 @@ class LeadsService:
             latest_score=float(latest_score.total_score) if latest_score else None,
             latest_band=LeadScoreBand(latest_score.band) if latest_score else None,
             latest_qualified=bool(latest_score.qualified) if latest_score else None,
+            latest_outreach_status=latest_outreach_status,
             created_at=lead.created_at,
             updated_at=lead.updated_at,
         )

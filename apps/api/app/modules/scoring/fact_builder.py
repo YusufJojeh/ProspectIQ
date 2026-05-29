@@ -88,6 +88,7 @@ class EvidenceFactBuilder:
             for value in [lead.website_domain, *(item.website_domain for item in fact_list)]
             if value
         }
+        enriched_rating, enriched_review_count, news_present = self._enrichment_signals(lead)
 
         return NormalizedLeadFacts(
             company_name=lead.company_name,
@@ -128,7 +129,31 @@ class EvidenceFactBuilder:
             source_agreement=source_agreement,
             maps_reviews_present=lead.review_count > 0,
             website_evidence_consistent=len(website_values) <= 1 and bool(website_values),
+            enriched_rating=enriched_rating,
+            enriched_review_count=enriched_review_count,
+            news_present=news_present,
         )
+
+    def _enrichment_signals(self, lead: Lead) -> tuple[float | None, int, bool]:
+        enrichments = lead.enrichments or {}
+        maps_reviews = enrichments.get("google_maps_reviews") or {}
+        yelp = enrichments.get("yelp") or {}
+        news = enrichments.get("google_news") or {}
+
+        rating: float | None = None
+        for value in (maps_reviews.get("rating"), yelp.get("yelp_rating")):
+            if isinstance(value, (int, float)):
+                rating = float(value)
+                break
+
+        review_count = 0
+        for value in (maps_reviews.get("review_count"), yelp.get("yelp_review_count")):
+            if isinstance(value, int):
+                review_count = value
+                break
+
+        news_present = bool(news.get("news_present"))
+        return rating, review_count, news_present
 
     def _group_by_source(
         self, facts: Iterable[ProviderNormalizedFact]

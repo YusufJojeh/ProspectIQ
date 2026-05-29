@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   ScrollText,
   Send,
@@ -19,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { listLeads } from "@/features/leads/api";
-import { generateLeadOutreach, getLatestOutreach } from "@/features/outreach/api";
+import { generateLeadOutreach, getLatestOutreach, sendOutreachMessage } from "@/features/outreach/api";
 import { appPaths } from "@/app/paths";
 import { BandBadge, bandFromScore } from "@/components/brand/badges";
 import { useDocumentTitle } from "@/hooks/use-document-title";
@@ -51,6 +52,18 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
     },
   });
 
+  const sendMutation = useMutation({
+    mutationFn: (messageId: string) => sendOutreachMessage(messageId),
+    onSuccess: () => {
+      toast.success(t("outreach.sentSuccess"));
+      void queryClient.invalidateQueries({ queryKey: ["outreach", lead.public_id] });
+      void queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: () => {
+      toast.error(t("outreach.sentError"));
+    },
+  });
+
   const displayDraft = generateMutation.data ?? latestQuery.data?.message ?? null;
   const band = bandFromScore(lead.latest_score ?? 0);
 
@@ -58,6 +71,7 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    toast.success(t("outreach.copiedToast"));
   }
 
   return (
@@ -141,11 +155,34 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
               {displayDraft.message}
             </p>
           </div>
-          <div className="flex items-center gap-2 border-t border-border pt-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[oklch(var(--signal)/0.3)] bg-[oklch(var(--signal)/0.08)] px-2 py-0.5 font-mono text-[10px] uppercase text-[oklch(var(--signal))]">
-              {displayDraft.tone}
-            </span>
-            <span className="text-[11px] text-muted-foreground">v{displayDraft.version_number}</span>
+          <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[oklch(var(--signal)/0.3)] bg-[oklch(var(--signal)/0.08)] px-2 py-0.5 font-mono text-[10px] uppercase text-[oklch(var(--signal))]">
+                {displayDraft.tone}
+              </span>
+              <span className="text-[11px] text-muted-foreground">v{displayDraft.version_number}</span>
+              {displayDraft.outreach_status !== "draft" && (
+                <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
+                  {displayDraft.outreach_status}
+                </span>
+              )}
+            </div>
+            {displayDraft.outreach_status === "draft" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 bg-transparent text-[11px]"
+                onClick={() => sendMutation.mutate(displayDraft.public_id)}
+                disabled={sendMutation.isPending}
+              >
+                {sendMutation.isPending ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Send className="size-3" />
+                )}
+                {t("outreach.send")}
+              </Button>
+            )}
           </div>
         </div>
       )}

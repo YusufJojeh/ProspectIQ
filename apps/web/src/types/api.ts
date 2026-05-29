@@ -123,6 +123,7 @@ export interface LeadResponse {
   latest_score: number | null;
   latest_band: LeadScoreBand | null;
   latest_qualified: boolean | null;
+  latest_outreach_status: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -232,12 +233,18 @@ export interface OutreachDraftResponse {
   subject: string;
   message: string;
   tone: OutreachTone;
+  language: string;
   version_number: number;
   generated_subject: string;
   generated_message: string;
   has_manual_edits: boolean;
+  outreach_status: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface OutreachSendResponse {
+  status: string;
 }
 
 export interface LatestOutreachResponse {
@@ -294,6 +301,8 @@ export interface ScoringWeights {
   search_visibility: number;
   opportunity: number;
   data_confidence: number;
+  review_score: number;
+  news_presence: number;
 }
 
 export interface ScoringThresholds {

@@ -41,8 +41,13 @@ class OutreachDraftResponse(BaseModel):
     generated_subject: str
     generated_message: str
     has_manual_edits: bool
+    outreach_status: str
     created_at: datetime
     updated_at: datetime
+
+
+class OutreachSendResponse(BaseModel):
+    status: str
 
 
 class LatestOutreachResponse(BaseModel):

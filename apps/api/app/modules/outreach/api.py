@@ -8,6 +8,7 @@ from app.modules.outreach.schemas import (
     OutreachDraftResponse,
     OutreachGenerateRequest,
     OutreachMessageUpdateRequest,
+    OutreachSendResponse,
 )
 from app.modules.outreach.service import OutreachGenerationService
 from app.modules.users.models import User
@@ -43,6 +44,21 @@ def generate_outreach(
         lead_public_id=lead_id,
         current_user=current_user,
         payload=payload,
+    )
+
+
+@router.post("/messages/{message_id}/send", response_model=OutreachSendResponse)
+def send_outreach_message(
+    message_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> OutreachSendResponse:
+    return OutreachGenerationService().send_draft(
+        db,
+        workspace_id=workspace_id,
+        message_public_id=message_id,
+        current_user=current_user,
     )
 
 

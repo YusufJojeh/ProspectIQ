@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Compass, Copy, DatabaseZap, Play, SearchCheck, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ChevronDown, Compass, Copy, DatabaseZap, Play, RefreshCw, SearchCheck, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
@@ -19,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createSearchJob, createSearchJobFromPrompt } from "@/features/searches/api";
+import { useJobStream } from "@/hooks/use-job-stream";
 import { useInvalidateLeadsWhileDiscoveryActive } from "@/hooks/use-invalidate-leads-while-discovery-active";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useSearchJobsQuery } from "@/hooks/use-search-jobs-query";
@@ -426,7 +429,12 @@ export function SearchesPage() {
             <CardDescription>{t("searches.activeJobsDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {activeJobs.length === 0 ? (
+            {jobsQuery.isPending ? (
+              <>
+                <Skeleton className="h-[92px] w-full rounded-2xl" />
+                <Skeleton className="h-[92px] w-full rounded-2xl" />
+              </>
+            ) : activeJobs.length === 0 ? (
               <EmptyState
                 title={t("searches.noActiveJobs")}
                 description={t("searches.noActiveJobsDescription")}
@@ -452,7 +460,13 @@ export function SearchesPage() {
             <CardDescription>{t("searches.runHistoryDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {historyJobs.length === 0 ? (
+            {jobsQuery.isPending ? (
+              <>
+                <Skeleton className="h-[120px] w-full rounded-2xl" />
+                <Skeleton className="h-[120px] w-full rounded-2xl" />
+                <Skeleton className="h-[120px] w-full rounded-2xl" />
+              </>
+            ) : historyJobs.length === 0 ? (
               <EmptyState
                 title={t("searches.noCompletedRuns")}
                 description={t("searches.noCompletedRunsDescription")}
@@ -628,6 +642,9 @@ function SearchJobCard({
   rerunning?: boolean;
 }) {
   const { t } = useTranslation();
+  const isActive = job.status === "queued" || job.status === "running";
+  const stream = useJobStream(isActive ? job.public_id : null);
+
   return (
     <div className="rounded-2xl border border-border bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -646,6 +663,27 @@ function SearchJobCard({
         </div>
         <Badge tone={searchJobTone(job.status)}>{searchJobStatusLabel(t, job.status)}</Badge>
       </div>
+
+      {isActive && stream.stage ? (
+        <div className="mt-3 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              {t(`searches.stage_${stream.stage}`, { defaultValue: stream.stage })}
+            </span>
+            <span className="text-xs text-muted-foreground">{stream.progress}%</span>
+          </div>
+          <Progress value={stream.progress} className="h-1.5" />
+          {stream.canReconnect ? (
+            <button
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={stream.reconnect}
+            >
+              <RefreshCw className="size-3" />
+              {t("common.refresh")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Badge tone="neutral">

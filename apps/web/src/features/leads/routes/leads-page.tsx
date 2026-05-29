@@ -7,7 +7,10 @@ import { appPaths } from "@/app/paths";
 import { LeadsCards } from "@/components/leads/leads-cards";
 import { LeadsFiltersPanel } from "@/components/leads/filters-panel";
 import { LeadsTable } from "@/components/leads/leads-table";
+import { QuickFilterBar } from "@/components/leads/quick-filter-bar";
+import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +60,9 @@ export function LeadsPage() {
   const [sort, setSort] = useState<LeadSortOption>("score_desc");
   const [minScore, setMinScore] = useState("");
   const [maxScore, setMaxScore] = useState("");
+  const [scoreRange, setScoreRange] = useState<[number, number]>([0, 100]);
+  const [hasPhone, setHasPhone] = useState(false);
+  const [columnVisibility, toggleColumn] = useColumnVisibility();
   const [page, setPage] = useState(1);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -75,15 +81,15 @@ export function LeadsPage() {
         category: category || undefined,
         status,
         band,
-        min_score: parseOptionalNumber(minScore),
-        max_score: parseOptionalNumber(maxScore),
+        min_score: scoreRange[0] > 0 ? scoreRange[0] : parseOptionalNumber(minScore),
+        max_score: scoreRange[1] < 100 ? scoreRange[1] : parseOptionalNumber(maxScore),
         qualified: qualified === "all" ? "all" : qualified === "true",
         owner_user_id: ownerUserId,
         search_job_id: searchJobId,
         has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
         sort,
       }) as const,
-    [band, category, city, hasWebsite, maxScore, minScore, ownerUserId, page, q, qualified, searchJobId, sort, status],
+    [band, category, city, hasWebsite, maxScore, minScore, ownerUserId, page, q, qualified, scoreRange, searchJobId, sort, status],
   );
 
   const jobsQuery = useSearchJobsQuery();
@@ -105,7 +111,11 @@ export function LeadsPage() {
     enabled: Boolean(selectedLeadId),
   });
 
-  const leads = useMemo(() => leadsQuery.data?.items ?? [], [leadsQuery.data?.items]);
+  const allLeads = useMemo(() => leadsQuery.data?.items ?? [], [leadsQuery.data?.items]);
+  const leads = useMemo(
+    () => hasPhone ? allLeads.filter((l) => Boolean(l.phone)) : allLeads,
+    [allLeads, hasPhone],
+  );
   const totalLeads = leadsQuery.data?.pagination.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalLeads / 50));
   const selectedLead = selectedLeadQuery.data ?? leads.find((lead) => lead.public_id === selectedLeadId) ?? null;
@@ -126,7 +136,7 @@ export function LeadsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, city, category, status, band, qualified, hasWebsite, ownerUserId, searchJobId, sort, minScore, maxScore]);
+  }, [q, city, category, status, band, qualified, hasWebsite, ownerUserId, searchJobId, sort, minScore, maxScore, scoreRange, hasPhone]);
 
   useEffect(() => {
     if (leads.length === 0) {
@@ -205,15 +215,7 @@ export function LeadsPage() {
     );
   }
 
-  if (!leadsQuery.data || jobsQuery.isPending || usersQuery.isPending) {
-    return (
-      <QueryStateNotice
-        tone="loading"
-        title={t("leads.loadingWorkspaceTitle")}
-        description={t("leads.loadingWorkspaceDescription")}
-      />
-    );
-  }
+  const isInitialLoading = !leadsQuery.data && leadsQuery.isPending;
 
   return (
     <div className="max-w-full space-y-6 overflow-x-clip p-3 sm:p-4 lg:p-6">
@@ -422,26 +424,68 @@ export function LeadsPage() {
                 {selectedLead ? <Badge tone={bandTone(selectedLead.latest_band)}>{selectedLead.company_name}</Badge> : null}
               </div>
 
-              {leads.length === 0 ? (
-                <EmptyState
-                  title={t("leads.noFilteredLeadsTitle")}
-                  description={t("leads.noFilteredLeadsDescription")}
-                />
+              {isInitialLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                  ))}
+                </div>
+              ) : leads.length === 0 ? (
+                activeFilterCount === 0 ? (
+                  <EmptyState
+                    title={t("leads.noLeadsYetTitle")}
+                    description={t("leads.noLeadsYetDescription")}
+                    action={
+                      <Button asChild>
+                        <Link to={appPaths.searches}>{t("searches.createNewJob")}</Link>
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    title={t("leads.noFilteredLeadsTitle")}
+                    description={t("leads.noFilteredLeadsDescription")}
+                  />
+                )
               ) : view === "table" ? (
-                <LeadsTable
-                  leads={leads}
-                  selectedLeadId={selectedLeadId}
-                  selectedIds={selectedIds}
-                  onSelectLead={setSelectedLeadId}
-                  onToggleSelect={toggleSelected}
-                />
+                <div className="space-y-3">
+                  <QuickFilterBar
+                    scoreRange={scoreRange}
+                    onScoreRangeChange={setScoreRange}
+                    hasWebsite={hasWebsite}
+                    onHasWebsiteChange={setHasWebsite}
+                    hasPhone={hasPhone}
+                    onHasPhoneChange={setHasPhone}
+                  />
+                  <LeadsTable
+                    leads={leads}
+                    selectedLeadId={selectedLeadId}
+                    selectedIds={selectedIds}
+                    onSelectLead={setSelectedLeadId}
+                    onToggleSelect={toggleSelected}
+                    visibility={columnVisibility}
+                    onToggleColumn={toggleColumn}
+                  />
+                </div>
               ) : view === "cards" ? (
                 <LeadsCards leads={leads} selectedIds={selectedIds} onToggleSelect={toggleSelected} />
               ) : mappableLeads.length === 0 ? (
-                <EmptyState
-                  title={t("leads.noMapCoordinatesTitle")}
-                  description={t("leads.noMapCoordinatesDescription")}
-                />
+                activeFilterCount === 0 ? (
+                  <EmptyState
+                    title={t("leads.noLeadsYetTitle")}
+                    description={t("leads.noLeadsYetDescription")}
+                    action={
+                      <Button asChild>
+                        <Link to={appPaths.searches}>{t("searches.createNewJob")}</Link>
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    title={t("leads.noMapCoordinatesTitle")}
+                    description={t("leads.noMapCoordinatesDescription")}
+                  />
+                )
               ) : (
                 <div className="h-[520px] overflow-hidden rounded-2xl border border-border">
                   <LazyLeadMap className="h-full" leads={mappableLeads} selectedLeadId={selectedLeadId} onSelect={setSelectedLeadId} />
@@ -623,6 +667,8 @@ export function LeadsPage() {
     setSort("score_desc");
     setMinScore("");
     setMaxScore("");
+    setScoreRange([0, 100]);
+    setHasPhone(false);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("search_job_id");

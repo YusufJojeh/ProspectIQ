@@ -47,6 +47,8 @@ const scoringSchema = z.object({
   search_visibility: z.coerce.number().min(0).max(1),
   opportunity: z.coerce.number().min(0).max(1),
   data_confidence: z.coerce.number().min(0).max(1),
+  review_score: z.coerce.number().min(0).max(1),
+  news_presence: z.coerce.number().min(0).max(1),
   high_min: z.coerce.number().min(0).max(100),
   medium_min: z.coerce.number().min(0).max(100),
   low_min: z.coerce.number().min(0).max(100),
@@ -116,11 +118,13 @@ export function SettingsPage() {
   const scoringForm = useForm<ScoringValues>({
     resolver: zodResolver(scoringSchema),
     defaultValues: {
-      local_trust: 0.25,
-      website_presence: 0.25,
-      search_visibility: 0.2,
-      opportunity: 0.2,
-      data_confidence: 0.1,
+      local_trust: 0.2,
+      website_presence: 0.2,
+      search_visibility: 0.16,
+      opportunity: 0.16,
+      data_confidence: 0.08,
+      review_score: 0.15,
+      news_presence: 0.05,
       high_min: 75,
       medium_min: 55,
       low_min: 35,
@@ -561,6 +565,8 @@ export function SettingsPage() {
                         search_visibility: values.search_visibility,
                         opportunity: values.opportunity,
                         data_confidence: values.data_confidence,
+                        review_score: values.review_score,
+                        news_presence: values.news_presence,
                       },
                       thresholds: {
                         high_min: values.high_min,
@@ -587,6 +593,12 @@ export function SettingsPage() {
                     </Field>
                     <Field label="data_confidence">
                       <Input aria-label="data_confidence" type="number" step="0.01" {...scoringForm.register("data_confidence")} />
+                    </Field>
+                    <Field label="review_score">
+                      <Input aria-label="review_score" type="number" step="0.01" {...scoringForm.register("review_score")} />
+                    </Field>
+                    <Field label="news_presence">
+                      <Input aria-label="news_presence" type="number" step="0.01" {...scoringForm.register("news_presence")} />
                     </Field>
                     <Field label="high_min">
                       <Input aria-label="high_min" type="number" step="0.01" {...scoringForm.register("high_min")} />

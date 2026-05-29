@@ -13,7 +13,9 @@ from app.modules.scoring.schemas import LeadScoreResult, ScoringThresholds, Scor
 from app.modules.scoring.strategies import (
     DataConfidenceStrategy,
     LocalTrustStrategy,
+    NewsPresenceStrategy,
     OpportunityStrategy,
+    ReviewScoreStrategy,
     ScoringStrategy,
     SearchVisibilityStrategy,
     WebsitePresenceStrategy,
@@ -30,6 +32,8 @@ class ScoringEngine:
             SearchVisibilityStrategy(),
             OpportunityStrategy(),
             DataConfidenceStrategy(),
+            ReviewScoreStrategy(),
+            NewsPresenceStrategy(),
         ]
 
     def evaluate(

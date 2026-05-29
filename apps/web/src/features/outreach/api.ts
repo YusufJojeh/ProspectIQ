@@ -4,6 +4,7 @@ import type {
   OutreachDraftResponse,
   OutreachGenerateRequest,
   OutreachMessageUpdateRequest,
+  OutreachSendResponse,
 } from "@/types/api";
 
 export function getLatestOutreach(leadId: string) {
@@ -27,4 +28,10 @@ export function updateOutreachDraft(
   return request<OutreachDraftResponse>(`/api/v1/outreach/messages/${messageId}`, {
     method: "PATCH",
   }, payload);
+}
+
+export function sendOutreachMessage(messageId: string) {
+  return request<OutreachSendResponse>(`/api/v1/outreach/messages/${messageId}/send`, {
+    method: "POST",
+  });
 }

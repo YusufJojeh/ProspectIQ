@@ -38,6 +38,7 @@ class LeadResponse(BaseModel):
     latest_score: float | None
     latest_band: LeadScoreBand | None
     latest_qualified: bool | None
+    latest_outreach_status: str | None
     created_at: datetime
     updated_at: datetime
 

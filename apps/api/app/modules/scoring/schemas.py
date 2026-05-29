@@ -16,11 +16,13 @@ class ScoreBreakdownItem(BaseModel):
 
 
 class ScoringWeights(BaseModel):
-    local_trust: float = Field(default=0.25, ge=0, le=1)
-    website_presence: float = Field(default=0.25, ge=0, le=1)
-    search_visibility: float = Field(default=0.2, ge=0, le=1)
-    opportunity: float = Field(default=0.2, ge=0, le=1)
-    data_confidence: float = Field(default=0.1, ge=0, le=1)
+    local_trust: float = Field(default=0.2, ge=0, le=1)
+    website_presence: float = Field(default=0.2, ge=0, le=1)
+    search_visibility: float = Field(default=0.16, ge=0, le=1)
+    opportunity: float = Field(default=0.16, ge=0, le=1)
+    data_confidence: float = Field(default=0.08, ge=0, le=1)
+    review_score: float = Field(default=0.15, ge=0, le=1)
+    news_presence: float = Field(default=0.05, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_total_weight(self) -> ScoringWeights:
@@ -30,6 +32,8 @@ class ScoringWeights(BaseModel):
             + self.search_visibility
             + self.opportunity
             + self.data_confidence
+            + self.review_score
+            + self.news_presence
         )
         if abs(total - 1.0) > 0.0001:
             raise ValueError("Scoring weights must sum to 1.0.")

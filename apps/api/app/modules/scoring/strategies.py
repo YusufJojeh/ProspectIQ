@@ -171,6 +171,53 @@ class OpportunityStrategy:
         return 15.0
 
 
+class ReviewScoreStrategy:
+    key = "review_score"
+    label = "Review Strength"
+
+    def score(self, facts: NormalizedLeadFacts, weight: float) -> ScoreBreakdownItem:
+        rating = facts.enriched_rating if facts.enriched_rating is not None else facts.rating
+        review_count = max(facts.enriched_review_count, facts.review_count)
+        if rating is None and review_count == 0:
+            base_score = 0.0
+            reason = "No external review data (Google Maps reviews or Yelp) was available."
+        else:
+            rating_component = min((rating or 0.0) / 5.0, 1.0) * 0.6
+            volume_component = min(review_count / 100.0, 1.0) * 0.4
+            base_score = _clamp((rating_component + volume_component) * 100)
+            reason = (
+                f"Enriched rating {rating if rating is not None else 'n/a'}/5 and "
+                f"{review_count} reviews drive a review strength of {round(base_score)}/100."
+            )
+        return ScoreBreakdownItem(
+            key=self.key,
+            label=self.label,
+            weight=weight,
+            contribution=round(base_score * weight, 2),
+            reason=reason,
+        )
+
+
+class NewsPresenceStrategy:
+    key = "news_presence"
+    label = "News Presence"
+
+    def score(self, facts: NormalizedLeadFacts, weight: float) -> ScoreBreakdownItem:
+        base_score = 100.0 if facts.news_present else 0.0
+        reason = (
+            "Recent news coverage was detected for this business."
+            if facts.news_present
+            else "No recent news coverage was detected for this business."
+        )
+        return ScoreBreakdownItem(
+            key=self.key,
+            label=self.label,
+            weight=weight,
+            contribution=round(base_score * weight, 2),
+            reason=reason,
+        )
+
+
 class DataConfidenceStrategy:
     key = "data_confidence"
     label = "Data Confidence"

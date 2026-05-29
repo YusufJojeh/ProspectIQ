@@ -20,6 +20,7 @@ from app.modules.outreach.schemas import (
     OutreachGenerateRequest,
     OutreachMessageResult,
     OutreachMessageUpdateRequest,
+    OutreachSendResponse,
 )
 from app.modules.users.models import User
 from app.shared.enums.jobs import OutreachTone
@@ -135,6 +136,30 @@ class OutreachGenerationService:
         )
         return self._to_response(db, lead_public_id=lead.public_id, message=message)
 
+    def send_draft(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        message_public_id: str,
+        current_user: User,
+    ) -> OutreachSendResponse:
+        message = self.repository.get_by_public_id(db, message_public_id)
+        if message is None:
+            raise NotFoundError("Outreach draft was not found.")
+        self._get_lead_by_id_or_raise(db, workspace_id=workspace_id, lead_id=message.lead_id)
+        message.outreach_status = "sent"
+        message.updated_at = datetime.now(tz=UTC)
+        saved = self.repository.save(db, message)
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=current_user.id,
+            event_name="lead.outreach_sent",
+            details=f"Marked outreach draft {saved.public_id} as sent.",
+        )
+        return OutreachSendResponse(status="queued")
+
     def update_draft(
         self,
         db: Session,
@@ -220,6 +245,7 @@ class OutreachGenerationService:
             generated_subject=message.subject,
             generated_message=message.message,
             has_manual_edits=bool(message.edited_subject or message.edited_message),
+            outreach_status=message.outreach_status,
             created_at=message.created_at,
             updated_at=message.updated_at,
         )

@@ -31,6 +31,7 @@ class OutreachMessage(Base):
     version_number: Mapped[int] = mapped_column(Integer, default=1)
     edited_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     edited_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    outreach_status: Mapped[str] = mapped_column(String(16), default="draft")
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
