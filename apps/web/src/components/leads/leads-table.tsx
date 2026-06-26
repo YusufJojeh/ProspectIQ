@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Columns3 } from "lucide-react";
 import { appPaths } from "@/app/paths";
-import { ScoreRing } from "@/components/brand/score-ring";
+import { LeadScoreSpinner } from "@/components/brand/lead-score-spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -200,11 +200,14 @@ function LeadTableRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
-          <ScoreRing
+          <LeadScoreSpinner
             value={priorityScore ?? 0}
             size={44}
             stroke={4}
-            showBand={false}
+            label={t("leadScoreSpinner.companyScore", {
+              company: lead.company_name,
+              score: Math.round(priorityScore ?? 0),
+            })}
           />
           <div className="min-w-0">
             <Link

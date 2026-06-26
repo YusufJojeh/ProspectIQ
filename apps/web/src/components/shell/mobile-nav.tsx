@@ -5,6 +5,7 @@ import {
   Users,
   Sparkles,
   Send,
+  Megaphone,
   ShieldCheck,
   ScrollText,
   FileDown,
@@ -46,6 +47,12 @@ const ITEMS = [
     shortLabelKey: "nav.outreach",
     href: appPaths.outreach,
     icon: Send,
+  },
+  {
+    labelKey: "nav.campaigns",
+    shortLabelKey: "nav.campaigns",
+    href: appPaths.campaigns,
+    icon: Megaphone,
   },
   {
     labelKey: "nav.admin",

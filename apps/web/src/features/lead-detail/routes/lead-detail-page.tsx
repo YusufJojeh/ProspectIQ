@@ -38,6 +38,7 @@ import {
   getLeadAiEvidence,
   submitAnalysisFeedback,
 } from "@/features/ai-analysis/api";
+import { addCampaignLeads, listCampaigns } from "@/features/campaigns/api";
 import {
   listIcpProfiles,
   recomputeIcpProfileMatch,
@@ -92,6 +93,7 @@ export function LeadDetailPage() {
     useState<OutreachTone>("consultative");
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [selectedIcpProfileId, setSelectedIcpProfileId] = useState("");
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
   const [lastIcpMatch, setLastIcpMatch] =
     useState<LeadIcpMatchResponse | null>(null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
@@ -143,6 +145,10 @@ export function LeadDetailPage() {
   const usersQuery = useQuery({
     queryKey: ["users", "workspace"],
     queryFn: listUsers,
+  });
+  const campaignsQuery = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: listCampaigns,
   });
 
   useDocumentTitle(leadQuery.data?.company_name ?? "Lead Detail");
@@ -202,6 +208,7 @@ export function LeadDetailPage() {
     void queryClient.invalidateQueries({
       queryKey: ["lead", leadId, "ai-evidence"],
     });
+    void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
   };
 
   const statusMutation = useMutation({
@@ -300,6 +307,19 @@ export function LeadDetailPage() {
     onSuccess: () => {
       setFeedbackSubmitted(true);
       toast.success(t("leadDetail.evidence.feedbackThanksTitle"));
+    },
+    onError: (error) => {
+      toast.error(resolveErrorMessage(error, t));
+    },
+  });
+  const addToCampaignMutation = useMutation({
+    mutationFn: () =>
+      addCampaignLeads(selectedCampaignId, {
+        lead_ids: [leadId],
+      }),
+    onSuccess: () => {
+      refreshQueries();
+      toast.success(t("campaigns.leadAdded"));
     },
     onError: (error) => {
       toast.error(resolveErrorMessage(error, t));
@@ -581,6 +601,38 @@ export function LeadDetailPage() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("campaigns.addToCampaign")}</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Select
+                    value={selectedCampaignId}
+                    disabled={campaignsQuery.isPending}
+                    onValueChange={setSelectedCampaignId}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl bg-background/70 text-start">
+                      <SelectValue placeholder={t("campaigns.selectCampaign")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(campaignsQuery.data?.items ?? []).map((campaign) => (
+                        <SelectItem key={campaign.public_id} value={campaign.public_id}>
+                          {campaign.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    className="bg-transparent"
+                    onClick={() => addToCampaignMutation.mutate()}
+                    disabled={!selectedCampaignId || addToCampaignMutation.isPending}
+                  >
+                    {addToCampaignMutation.isPending
+                      ? t("common.saving")
+                      : t("campaigns.addLead")}
+                  </Button>
                 </div>
               </div>
 

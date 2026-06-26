@@ -10,6 +10,7 @@ import {
   Radar,
   ScrollText,
   Send,
+  Megaphone,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -58,6 +59,7 @@ const PRIMARY: NavItem[] = [
     icon: MessageSquareText,
   },
   { labelKey: "nav.outreach", href: appPaths.outreach, icon: Send },
+  { labelKey: "nav.campaigns", href: appPaths.campaigns, icon: Megaphone },
 ];
 
 const GOVERN: NavItem[] = [

@@ -1,5 +1,43 @@
 # CHANGES
 
+## [Goal] Campaign Sprint Closeout QA - 2026-06-26
+
+### Changed
+- Tightened campaign list/detail UI polish: localized event/status labels, day-delay labels, accessible campaign lead remove buttons, localized `LeadScoreSpinner` aria labels, and 8px card/skeleton radius.
+- Replaced Arabic campaign fallback strings for campaign routes, nav, statuses, lead statuses, channels, empty/loading states, event labels, and campaign actions.
+- Extended the full demo seeder with deterministic offline campaign demo data: one draft campaign, one active campaign, campaign leads, three sequence steps, outreach drafts, and outreach events with a printed campaign summary.
+- Added Playwright campaign closeout coverage with local screenshots under `apps/web/test-results/campaign-demo/` and a guard asserting no outreach send endpoint is called.
+
+### Validation
+- Pending in this turn: Alembic, Ruff, mypy, targeted pytest, frontend unit tests, build, and Playwright campaign demo spec.
+
+## [Goal] Campaign Sequences & Outreach Events - 2026-06-26
+
+### Added
+- Campaign module with workspace-scoped tables: `campaigns`, `campaign_leads`, `sequence_steps`, and `outreach_events` via migration `0016_campaign_sequences.py`.
+- Campaign APIs under `/api/v1/campaigns`: CRUD/archive, add/remove leads, default three-step sequence generation, sequence-step patching, campaign draft generation, and event listing.
+- Campaign draft generation reuses existing AI analysis snapshots/intelligence and `outreach_messages`; no real email sending, Gmail OAuth, SMTP, CRM, or billing changes were added.
+- Outreach event records for campaign creation, lead add/remove, sequence generation, sequence-step update, and campaign draft generation.
+- Frontend campaign routes: `/app/campaigns` and `/app/campaigns/:campaignId`, with shadcn Card/Button/Badge/Dialog/Tabs/Skeleton/Select UI, empty states, loading states, and campaign event history.
+- Campaign navigation entries in sidebar, mobile nav, and command menu.
+- `LeadScoreSpinner` radial score indicator and usage in lead table, lead hero, and campaign lead cards.
+- Lead detail now includes an "Add to campaign" action backed by the campaign API.
+- English/Arabic i18n key coverage for campaign routes and UI labels.
+- Backend tests in `tests/test_campaigns.py` for campaign CRUD scoping, lead add/remove, sequence generation, draft generation, and event persistence.
+
+### Known limitations
+- Sending remains a status-only stub through existing outreach message endpoints.
+- Campaign-generated outreach messages are linked to campaigns through `outreach_events`; `outreach_messages` itself remains backward compatible and campaign-agnostic.
+- No unsubscribe/compliance flow, CRM/deal pipeline, Gmail OAuth, or SMTP provider integration yet.
+
+### Validation
+- `cd apps/api && python -m alembic upgrade head` passed.
+- `cd apps/api && python -m ruff check .` passed.
+- `cd apps/api && python -m mypy app` passed.
+- `cd apps/api && python -m pytest tests/test_campaigns.py tests/test_leads_api.py tests/test_ai_evidence_signal_summary.py` passed: 11 tests.
+- `cd apps/web && npm run test:unit` passed: 28 tests.
+- `cd apps/web && npm run build` passed with the existing Vite large-chunk warning.
+
 ## [Goal] SaaS Platform Admin Sprint Closeout - 2026-06-26
 
 ### Added

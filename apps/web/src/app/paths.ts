@@ -9,6 +9,7 @@ export const appPaths = {
   aiAnalysis: "/app/ai-analysis",
   assistant: "/app/assistant",
   outreach: "/app/outreach",
+  campaigns: "/app/campaigns",
   admin: "/app/admin",
   workspaceAdmin: "/app/workspace-admin",
   adminWorkspaces: "/app/admin/workspaces",
@@ -28,5 +29,6 @@ export const appPaths = {
   invoices: "/app/invoices",
   usage: "/app/usage",
   leadDetail: (leadId: string) => `/app/leads/${leadId}`,
+  campaignDetail: (campaignId: string) => `/app/campaigns/${campaignId}`,
   searchJobDetail: (jobId: string) => `/app/searches/jobs/${jobId}`,
 } as const;

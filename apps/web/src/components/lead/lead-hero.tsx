@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { appPaths } from "@/app/paths";
 import { AiPill, ConfidenceBadge } from "@/components/brand/badges";
-import { ScoreRing } from "@/components/brand/score-ring";
+import { LeadScoreSpinner } from "@/components/brand/lead-score-spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
@@ -122,7 +122,15 @@ export function LeadHero({
 
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-background/70 p-3 lg:w-[230px]">
           <div className="flex items-center justify-between gap-3">
-            <ScoreRing value={score} size={72} stroke={7} />
+            <LeadScoreSpinner
+              value={score}
+              size={72}
+              stroke={7}
+              label={t("leadScoreSpinner.companyScore", {
+                company: lead.company_name,
+                score: Math.round(score),
+              })}
+            />
             <div className="min-w-0 space-y-1 text-end">
               <p className="text-2xl font-semibold tabular-nums">
                 {formatScore(score)}

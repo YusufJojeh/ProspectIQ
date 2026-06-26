@@ -16,6 +16,7 @@ import {
   Users,
   Sparkles,
   Send,
+  Megaphone,
   ShieldCheck,
   ScrollText,
   FileDown,
@@ -97,6 +98,10 @@ export function CommandMenu() {
           <CommandItem onSelect={() => go(appPaths.outreach)}>
             <Send className="size-4" />
             {t("nav.outreach")}
+          </CommandItem>
+          <CommandItem onSelect={() => go(appPaths.campaigns)}>
+            <Megaphone className="size-4" />
+            {t("nav.campaigns")}
           </CommandItem>
           {adminPath ? (
             <CommandItem onSelect={() => go(adminPath)}>

@@ -88,6 +88,14 @@ const OutreachPage = lazy(async () => {
   const module = await import("@/features/outreach/routes/outreach-page");
   return { default: module.OutreachPage };
 });
+const CampaignsPage = lazy(async () => {
+  const module = await import("@/features/campaigns/routes/campaigns-page");
+  return { default: module.CampaignsPage };
+});
+const CampaignDetailPage = lazy(async () => {
+  const module = await import("@/features/campaigns/routes/campaign-detail-page");
+  return { default: module.CampaignDetailPage };
+});
 const AdminPage = lazy(async () => {
   const module = await import("@/features/admin/routes/admin-page");
   return { default: module.AdminPage };
@@ -296,6 +304,22 @@ function buildRouter() {
           element: lazyPage(OutreachPage, {
             title: i18n.t("routeLoading.outreachTitle"),
             description: i18n.t("routeLoading.outreachDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "campaigns",
+          element: lazyPage(CampaignsPage, {
+            title: i18n.t("routeLoading.campaignsTitle"),
+            description: i18n.t("routeLoading.campaignsDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "campaigns/:campaignId",
+          element: lazyPage(CampaignDetailPage, {
+            title: i18n.t("routeLoading.campaignDetailTitle"),
+            description: i18n.t("routeLoading.campaignDetailDescription"),
             compact: true,
           }),
         },

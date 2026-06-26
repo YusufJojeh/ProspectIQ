@@ -18,7 +18,12 @@ if str(ROOT_DIR) not in sys.path:
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
-from app.modules.ai_analysis.models import AIAnalysisEvidence, AIAnalysisSnapshot, AIFeedback
+from app.modules.ai_analysis.models import (
+    AIAnalysisEvidence,
+    AIAnalysisSnapshot,
+    AIFeedback,
+    PromptTemplate,
+)
 from app.modules.audit_logs.models import AuditLog
 from app.modules.billing.models import (
     Invoice,
@@ -28,6 +33,7 @@ from app.modules.billing.models import (
     Subscription,
     UsageCounter,
 )
+from app.modules.campaigns.models import Campaign, CampaignLead, OutreachEvent, SequenceStep
 from app.modules.icp.models import IcpProfile, LeadIcpMatch
 from app.modules.leads.models import Lead
 from app.modules.outreach.models import OutreachMessage
@@ -59,6 +65,16 @@ DISABLED_WORKSPACE_PUBLIC_ID = "ws_demo_disabled"
 
 
 @dataclass(frozen=True)
+class CampaignSeedSummary:
+    name: str
+    public_id: str
+    lead_count: int
+    sequence_step_count: int
+    draft_count: int
+    event_count: int
+
+
+@dataclass(frozen=True)
 class DemoSeedSummary:
     platform_workspace: Workspace
     active_workspace: Workspace
@@ -83,6 +99,7 @@ class DemoSeedSummary:
     outreach_drafts_count: int
     outreach_sent_count: int
     usage_counters_count: int
+    campaign_summaries: list[CampaignSeedSummary]
 
 
 def _ensure_workspace(
@@ -376,6 +393,384 @@ def _ensure_outreach_status_mix(db: Session, *, workspace_id: int) -> None:
     db.commit()
 
 
+def _ensure_campaign(
+    db: Session,
+    *,
+    public_id: str,
+    workspace_id: int,
+    owner_id: int,
+    name: str,
+    description: str,
+    status: str,
+) -> Campaign:
+    campaign = db.scalar(select(Campaign).where(Campaign.public_id == public_id))
+    if campaign is None:
+        campaign = Campaign(
+            public_id=public_id,
+            workspace_id=workspace_id,
+            created_by_user_id=owner_id,
+        )
+    campaign.workspace_id = workspace_id
+    campaign.created_by_user_id = owner_id
+    campaign.name = name
+    campaign.description = description
+    campaign.status = status
+    campaign.updated_at = datetime.now(tz=UTC)
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
+    return campaign
+
+
+def _ensure_campaign_lead(
+    db: Session,
+    *,
+    campaign_id: int,
+    lead_id: int,
+    status: str,
+) -> CampaignLead:
+    campaign_lead = db.scalar(
+        select(CampaignLead).where(
+            CampaignLead.campaign_id == campaign_id,
+            CampaignLead.lead_id == lead_id,
+        )
+    )
+    if campaign_lead is None:
+        campaign_lead = CampaignLead(campaign_id=campaign_id, lead_id=lead_id)
+    campaign_lead.status = status
+    db.add(campaign_lead)
+    db.commit()
+    db.refresh(campaign_lead)
+    return campaign_lead
+
+
+def _ensure_sequence_steps(db: Session, *, campaign_id: int) -> None:
+    specs = [
+        (
+            "seq_demo_active_1",
+            1,
+            "email",
+            0,
+            "consultative",
+            "Reference the strongest stored signal and ask permission to share a short audit.",
+        ),
+        (
+            "seq_demo_active_2",
+            2,
+            "linkedin",
+            3,
+            "friendly",
+            "Follow up with a concise LinkedIn note that restates the evidence-backed opportunity.",
+        ),
+        (
+            "seq_demo_active_3",
+            3,
+            "whatsapp_note",
+            7,
+            "short_pitch",
+            "Close the loop with a brief WhatsApp-ready reminder and no pressure to respond.",
+        ),
+    ]
+    keep_ids: list[int] = []
+    for public_id, order, channel, delay_days, tone, template_text in specs:
+        step = db.scalar(select(SequenceStep).where(SequenceStep.public_id == public_id))
+        if step is None:
+            step = db.scalar(
+                select(SequenceStep).where(
+                    SequenceStep.campaign_id == campaign_id,
+                    SequenceStep.step_order == order,
+                )
+            )
+        if step is None:
+            step = SequenceStep(public_id=public_id, campaign_id=campaign_id)
+        step.campaign_id = campaign_id
+        step.step_order = order
+        step.channel = channel
+        step.delay_days = delay_days
+        step.tone = tone
+        step.language = "en"
+        step.template_text = template_text
+        step.updated_at = datetime.now(tz=UTC)
+        db.add(step)
+        db.commit()
+        db.refresh(step)
+        keep_ids.append(step.id)
+
+    stale_steps = list(
+        db.scalars(
+            select(SequenceStep).where(
+                SequenceStep.campaign_id == campaign_id,
+                SequenceStep.id.not_in(keep_ids),
+            )
+        )
+    )
+    for stale_step in stale_steps:
+        db.delete(stale_step)
+    db.commit()
+
+
+def _ensure_campaign_event(
+    db: Session,
+    *,
+    public_id: str,
+    workspace_id: int,
+    campaign_id: int,
+    event_type: str,
+    lead_id: int | None = None,
+    message_id: int | None = None,
+    metadata: dict[str, object] | None = None,
+) -> OutreachEvent:
+    event = db.scalar(select(OutreachEvent).where(OutreachEvent.public_id == public_id))
+    if event is None:
+        event = OutreachEvent(public_id=public_id, workspace_id=workspace_id)
+    event.workspace_id = workspace_id
+    event.campaign_id = campaign_id
+    event.lead_id = lead_id
+    event.outreach_message_id = message_id
+    event.event_type = event_type
+    event.metadata_json = metadata
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
+
+
+def _ensure_campaign_snapshot_and_message(
+    db: Session,
+    *,
+    lead: Lead,
+    owner_id: int,
+    index: int,
+) -> OutreachMessage:
+    message = db.scalar(select(OutreachMessage).where(OutreachMessage.public_id == f"om_cmpdemo_{index}"))
+    if message is not None:
+        return message
+
+    snapshot = db.scalar(
+        select(AIAnalysisSnapshot)
+        .where(AIAnalysisSnapshot.lead_id == lead.id)
+        .order_by(AIAnalysisSnapshot.created_at.desc(), AIAnalysisSnapshot.id.desc())
+        .limit(1)
+    )
+    if snapshot is None:
+        prompt_template_id = db.scalar(
+            select(PromptTemplate.id).where(
+                PromptTemplate.workspace_id == lead.workspace_id,
+                PromptTemplate.is_active.is_(True),
+            )
+        )
+        if prompt_template_id is None:
+            raise RuntimeError("Expected an active prompt template for campaign demo seeding.")
+        snapshot = AIAnalysisSnapshot(
+            public_id=f"ais_cmpdemo_{index}",
+            lead_id=lead.id,
+            prompt_template_id=prompt_template_id,
+            ai_provider="demo",
+            model_name="campaign-demo-offline",
+            input_hash=f"campaign_demo_{lead.id}_{index}",
+            output_json={
+                "summary": f"{lead.company_name} has stored evidence suitable for a demo campaign.",
+                "weaknesses": ["Demo evidence is limited to seeded local-business signals."],
+                "opportunities": ["Use the strongest score and signal evidence in outreach."],
+                "recommended_services": ["Local visibility audit"],
+                "outreach_subject": f"Evidence-backed idea for {lead.company_name}",
+                "outreach_message": (
+                    f"Hi {lead.company_name}, we found a stored signal that may support a "
+                    "concise local visibility audit."
+                ),
+                "confidence": 0.8,
+            },
+            created_by_user_id=owner_id,
+        )
+        db.add(snapshot)
+        db.commit()
+        db.refresh(snapshot)
+
+    message = OutreachMessage(
+        public_id=f"om_cmpdemo_{index}",
+        lead_id=lead.id,
+        ai_analysis_snapshot_id=snapshot.id,
+        subject=f"Evidence-backed idea for {lead.company_name}",
+        message=(
+            f"Hi {lead.company_name},\n\n"
+            "We found a seeded signal that points to a practical local visibility win. "
+            "Would it be useful if we sent a short audit summary?"
+        ),
+        tone="consultative",
+        language="en",
+        version_number=1,
+        outreach_status="draft",
+        created_by_user_id=owner_id,
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def _campaign_summary(db: Session, campaign: Campaign) -> CampaignSeedSummary:
+    lead_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(CampaignLead)
+            .where(CampaignLead.campaign_id == campaign.id)
+        )
+        or 0
+    )
+    step_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(SequenceStep)
+            .where(SequenceStep.campaign_id == campaign.id)
+        )
+        or 0
+    )
+    draft_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(OutreachEvent)
+            .where(
+                OutreachEvent.campaign_id == campaign.id,
+                OutreachEvent.event_type == "campaign.draft_generated",
+            )
+        )
+        or 0
+    )
+    event_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(OutreachEvent)
+            .where(OutreachEvent.campaign_id == campaign.id)
+        )
+        or 0
+    )
+    return CampaignSeedSummary(
+        name=campaign.name,
+        public_id=campaign.public_id,
+        lead_count=lead_count,
+        sequence_step_count=step_count,
+        draft_count=draft_count,
+        event_count=event_count,
+    )
+
+
+def _ensure_campaign_demo(
+    db: Session,
+    *,
+    workspace_id: int,
+    owner_id: int,
+) -> list[CampaignSeedSummary]:
+    leads = list(
+        db.scalars(
+            select(Lead)
+            .where(Lead.workspace_id == workspace_id)
+            .order_by(Lead.id.asc())
+            .limit(3)
+        )
+    )
+    if not leads:
+        return []
+
+    draft_campaign = _ensure_campaign(
+        db,
+        public_id="cmp_demo_draft",
+        workspace_id=workspace_id,
+        owner_id=owner_id,
+        name="Draft Riyadh Fitness Outreach",
+        description="Draft campaign reserved for empty-state and setup walkthroughs.",
+        status="draft",
+    )
+    active_campaign = _ensure_campaign(
+        db,
+        public_id="cmp_demo_active",
+        workspace_id=workspace_id,
+        owner_id=owner_id,
+        name="Active Priority Lead Sequence",
+        description="Demo-ready active campaign with leads, sequence steps, drafts, and events.",
+        status="active",
+    )
+
+    _ensure_campaign_event(
+        db,
+        public_id="oev_cmp_draft_created",
+        workspace_id=workspace_id,
+        campaign_id=draft_campaign.id,
+        event_type="campaign.created",
+        metadata={"name": draft_campaign.name},
+    )
+    _ensure_campaign_event(
+        db,
+        public_id="oev_cmp_active_created",
+        workspace_id=workspace_id,
+        campaign_id=active_campaign.id,
+        event_type="campaign.created",
+        metadata={"name": active_campaign.name},
+    )
+
+    _ensure_campaign_lead(
+        db,
+        campaign_id=draft_campaign.id,
+        lead_id=leads[0].id,
+        status="added",
+    )
+    _ensure_campaign_event(
+        db,
+        public_id="oev_cmp_draft_lead_1",
+        workspace_id=workspace_id,
+        campaign_id=draft_campaign.id,
+        event_type="campaign.lead_added",
+        lead_id=leads[0].id,
+        metadata={"lead_id": leads[0].public_id},
+    )
+
+    _ensure_sequence_steps(db, campaign_id=active_campaign.id)
+    _ensure_campaign_event(
+        db,
+        public_id="oev_cmp_active_sequence",
+        workspace_id=workspace_id,
+        campaign_id=active_campaign.id,
+        event_type="campaign.sequence_generated",
+        metadata={"steps": 3},
+    )
+    for index, lead in enumerate(leads, start=1):
+        _ensure_campaign_lead(
+            db,
+            campaign_id=active_campaign.id,
+            lead_id=lead.id,
+            status="drafted",
+        )
+        _ensure_campaign_event(
+            db,
+            public_id=f"oev_cmp_active_lead_{index}",
+            workspace_id=workspace_id,
+            campaign_id=active_campaign.id,
+            event_type="campaign.lead_added",
+            lead_id=lead.id,
+            metadata={"lead_id": lead.public_id},
+        )
+        message = _ensure_campaign_snapshot_and_message(
+            db,
+            lead=lead,
+            owner_id=owner_id,
+            index=index,
+        )
+        _ensure_campaign_event(
+            db,
+            public_id=f"oev_cmp_active_draft_{index}",
+            workspace_id=workspace_id,
+            campaign_id=active_campaign.id,
+            event_type="campaign.draft_generated",
+            lead_id=lead.id,
+            message_id=message.id,
+            metadata={"step_order": 1, "channel": "email", "tone": message.tone},
+        )
+
+    return [
+        _campaign_summary(db, draft_campaign),
+        _campaign_summary(db, active_campaign),
+    ]
+
+
 def _ensure_platform_and_workspace_records(db: Session) -> tuple[Workspace, Workspace, User, User]:
     ensure_default_roles(db)
     platform_workspace = _ensure_workspace(
@@ -541,6 +936,7 @@ def _build_summary(
     manager: User,
     member: User,
     disabled_owner: User,
+    campaign_summaries: list[CampaignSeedSummary],
 ) -> DemoSeedSummary:
     workspace_id = active_workspace.id
     return DemoSeedSummary(
@@ -628,6 +1024,7 @@ def _build_summary(
             or 0
         ),
         usage_counters_count=_count_for_workspace(db, UsageCounter, workspace_id),
+        campaign_summaries=campaign_summaries,
     )
 
 
@@ -675,6 +1072,11 @@ def seed_demo_full() -> DemoSeedSummary:
         )
         _ensure_ai_feedback(db, workspace_id=active_workspace.id, user_id=owner.id)
         _ensure_outreach_status_mix(db, workspace_id=active_workspace.id)
+        campaign_summaries = _ensure_campaign_demo(
+            db,
+            workspace_id=active_workspace.id,
+            owner_id=owner.id,
+        )
         _ensure_audit_log(
             db,
             workspace_id=active_workspace.id,
@@ -699,6 +1101,7 @@ def seed_demo_full() -> DemoSeedSummary:
             manager=manager,
             member=member,
             disabled_owner=disabled_owner,
+            campaign_summaries=campaign_summaries,
         )
 
 
@@ -745,6 +1148,15 @@ def _print_summary(summary: DemoSeedSummary) -> None:
     print(f"- Outreach drafts: {summary.outreach_drafts_count}")
     print(f"- Outreach sent: {summary.outreach_sent_count}")
     print(f"- Usage counters: {summary.usage_counters_count}")
+    print("")
+    print("Seeded campaigns:")
+    for campaign in summary.campaign_summaries:
+        print(
+            "- "
+            f"{campaign.name}: {campaign.public_id} "
+            f"(leads={campaign.lead_count}, steps={campaign.sequence_step_count}, "
+            f"drafts={campaign.draft_count}, events={campaign.event_count})"
+        )
 
 
 def main() -> None:

@@ -422,6 +422,103 @@ export interface LeadOutreachResponse {
   message: OutreachMessageResult;
 }
 
+export type CampaignStatus =
+  | "draft"
+  | "active"
+  | "paused"
+  | "completed"
+  | "archived";
+export type CampaignLeadStatus =
+  | "added"
+  | "drafted"
+  | "ready"
+  | "skipped"
+  | "removed";
+export type SequenceChannel = "email" | "linkedin" | "whatsapp_note";
+
+export interface CampaignResponse {
+  public_id: string;
+  name: string;
+  description: string | null;
+  icp_profile_id: string | null;
+  status: CampaignStatus;
+  lead_count: number;
+  sequence_steps_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignListResponse {
+  items: CampaignResponse[];
+}
+
+export interface CampaignCreateRequest {
+  name: string;
+  description?: string | null;
+  icp_profile_id?: string | null;
+}
+
+export interface CampaignUpdateRequest {
+  name?: string;
+  description?: string | null;
+  status?: CampaignStatus;
+}
+
+export interface CampaignLeadAddRequest {
+  lead_ids: string[];
+}
+
+export interface CampaignLeadResponse {
+  lead: LeadResponse;
+  status: CampaignLeadStatus;
+  added_at: string;
+}
+
+export interface SequenceStepResponse {
+  public_id: string;
+  step_order: number;
+  channel: SequenceChannel;
+  delay_days: number;
+  tone: string;
+  language: string;
+  template_text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SequenceStepUpdateRequest {
+  channel?: SequenceChannel;
+  delay_days?: number;
+  tone?: string;
+  language?: string;
+  template_text?: string;
+}
+
+export interface OutreachEventResponse {
+  public_id: string;
+  event_type: string;
+  occurred_at: string;
+  lead_id: string | null;
+  outreach_message_id: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface CampaignDetailResponse extends CampaignResponse {
+  leads: CampaignLeadResponse[];
+  sequence_steps: SequenceStepResponse[];
+  drafts: OutreachDraftResponse[];
+  events: OutreachEventResponse[];
+}
+
+export interface CampaignGenerateDraftsResponse {
+  created_count: number;
+  drafts: OutreachDraftResponse[];
+}
+
+export interface CampaignActionResponse {
+  status: string;
+}
+
 export interface LeadNoteCreateRequest {
   note: string;
 }
