@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Building2,
+  BriefcaseBusiness,
   Command,
   FileDown,
   LayoutDashboard,
@@ -60,6 +61,7 @@ const PRIMARY: NavItem[] = [
   },
   { labelKey: "nav.outreach", href: appPaths.outreach, icon: Send },
   { labelKey: "nav.campaigns", href: appPaths.campaigns, icon: Megaphone },
+  { labelKey: "nav.crm", href: appPaths.crm, icon: BriefcaseBusiness },
 ];
 
 const GOVERN: NavItem[] = [

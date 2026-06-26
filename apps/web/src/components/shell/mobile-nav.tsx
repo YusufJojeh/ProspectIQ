@@ -10,6 +10,7 @@ import {
   ScrollText,
   FileDown,
   Settings,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,12 @@ const ITEMS = [
     shortLabelKey: "nav.campaigns",
     href: appPaths.campaigns,
     icon: Megaphone,
+  },
+  {
+    labelKey: "nav.crm",
+    shortLabelKey: "nav.crm",
+    href: appPaths.crm,
+    icon: BriefcaseBusiness,
   },
   {
     labelKey: "nav.admin",

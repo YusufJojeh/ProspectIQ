@@ -23,6 +23,7 @@ import {
   Settings,
   Plus,
   Zap,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { appPaths } from "@/app/paths";
 import { useAuthSession } from "@/features/auth/session";
@@ -102,6 +103,10 @@ export function CommandMenu() {
           <CommandItem onSelect={() => go(appPaths.campaigns)}>
             <Megaphone className="size-4" />
             {t("nav.campaigns")}
+          </CommandItem>
+          <CommandItem onSelect={() => go(appPaths.crm)}>
+            <BriefcaseBusiness className="size-4" />
+            {t("nav.crm")}
           </CommandItem>
           {adminPath ? (
             <CommandItem onSelect={() => go(adminPath)}>

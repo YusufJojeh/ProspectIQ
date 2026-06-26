@@ -10,6 +10,7 @@ export const appPaths = {
   assistant: "/app/assistant",
   outreach: "/app/outreach",
   campaigns: "/app/campaigns",
+  crm: "/app/crm",
   admin: "/app/admin",
   workspaceAdmin: "/app/workspace-admin",
   adminWorkspaces: "/app/admin/workspaces",
@@ -30,5 +31,6 @@ export const appPaths = {
   usage: "/app/usage",
   leadDetail: (leadId: string) => `/app/leads/${leadId}`,
   campaignDetail: (campaignId: string) => `/app/campaigns/${campaignId}`,
+  dealDetail: (dealId: string) => `/app/crm/deals/${dealId}`,
   searchJobDetail: (jobId: string) => `/app/searches/jobs/${jobId}`,
 } as const;

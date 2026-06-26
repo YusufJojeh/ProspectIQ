@@ -519,6 +519,150 @@ export interface CampaignActionResponse {
   status: string;
 }
 
+export type DealStatus = "open" | "won" | "lost" | "archived";
+export type StageType = "open" | "won" | "lost";
+export type ActivityType =
+  | "note"
+  | "call"
+  | "meeting"
+  | "email"
+  | "follow_up"
+  | "status_change";
+
+export interface CrmStageResponse {
+  public_id: string;
+  name: string;
+  position: number;
+  probability: number;
+  color: string;
+  stage_type: StageType;
+  deal_count: number;
+  total_value: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmPipelineResponse {
+  public_id: string;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  stages: CrmStageResponse[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmPipelineListResponse {
+  items: CrmPipelineResponse[];
+}
+
+export interface CrmActivityResponse {
+  public_id: string;
+  deal_id: string;
+  activity_type: ActivityType;
+  title: string;
+  note: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  actor_user_id: string | null;
+  actor_full_name: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmDealResponse {
+  public_id: string;
+  title: string;
+  pipeline_id: string;
+  pipeline_name: string;
+  stage_id: string;
+  stage_name: string;
+  stage_probability: number;
+  lead: LeadResponse;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  owner_user_id: string | null;
+  owner_full_name: string | null;
+  value_amount: number | null;
+  currency: string;
+  probability: number;
+  status: DealStatus;
+  lost_reason: string | null;
+  expected_close_date: string | null;
+  next_follow_up_at: string | null;
+  last_activity_at: string | null;
+  next_activity: CrmActivityResponse | null;
+  overdue_activity_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmDealListResponse {
+  items: CrmDealResponse[];
+}
+
+export interface CrmDealDetailResponse extends CrmDealResponse {
+  activities: CrmActivityResponse[];
+}
+
+export interface CrmDealCreateRequest {
+  lead_id: string;
+  title?: string | null;
+  pipeline_id?: string | null;
+  stage_id?: string | null;
+  campaign_id?: string | null;
+  owner_user_id?: string | null;
+  value_amount?: number | null;
+  currency?: string;
+  probability?: number | null;
+  expected_close_date?: string | null;
+  next_follow_up_at?: string | null;
+  allow_duplicate_open?: boolean;
+}
+
+export interface CrmDealUpdateRequest {
+  title?: string;
+  stage_id?: string;
+  owner_user_id?: string | null;
+  value_amount?: number | null;
+  currency?: string;
+  probability?: number;
+  status?: DealStatus;
+  lost_reason?: string | null;
+  expected_close_date?: string | null;
+  next_follow_up_at?: string | null;
+}
+
+export interface CrmActivityCreateRequest {
+  activity_type?: ActivityType;
+  title: string;
+  note?: string | null;
+  due_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface CrmActivityUpdateRequest {
+  activity_type?: ActivityType;
+  title?: string;
+  note?: string | null;
+  due_at?: string | null;
+  completed_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface CrmDealActionResponse {
+  status: string;
+  deal: CrmDealResponse | null;
+}
+
+export interface CampaignCreateDealsResponse {
+  created_count: number;
+  skipped_count: number;
+  deals: CrmDealResponse[];
+  skipped_lead_ids: string[];
+}
+
 export interface LeadNoteCreateRequest {
   note: string;
 }

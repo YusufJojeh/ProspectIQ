@@ -96,6 +96,14 @@ const CampaignDetailPage = lazy(async () => {
   const module = await import("@/features/campaigns/routes/campaign-detail-page");
   return { default: module.CampaignDetailPage };
 });
+const CrmBoardPage = lazy(async () => {
+  const module = await import("@/features/crm/routes/crm-board-page");
+  return { default: module.CrmBoardPage };
+});
+const DealDetailPage = lazy(async () => {
+  const module = await import("@/features/crm/routes/deal-detail-page");
+  return { default: module.DealDetailPage };
+});
 const AdminPage = lazy(async () => {
   const module = await import("@/features/admin/routes/admin-page");
   return { default: module.AdminPage };
@@ -320,6 +328,22 @@ function buildRouter() {
           element: lazyPage(CampaignDetailPage, {
             title: i18n.t("routeLoading.campaignDetailTitle"),
             description: i18n.t("routeLoading.campaignDetailDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "crm",
+          element: lazyPage(CrmBoardPage, {
+            title: i18n.t("routeLoading.crmTitle"),
+            description: i18n.t("routeLoading.crmDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "crm/deals/:dealId",
+          element: lazyPage(DealDetailPage, {
+            title: i18n.t("routeLoading.dealDetailTitle"),
+            description: i18n.t("routeLoading.dealDetailDescription"),
             compact: true,
           }),
         },

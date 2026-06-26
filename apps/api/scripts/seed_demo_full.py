@@ -34,6 +34,7 @@ from app.modules.billing.models import (
     UsageCounter,
 )
 from app.modules.campaigns.models import Campaign, CampaignLead, OutreachEvent, SequenceStep
+from app.modules.crm.models import CrmActivity, CrmDeal, CrmPipeline, CrmStage
 from app.modules.icp.models import IcpProfile, LeadIcpMatch
 from app.modules.leads.models import Lead
 from app.modules.outreach.models import OutreachMessage
@@ -75,6 +76,16 @@ class CampaignSeedSummary:
 
 
 @dataclass(frozen=True)
+class CrmSeedSummary:
+    pipeline_name: str
+    pipeline_public_id: str
+    stage_count: int
+    deal_count: int
+    activity_count: int
+    deals: list[tuple[str, str, str]]
+
+
+@dataclass(frozen=True)
 class DemoSeedSummary:
     platform_workspace: Workspace
     active_workspace: Workspace
@@ -100,6 +111,7 @@ class DemoSeedSummary:
     outreach_sent_count: int
     usage_counters_count: int
     campaign_summaries: list[CampaignSeedSummary]
+    crm_summary: CrmSeedSummary | None
 
 
 def _ensure_workspace(
@@ -771,6 +783,259 @@ def _ensure_campaign_demo(
     ]
 
 
+def _ensure_crm_stage(
+    db: Session,
+    *,
+    public_id: str,
+    workspace_id: int,
+    pipeline_id: int,
+    name: str,
+    position: int,
+    probability: int,
+    color: str,
+    stage_type: str,
+) -> CrmStage:
+    stage = db.scalar(select(CrmStage).where(CrmStage.public_id == public_id))
+    if stage is None:
+        stage = CrmStage(public_id=public_id, workspace_id=workspace_id, pipeline_id=pipeline_id)
+    stage.workspace_id = workspace_id
+    stage.pipeline_id = pipeline_id
+    stage.name = name
+    stage.position = position
+    stage.probability = probability
+    stage.color = color
+    stage.stage_type = stage_type
+    stage.updated_at = datetime.now(tz=UTC)
+    db.add(stage)
+    db.commit()
+    db.refresh(stage)
+    return stage
+
+
+def _ensure_crm_deal(
+    db: Session,
+    *,
+    public_id: str,
+    workspace_id: int,
+    pipeline_id: int,
+    stage_id: int,
+    lead_id: int,
+    campaign_id: int | None,
+    owner_id: int,
+    title: str,
+    value_amount: Decimal,
+    probability: int,
+) -> CrmDeal:
+    deal = db.scalar(select(CrmDeal).where(CrmDeal.public_id == public_id))
+    if deal is None:
+        deal = CrmDeal(
+            public_id=public_id,
+            workspace_id=workspace_id,
+            pipeline_id=pipeline_id,
+            stage_id=stage_id,
+            lead_id=lead_id,
+            created_by_user_id=owner_id,
+        )
+    deal.workspace_id = workspace_id
+    deal.pipeline_id = pipeline_id
+    deal.stage_id = stage_id
+    deal.lead_id = lead_id
+    deal.campaign_id = campaign_id
+    deal.owner_user_id = owner_id
+    deal.title = title
+    deal.value_amount = value_amount
+    deal.currency = "USD"
+    deal.probability = probability
+    deal.status = "open"
+    deal.next_follow_up_at = datetime.now(tz=UTC) + timedelta(days=2)
+    deal.last_activity_at = datetime.now(tz=UTC) - timedelta(hours=3)
+    deal.updated_at = datetime.now(tz=UTC)
+    db.add(deal)
+    db.commit()
+    db.refresh(deal)
+    return deal
+
+
+def _ensure_crm_activity(
+    db: Session,
+    *,
+    public_id: str,
+    workspace_id: int,
+    deal_id: int,
+    actor_user_id: int,
+    activity_type: str,
+    title: str,
+    note: str,
+    due_at: datetime | None,
+    completed: bool,
+) -> CrmActivity:
+    activity = db.scalar(select(CrmActivity).where(CrmActivity.public_id == public_id))
+    if activity is None:
+        activity = CrmActivity(public_id=public_id, workspace_id=workspace_id, deal_id=deal_id)
+    activity.workspace_id = workspace_id
+    activity.deal_id = deal_id
+    activity.actor_user_id = actor_user_id
+    activity.activity_type = activity_type
+    activity.title = title
+    activity.note = note
+    activity.due_at = due_at
+    activity.completed_at = datetime.now(tz=UTC) - timedelta(hours=2) if completed else None
+    activity.metadata_json = {"demo": True}
+    activity.updated_at = datetime.now(tz=UTC)
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+    return activity
+
+
+def _ensure_crm_demo(
+    db: Session,
+    *,
+    workspace_id: int,
+    owner_id: int,
+) -> CrmSeedSummary | None:
+    leads = list(
+        db.scalars(
+            select(Lead)
+            .where(Lead.workspace_id == workspace_id)
+            .order_by(Lead.id.asc())
+            .limit(2)
+        )
+    )
+    if not leads:
+        return None
+
+    pipeline = db.scalar(select(CrmPipeline).where(CrmPipeline.public_id == "pipe_demo_sales"))
+    if pipeline is None:
+        pipeline = CrmPipeline(
+            public_id="pipe_demo_sales",
+            workspace_id=workspace_id,
+            created_by_user_id=owner_id,
+        )
+    pipeline.workspace_id = workspace_id
+    pipeline.name = "Default Sales Pipeline"
+    pipeline.description = "Demo CRM pipeline for lead opportunity tracking."
+    pipeline.is_default = True
+    pipeline.created_by_user_id = owner_id
+    pipeline.updated_at = datetime.now(tz=UTC)
+    db.add(pipeline)
+    db.commit()
+    db.refresh(pipeline)
+
+    stage_specs = [
+        ("stage_demo_new", "New Opportunity", 1, 10, "slate", "open"),
+        ("stage_demo_contacted", "Contacted", 2, 20, "blue", "open"),
+        ("stage_demo_interested", "Interested", 3, 40, "cyan", "open"),
+        ("stage_demo_proposal", "Proposal / Offer", 4, 60, "amber", "open"),
+        ("stage_demo_negotiation", "Negotiation", 5, 80, "orange", "open"),
+        ("stage_demo_won", "Won", 6, 100, "emerald", "won"),
+        ("stage_demo_lost", "Lost", 7, 0, "rose", "lost"),
+    ]
+    stages = {
+        name: _ensure_crm_stage(
+            db,
+            public_id=public_id,
+            workspace_id=workspace_id,
+            pipeline_id=pipeline.id,
+            name=name,
+            position=position,
+            probability=probability,
+            color=color,
+            stage_type=stage_type,
+        )
+        for public_id, name, position, probability, color, stage_type in stage_specs
+    }
+    active_campaign_id = db.scalar(
+        select(Campaign.id).where(Campaign.public_id == "cmp_demo_active")
+    )
+    first_deal = _ensure_crm_deal(
+        db,
+        public_id="deal_demo_acme",
+        workspace_id=workspace_id,
+        pipeline_id=pipeline.id,
+        stage_id=stages["Proposal / Offer"].id,
+        lead_id=leads[0].id,
+        campaign_id=active_campaign_id,
+        owner_id=owner_id,
+        title=f"{leads[0].company_name} local visibility package",
+        value_amount=Decimal("12000.00"),
+        probability=60,
+    )
+    second_lead = leads[1] if len(leads) > 1 else leads[0]
+    second_deal = _ensure_crm_deal(
+        db,
+        public_id="deal_demo_north",
+        workspace_id=workspace_id,
+        pipeline_id=pipeline.id,
+        stage_id=stages["Contacted"].id,
+        lead_id=second_lead.id,
+        campaign_id=active_campaign_id,
+        owner_id=owner_id,
+        title=f"{second_lead.company_name} follow-up opportunity",
+        value_amount=Decimal("6500.00"),
+        probability=20,
+    )
+
+    _ensure_crm_activity(
+        db,
+        public_id="act_demo_acme_note",
+        workspace_id=workspace_id,
+        deal_id=first_deal.id,
+        actor_user_id=owner_id,
+        activity_type="note",
+        title="Qualified from campaign evidence",
+        note="Seeded score and top signal support a proposal-ready conversation.",
+        due_at=None,
+        completed=True,
+    )
+    _ensure_crm_activity(
+        db,
+        public_id="act_demo_acme_followup",
+        workspace_id=workspace_id,
+        deal_id=first_deal.id,
+        actor_user_id=owner_id,
+        activity_type="follow_up",
+        title="Send proposal follow-up",
+        note="Follow up on the offline demo proposal. No email is sent by this seeder.",
+        due_at=datetime.now(tz=UTC) + timedelta(days=2),
+        completed=False,
+    )
+    _ensure_crm_activity(
+        db,
+        public_id="act_demo_north_call",
+        workspace_id=workspace_id,
+        deal_id=second_deal.id,
+        actor_user_id=owner_id,
+        activity_type="call",
+        title="Discovery call logged",
+        note="Seeded call activity for the CRM timeline.",
+        due_at=datetime.now(tz=UTC) - timedelta(days=1),
+        completed=False,
+    )
+
+    deals = [first_deal, second_deal]
+    activity_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(CrmActivity)
+            .where(CrmActivity.deal_id.in_([deal.id for deal in deals]))
+        )
+        or 0
+    )
+    return CrmSeedSummary(
+        pipeline_name=pipeline.name,
+        pipeline_public_id=pipeline.public_id,
+        stage_count=len(stages),
+        deal_count=len(deals),
+        activity_count=activity_count,
+        deals=[
+            (deal.public_id, db.get(Lead, deal.lead_id).public_id, deal.title)
+            for deal in deals
+            if db.get(Lead, deal.lead_id) is not None
+        ],
+    )
+
+
 def _ensure_platform_and_workspace_records(db: Session) -> tuple[Workspace, Workspace, User, User]:
     ensure_default_roles(db)
     platform_workspace = _ensure_workspace(
@@ -937,6 +1202,7 @@ def _build_summary(
     member: User,
     disabled_owner: User,
     campaign_summaries: list[CampaignSeedSummary],
+    crm_summary: CrmSeedSummary | None,
 ) -> DemoSeedSummary:
     workspace_id = active_workspace.id
     return DemoSeedSummary(
@@ -1025,6 +1291,7 @@ def _build_summary(
         ),
         usage_counters_count=_count_for_workspace(db, UsageCounter, workspace_id),
         campaign_summaries=campaign_summaries,
+        crm_summary=crm_summary,
     )
 
 
@@ -1077,6 +1344,11 @@ def seed_demo_full() -> DemoSeedSummary:
             workspace_id=active_workspace.id,
             owner_id=owner.id,
         )
+        crm_summary = _ensure_crm_demo(
+            db,
+            workspace_id=active_workspace.id,
+            owner_id=owner.id,
+        )
         _ensure_audit_log(
             db,
             workspace_id=active_workspace.id,
@@ -1102,6 +1374,7 @@ def seed_demo_full() -> DemoSeedSummary:
             member=member,
             disabled_owner=disabled_owner,
             campaign_summaries=campaign_summaries,
+            crm_summary=crm_summary,
         )
 
 
@@ -1157,6 +1430,19 @@ def _print_summary(summary: DemoSeedSummary) -> None:
             f"(leads={campaign.lead_count}, steps={campaign.sequence_step_count}, "
             f"drafts={campaign.draft_count}, events={campaign.event_count})"
         )
+    print("")
+    print("Seeded CRM:")
+    if summary.crm_summary is None:
+        print("- No CRM records seeded because no demo leads were available.")
+    else:
+        print(
+            "- "
+            f"{summary.crm_summary.pipeline_name}: {summary.crm_summary.pipeline_public_id} "
+            f"(stages={summary.crm_summary.stage_count}, deals={summary.crm_summary.deal_count}, "
+            f"activities={summary.crm_summary.activity_count})"
+        )
+        for deal_id, lead_id, title in summary.crm_summary.deals:
+            print(f"  - {title}: {deal_id} / lead={lead_id}")
 
 
 def main() -> None:

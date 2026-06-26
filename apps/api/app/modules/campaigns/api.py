@@ -16,6 +16,8 @@ from app.modules.campaigns.schemas import (
     SequenceStepUpdateRequest,
 )
 from app.modules.campaigns.service import CampaignService
+from app.modules.crm.schemas import CampaignCreateDealsResponse, CreateDealsFromSourceRequest
+from app.modules.crm.service import CrmService
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/api/v1/campaigns", tags=["campaigns"])
@@ -169,3 +171,20 @@ def list_campaign_events(
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> list[OutreachEventResponse]:
     return CampaignService().list_events(db, workspace_id=workspace_id, campaign_id=campaign_id)
+
+
+@router.post("/{campaign_id}/create-deals", response_model=CampaignCreateDealsResponse)
+def create_campaign_deals(
+    campaign_id: str,
+    payload: CreateDealsFromSourceRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> CampaignCreateDealsResponse:
+    return CrmService().create_deals_from_campaign(
+        db,
+        workspace_id=workspace_id,
+        campaign_id=campaign_id,
+        current_user=current_user,
+        allow_duplicate_open=payload.allow_duplicate_open if payload is not None else False,
+    )

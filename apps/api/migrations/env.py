@@ -16,6 +16,7 @@ from app.modules.assistant import models as assistant_models  # noqa: F401
 from app.modules.audit_logs import models as audit_models  # noqa: F401
 from app.modules.billing import models as billing_models  # noqa: F401
 from app.modules.campaigns import models as campaign_models  # noqa: F401
+from app.modules.crm import models as crm_models  # noqa: F401
 from app.modules.leads import models as lead_models  # noqa: F401
 from app.modules.outreach import models as outreach_models  # noqa: F401
 from app.modules.provider_serpapi import models as provider_models  # noqa: F401

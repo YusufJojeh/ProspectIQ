@@ -1,5 +1,23 @@
 # CHANGES
 
+## [Goal] Mini CRM Pipeline & Deal Tracking - 2026-06-26
+
+### Added
+- Added workspace-scoped CRM backend tables via migration `0017_crm_pipeline.py`: `crm_pipelines`, `crm_stages`, `crm_deals`, and `crm_activities`.
+- Added `/api/v1/crm` endpoints for default pipelines, stages/reorder, deals, stage moves, won/lost marking, and activities.
+- Added lead and campaign conversion endpoints: `POST /api/v1/leads/{lead_id}/create-deal` and `POST /api/v1/campaigns/{campaign_id}/create-deals`.
+- Added `/app/crm` board and `/app/crm/deals/:dealId` detail pages with shadcn UI, score spinners, status badges, loading skeletons, empty states, and activity history.
+- Added CRM navigation to sidebar, mobile nav, and command menu plus English/Arabic i18n coverage.
+- Extended the full demo seeder with an offline default CRM pipeline, seven stages, two deals, activities, and printed CRM summary output.
+- Added backend CRM regression tests in `apps/api/tests/test_crm.py`.
+
+### Safety
+- No Gmail, SMTP, HubSpot, Salesforce, Stripe, calendar, or real email sending was added.
+- CRM activities and deal transitions are local audit/demo records only.
+
+### Validation
+- Pending in this turn: Ruff, mypy, targeted pytest, frontend unit tests, build, Playwright CRM demo spec, commit, and push.
+
 ## [Goal] Campaign Sprint Closeout QA - 2026-06-26
 
 ### Changed

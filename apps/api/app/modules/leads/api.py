@@ -5,6 +5,8 @@ from app.core.database import get_db
 from app.modules.ai_analysis.schemas import LeadAiEvidenceResponse
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
+from app.modules.crm.schemas import CreateDealsFromSourceRequest, DealResponse
+from app.modules.crm.service import CrmService
 from app.modules.leads.schemas import (
     LeadActivityResponse,
     LeadAnalysisResponse,
@@ -92,6 +94,23 @@ def get_lead(
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> LeadResponse:
     return LeadsService().get_lead(db, workspace_id, lead_id)
+
+
+@router.post("/{lead_id}/create-deal", response_model=DealResponse, status_code=status.HTTP_201_CREATED)
+def create_lead_deal(
+    lead_id: str,
+    payload: CreateDealsFromSourceRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> DealResponse:
+    return CrmService().create_deal_from_lead(
+        db,
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        current_user=current_user,
+        allow_duplicate_open=payload.allow_duplicate_open if payload is not None else False,
+    )
 
 
 @router.post(

@@ -17,6 +17,7 @@ from app.modules.audit_logs.api import router as audit_logs_router
 from app.modules.auth.api import router as auth_router
 from app.modules.billing.api import router as billing_router
 from app.modules.campaigns.api import router as campaigns_router
+from app.modules.crm.api import router as crm_router
 from app.modules.exports.api import router as exports_router
 from app.modules.icp.api import router as icp_router
 from app.modules.leads.api import router as leads_router
@@ -129,6 +130,7 @@ def register_application_routers(app: FastAPI) -> None:
     app.include_router(users_router)
     app.include_router(billing_router)
     app.include_router(campaigns_router)
+    app.include_router(crm_router)
     app.include_router(search_jobs_router)
     app.include_router(search_jobs_v2_router)
     app.include_router(icp_router)

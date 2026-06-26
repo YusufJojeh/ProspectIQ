@@ -45,6 +45,15 @@ type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
 type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";
 type CampaignLeadStatus = "added" | "drafted" | "ready" | "skipped" | "removed";
 type SequenceChannel = "email" | "linkedin" | "whatsapp_note";
+type DealStatus = "open" | "won" | "lost" | "archived";
+type StageType = "open" | "won" | "lost";
+type ActivityType =
+  | "note"
+  | "call"
+  | "meeting"
+  | "email"
+  | "follow_up"
+  | "status_change";
 
 type AuthenticatedUser = {
   public_id: string;
@@ -242,6 +251,61 @@ type OutreachEventRecord = {
   metadata: Record<string, unknown> | null;
 };
 
+type CrmPipelineRecord = {
+  public_id: string;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type CrmStageRecord = {
+  public_id: string;
+  pipeline_id: string;
+  name: string;
+  position: number;
+  probability: number;
+  color: string;
+  stage_type: StageType;
+  created_at: string;
+  updated_at: string;
+};
+
+type CrmDealRecord = {
+  public_id: string;
+  pipeline_id: string;
+  stage_id: string;
+  lead_id: string;
+  campaign_id: string | null;
+  owner_user_id: string | null;
+  title: string;
+  value_amount: number | null;
+  currency: string;
+  probability: number;
+  status: DealStatus;
+  lost_reason: string | null;
+  expected_close_date: string | null;
+  next_follow_up_at: string | null;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CrmActivityRecord = {
+  public_id: string;
+  deal_id: string;
+  activity_type: ActivityType;
+  title: string;
+  note: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  actor_user_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type PromptTemplate = {
   public_id: string;
   name: string;
@@ -297,6 +361,10 @@ export type MockState = {
   campaignLeads: CampaignLeadRecord[];
   sequenceSteps: SequenceStepRecord[];
   outreachEvents: OutreachEventRecord[];
+  crmPipelines: CrmPipelineRecord[];
+  crmStages: CrmStageRecord[];
+  crmDeals: CrmDealRecord[];
+  crmActivities: CrmActivityRecord[];
   evidenceByLeadId: Record<
     string,
     { lead_id: string; items: LeadEvidenceItem[] }
@@ -367,6 +435,8 @@ export type MockState = {
     campaigns: number;
     sequenceSteps: number;
     outreachEvents: number;
+    crmDeals: number;
+    crmActivities: number;
     promptTemplates: number;
     scoringVersions: number;
     audit: number;
@@ -598,6 +668,88 @@ function createState(): MockState {
     },
   ];
 
+  const crmPipelines: CrmPipelineRecord[] = [
+    {
+      public_id: "pipe_seed_default",
+      name: "Default Sales Pipeline",
+      description: "Mock CRM pipeline for the CRM demo flow.",
+      is_default: true,
+      created_at: iso(8),
+      updated_at: iso(8),
+    },
+  ];
+
+  const crmStages: CrmStageRecord[] = [
+    ["stage_seed_new", "New Opportunity", 1, 10, "slate", "open"],
+    ["stage_seed_contacted", "Contacted", 2, 20, "blue", "open"],
+    ["stage_seed_interested", "Interested", 3, 40, "cyan", "open"],
+    ["stage_seed_proposal", "Proposal / Offer", 4, 60, "amber", "open"],
+    ["stage_seed_negotiation", "Negotiation", 5, 80, "orange", "open"],
+    ["stage_seed_won", "Won", 6, 100, "emerald", "won"],
+    ["stage_seed_lost", "Lost", 7, 0, "rose", "lost"],
+  ].map(([publicId, name, position, probability, color, stageType]) => ({
+    public_id: String(publicId),
+    pipeline_id: "pipe_seed_default",
+    name: String(name),
+    position: Number(position),
+    probability: Number(probability),
+    color: String(color),
+    stage_type: stageType as StageType,
+    created_at: iso(8),
+    updated_at: iso(8),
+  }));
+
+  const crmDeals: CrmDealRecord[] = [
+    {
+      public_id: "deal_seed_acme",
+      pipeline_id: "pipe_seed_default",
+      stage_id: "stage_seed_proposal",
+      lead_id: "lead_acme_1",
+      campaign_id: "cmp_seed_active",
+      owner_user_id: sessionUser.public_id,
+      title: "Acme Dental local visibility package",
+      value_amount: 12000,
+      currency: "USD",
+      probability: 60,
+      status: "open",
+      lost_reason: null,
+      expected_close_date: null,
+      next_follow_up_at: iso(240),
+      last_activity_at: iso(12),
+      created_at: iso(9),
+      updated_at: iso(12),
+    },
+  ];
+
+  const crmActivities: CrmActivityRecord[] = [
+    {
+      public_id: "act_seed_acme_note",
+      deal_id: "deal_seed_acme",
+      activity_type: "note",
+      title: "Qualified from campaign evidence",
+      note: "Mock activity for the CRM demo timeline.",
+      due_at: null,
+      completed_at: iso(12),
+      actor_user_id: sessionUser.public_id,
+      metadata: { demo: true },
+      created_at: iso(10),
+      updated_at: iso(12),
+    },
+    {
+      public_id: "act_seed_acme_followup",
+      deal_id: "deal_seed_acme",
+      activity_type: "follow_up",
+      title: "Send proposal follow-up",
+      note: "Offline follow-up only. No email is sent by the mock.",
+      due_at: iso(240),
+      completed_at: null,
+      actor_user_id: sessionUser.public_id,
+      metadata: { demo: true },
+      created_at: iso(11),
+      updated_at: iso(11),
+    },
+  ];
+
   return {
     sessionUser,
     users: [
@@ -629,6 +781,10 @@ function createState(): MockState {
     searchJobs,
     leads,
     campaigns,
+    crmPipelines,
+    crmStages,
+    crmDeals,
+    crmActivities,
     campaignLeads: [
       {
         campaign_id: "cmp_seed_active",
@@ -876,6 +1032,8 @@ function createState(): MockState {
       campaigns: 1,
       sequenceSteps: 0,
       outreachEvents: 1,
+      crmDeals: 1,
+      crmActivities: 2,
       promptTemplates: 1,
       scoringVersions: 1,
       audit: 1,
@@ -1145,6 +1303,156 @@ function generateSequenceSteps(state: MockState, campaignId: string) {
     state.sequenceSteps.push(step);
     return step;
   });
+}
+
+function stageCounts(state: MockState, stageId: string) {
+  const deals = state.crmDeals.filter(
+    (deal) => deal.stage_id === stageId && deal.status === "open",
+  );
+  return {
+    deal_count: deals.length,
+    total_value: deals.reduce((sum, deal) => sum + (deal.value_amount ?? 0), 0),
+  };
+}
+
+function serializeCrmStage(state: MockState, stage: CrmStageRecord) {
+  return {
+    public_id: stage.public_id,
+    name: stage.name,
+    position: stage.position,
+    probability: stage.probability,
+    color: stage.color,
+    stage_type: stage.stage_type,
+    ...stageCounts(state, stage.public_id),
+    created_at: stage.created_at,
+    updated_at: stage.updated_at,
+  };
+}
+
+function serializeCrmPipeline(state: MockState, pipeline: CrmPipelineRecord) {
+  return {
+    ...pipeline,
+    stages: state.crmStages
+      .filter((stage) => stage.pipeline_id === pipeline.public_id)
+      .sort((left, right) => left.position - right.position)
+      .map((stage) => serializeCrmStage(state, stage)),
+  };
+}
+
+function getCrmPipelineOrThrow(state: MockState, pipelineId: string) {
+  const pipeline =
+    pipelineId === "default"
+      ? state.crmPipelines.find((item) => item.is_default)
+      : state.crmPipelines.find((item) => item.public_id === pipelineId);
+  if (!pipeline) {
+    throw new Error(`Unknown mocked CRM pipeline '${pipelineId}'.`);
+  }
+  return pipeline;
+}
+
+function getCrmDealOrThrow(state: MockState, dealId: string) {
+  const deal = state.crmDeals.find((item) => item.public_id === dealId);
+  if (!deal) {
+    throw new Error(`Unknown mocked CRM deal '${dealId}'.`);
+  }
+  return deal;
+}
+
+function serializeCrmActivity(state: MockState, activity: CrmActivityRecord) {
+  const actor = state.users.find((user) => user.public_id === activity.actor_user_id);
+  return {
+    ...activity,
+    actor_full_name: actor?.full_name ?? null,
+  };
+}
+
+function serializeCrmDeal(state: MockState, deal: CrmDealRecord) {
+  const pipeline = getCrmPipelineOrThrow(state, deal.pipeline_id);
+  const stage = state.crmStages.find((item) => item.public_id === deal.stage_id);
+  const lead = getLeadOrThrow(state, deal.lead_id);
+  const campaign = state.campaigns.find((item) => item.public_id === deal.campaign_id);
+  const owner = state.users.find((item) => item.public_id === deal.owner_user_id);
+  const incompleteActivities = state.crmActivities
+    .filter((item) => item.deal_id === deal.public_id && item.completed_at === null)
+    .sort((left, right) => Date.parse(left.due_at ?? left.created_at) - Date.parse(right.due_at ?? right.created_at));
+  const now = Date.now();
+  return {
+    ...deal,
+    pipeline_name: pipeline.name,
+    stage_name: stage?.name ?? "Unknown",
+    stage_probability: stage?.probability ?? deal.probability,
+    lead: serializeLead(lead),
+    campaign_name: campaign?.name ?? null,
+    owner_full_name: owner?.full_name ?? null,
+    next_activity: incompleteActivities[0]
+      ? serializeCrmActivity(state, incompleteActivities[0])
+      : null,
+    overdue_activity_count: incompleteActivities.filter(
+      (activity) => activity.due_at !== null && Date.parse(activity.due_at) < now,
+    ).length,
+  };
+}
+
+function createMockCrmDeal(
+  state: MockState,
+  payload: Record<string, unknown>,
+  defaults: { campaignId?: string | null } = {},
+) {
+  const leadId = String(payload.lead_id ?? "");
+  getLeadOrThrow(state, leadId);
+  const hasOpenDeal = state.crmDeals.some(
+    (deal) => deal.lead_id === leadId && deal.status === "open",
+  );
+  if (hasOpenDeal && payload.allow_duplicate_open !== true) {
+    return null;
+  }
+  const pipelineId = String(payload.pipeline_id ?? state.crmPipelines[0].public_id);
+  const stageId = String(
+    payload.stage_id ??
+      state.crmStages.find((stage) => stage.pipeline_id === pipelineId && stage.stage_type === "open")
+        ?.public_id,
+  );
+  const stage = state.crmStages.find((item) => item.public_id === stageId);
+  state.counters.crmDeals += 1;
+  const timestamp = nextTimestamp(state);
+  const deal: CrmDealRecord = {
+    public_id: `deal_mock_${state.counters.crmDeals}`,
+    pipeline_id: pipelineId,
+    stage_id: stageId,
+    lead_id: leadId,
+    campaign_id: (payload.campaign_id as string | null | undefined) ?? defaults.campaignId ?? null,
+    owner_user_id: state.sessionUser.public_id,
+    title: String(payload.title ?? `${getLeadOrThrow(state, leadId).company_name} opportunity`),
+    value_amount:
+      typeof payload.value_amount === "number" ? payload.value_amount : 8500,
+    currency: String(payload.currency ?? "USD"),
+    probability:
+      typeof payload.probability === "number" ? payload.probability : stage?.probability ?? 10,
+    status: "open",
+    lost_reason: null,
+    expected_close_date: null,
+    next_follow_up_at: iso(240),
+    last_activity_at: timestamp,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+  state.crmDeals.unshift(deal);
+  state.counters.crmActivities += 1;
+  state.crmActivities.unshift({
+    public_id: `act_mock_${state.counters.crmActivities}`,
+    deal_id: deal.public_id,
+    activity_type: "note",
+    title: "Deal created",
+    note: "Created from the offline CRM mock.",
+    due_at: null,
+    completed_at: timestamp,
+    actor_user_id: state.sessionUser.public_id,
+    metadata: { demo: true },
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  addAudit(state, "crm.deal_created", `Created CRM deal ${deal.public_id}.`);
+  return deal;
 }
 
 function filterLeads(state: MockState, url: URL) {
@@ -1509,6 +1817,162 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
+  if (path === "/api/v1/crm/pipelines" && method === "GET") {
+    await fulfillJson(route, {
+      items: state.crmPipelines.map((pipeline) => serializeCrmPipeline(state, pipeline)),
+    });
+    return;
+  }
+
+  const crmPipelineMatch = path.match(/^\/api\/v1\/crm\/pipelines\/([^/]+)$/);
+  if (crmPipelineMatch && method === "GET") {
+    await fulfillJson(
+      route,
+      serializeCrmPipeline(state, getCrmPipelineOrThrow(state, crmPipelineMatch[1])),
+    );
+    return;
+  }
+
+  if (path === "/api/v1/crm/deals" && method === "GET") {
+    const pipelineId = url.searchParams.get("pipeline_id");
+    const stageId = url.searchParams.get("stage_id");
+    const leadId = url.searchParams.get("lead_id");
+    const campaignId = url.searchParams.get("campaign_id");
+    const status = url.searchParams.get("status") as DealStatus | null;
+    const items = state.crmDeals
+      .filter((deal) => !pipelineId || deal.pipeline_id === pipelineId)
+      .filter((deal) => !stageId || deal.stage_id === stageId)
+      .filter((deal) => !leadId || deal.lead_id === leadId)
+      .filter((deal) => !campaignId || deal.campaign_id === campaignId)
+      .filter((deal) => !status || deal.status === status)
+      .map((deal) => serializeCrmDeal(state, deal));
+    await fulfillJson(route, { items });
+    return;
+  }
+
+  if (path === "/api/v1/crm/deals" && method === "POST") {
+    const deal = createMockCrmDeal(state, readJsonBody(route));
+    if (!deal) {
+      await fulfillJson(route, { error: { detail: "Lead already has an open deal." } }, 409);
+      return;
+    }
+    await fulfillJson(route, serializeCrmDeal(state, deal), 201);
+    return;
+  }
+
+  const crmDealMoveMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/move$/);
+  if (crmDealMoveMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = getCrmDealOrThrow(state, crmDealMoveMatch[1]);
+    const stage = state.crmStages.find((item) => item.public_id === payload.stage_id);
+    if (!stage) {
+      await fulfillJson(route, { error: { detail: "Stage not found." } }, 404);
+      return;
+    }
+    deal.stage_id = stage.public_id;
+    deal.probability = stage.probability;
+    deal.status = stage.stage_type === "won" ? "won" : stage.stage_type === "lost" ? "lost" : "open";
+    deal.updated_at = nextTimestamp(state);
+    state.counters.crmActivities += 1;
+    state.crmActivities.unshift({
+      public_id: `act_mock_${state.counters.crmActivities}`,
+      deal_id: deal.public_id,
+      activity_type: "status_change",
+      title: `Moved to ${stage.name}`,
+      note: null,
+      due_at: null,
+      completed_at: deal.updated_at,
+      actor_user_id: state.sessionUser.public_id,
+      metadata: { stage_id: stage.public_id },
+      created_at: deal.updated_at,
+      updated_at: deal.updated_at,
+    });
+    await fulfillJson(route, serializeCrmDeal(state, deal));
+    return;
+  }
+
+  const crmMarkWonMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/mark-won$/);
+  if (crmMarkWonMatch && method === "POST") {
+    const deal = getCrmDealOrThrow(state, crmMarkWonMatch[1]);
+    const wonStage = state.crmStages.find((stage) => stage.stage_type === "won");
+    deal.status = "won";
+    deal.stage_id = wonStage?.public_id ?? deal.stage_id;
+    deal.probability = 100;
+    deal.updated_at = nextTimestamp(state);
+    await fulfillJson(route, serializeCrmDeal(state, deal));
+    return;
+  }
+
+  const crmMarkLostMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/mark-lost$/);
+  if (crmMarkLostMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = getCrmDealOrThrow(state, crmMarkLostMatch[1]);
+    const lostStage = state.crmStages.find((stage) => stage.stage_type === "lost");
+    deal.status = "lost";
+    deal.stage_id = lostStage?.public_id ?? deal.stage_id;
+    deal.probability = 0;
+    deal.lost_reason = (payload.lost_reason as string | null | undefined) ?? null;
+    deal.updated_at = nextTimestamp(state);
+    await fulfillJson(route, serializeCrmDeal(state, deal));
+    return;
+  }
+
+  const crmActivitiesMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/activities$/);
+  if (crmActivitiesMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = getCrmDealOrThrow(state, crmActivitiesMatch[1]);
+    state.counters.crmActivities += 1;
+    const timestamp = nextTimestamp(state);
+    const activity: CrmActivityRecord = {
+      public_id: `act_mock_${state.counters.crmActivities}`,
+      deal_id: deal.public_id,
+      activity_type: (payload.activity_type as ActivityType | undefined) ?? "note",
+      title: String(payload.title ?? "Activity"),
+      note: (payload.note as string | null | undefined) ?? null,
+      due_at: (payload.due_at as string | null | undefined) ?? null,
+      completed_at: null,
+      actor_user_id: state.sessionUser.public_id,
+      metadata: (payload.metadata as Record<string, unknown> | null | undefined) ?? null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    state.crmActivities.unshift(activity);
+    deal.last_activity_at = timestamp;
+    deal.updated_at = timestamp;
+    await fulfillJson(route, serializeCrmActivity(state, activity));
+    return;
+  }
+
+  const crmCompleteActivityMatch = path.match(
+    /^\/api\/v1\/crm\/deals\/([^/]+)\/activities\/([^/]+)\/complete$/,
+  );
+  if (crmCompleteActivityMatch && method === "POST") {
+    getCrmDealOrThrow(state, crmCompleteActivityMatch[1]);
+    const activity = state.crmActivities.find(
+      (item) => item.public_id === crmCompleteActivityMatch[2],
+    );
+    if (!activity) {
+      await fulfillJson(route, { error: { detail: "Activity not found." } }, 404);
+      return;
+    }
+    activity.completed_at = nextTimestamp(state);
+    activity.updated_at = activity.completed_at;
+    await fulfillJson(route, serializeCrmActivity(state, activity));
+    return;
+  }
+
+  const crmDealDetailMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)$/);
+  if (crmDealDetailMatch && method === "GET") {
+    const deal = getCrmDealOrThrow(state, crmDealDetailMatch[1]);
+    await fulfillJson(route, {
+      ...serializeCrmDeal(state, deal),
+      activities: state.crmActivities
+        .filter((activity) => activity.deal_id === deal.public_id)
+        .map((activity) => serializeCrmActivity(state, activity)),
+    });
+    return;
+  }
+
   if (path === "/api/v1/campaigns" && method === "GET") {
     await fulfillJson(route, { items: state.campaigns.map((campaign) => serializeCampaign(state, campaign)) });
     return;
@@ -1612,6 +2076,43 @@ async function handleApiRoute(route: Route, state: MockState) {
     }
     campaign.updated_at = nextTimestamp(state);
     await fulfillJson(route, campaignDetail(state, campaign));
+    return;
+  }
+
+  const campaignCreateDealsMatch = path.match(
+    /^\/api\/v1\/campaigns\/([^/]+)\/create-deals$/,
+  );
+  if (campaignCreateDealsMatch && method === "POST") {
+    const campaignId = campaignCreateDealsMatch[1];
+    getCampaignOrThrow(state, campaignId);
+    const payload = readJsonBody(route);
+    const created: ReturnType<typeof serializeCrmDeal>[] = [];
+    const skipped: string[] = [];
+    const campaignLeadRows = state.campaignLeads.filter(
+      (item) => item.campaign_id === campaignId,
+    );
+    for (const campaignLead of campaignLeadRows) {
+      const deal = createMockCrmDeal(
+        state,
+        {
+          lead_id: campaignLead.lead_id,
+          campaign_id: campaignId,
+          allow_duplicate_open: payload.allow_duplicate_open,
+        },
+        { campaignId },
+      );
+      if (deal) {
+        created.push(serializeCrmDeal(state, deal));
+      } else {
+        skipped.push(campaignLead.lead_id);
+      }
+    }
+    await fulfillJson(route, {
+      created_count: created.length,
+      skipped_count: skipped.length,
+      deals: created,
+      skipped_lead_ids: skipped,
+    });
     return;
   }
 
@@ -2327,6 +2828,21 @@ async function handleApiRoute(route: Route, state: MockState) {
       `Refreshed provider evidence for lead ${leadId}.`,
     );
     await fulfillJson(route, serializeLead(lead));
+    return;
+  }
+
+  const leadCreateDealMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/create-deal$/);
+  if (leadCreateDealMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = createMockCrmDeal(state, {
+      lead_id: leadCreateDealMatch[1],
+      allow_duplicate_open: payload.allow_duplicate_open,
+    });
+    if (!deal) {
+      await fulfillJson(route, { error: { detail: "Lead already has an open deal." } }, 409);
+      return;
+    }
+    await fulfillJson(route, serializeCrmDeal(state, deal), 201);
     return;
   }
 

@@ -23,6 +23,7 @@ import {
   getCampaign,
   removeCampaignLead,
 } from "@/features/campaigns/api";
+import { createCampaignDeals } from "@/features/crm/api";
 import { listLeads } from "@/features/leads/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { scoreBandLabel } from "@/lib/i18n-labels";
@@ -85,6 +86,18 @@ export function CampaignDetailPage() {
     mutationFn: () => archiveCampaign(campaignId),
     onSuccess: invalidateCampaign,
   });
+  const createDealsMutation = useMutation({
+    mutationFn: () => createCampaignDeals(campaignId),
+    onSuccess: (payload) => {
+      void queryClient.invalidateQueries({ queryKey: ["crm"] });
+      toast.success(
+        t("crm.campaignDealsCreated", {
+          created: payload.created_count,
+          skipped: payload.skipped_count,
+        }),
+      );
+    },
+  });
 
   const leadOptions = useMemo(() => {
     const existing = new Set(campaignQuery.data?.leads.map((item) => item.lead.public_id) ?? []);
@@ -142,6 +155,15 @@ export function CampaignDetailPage() {
             >
               <Trash2 className="size-3.5" />
               {t("campaigns.archive")}
+            </Button>
+            <Button
+              variant="outline"
+              className="bg-transparent"
+              onClick={() => createDealsMutation.mutate()}
+              disabled={createDealsMutation.isPending || campaign.leads.length === 0}
+            >
+              <Plus className="size-3.5" />
+              {t("crm.createDeals")}
             </Button>
           </>
         }

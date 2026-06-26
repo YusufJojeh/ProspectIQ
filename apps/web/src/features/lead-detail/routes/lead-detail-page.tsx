@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { appPaths } from "@/app/paths";
 import { LeadActivityPanel } from "@/components/lead/activity-panel";
 import { LeadAiAnalysisPanel } from "@/components/lead/ai-analysis-panel";
 import { LeadAiEvidencePanel } from "@/components/lead/ai-evidence-panel";
@@ -39,6 +40,7 @@ import {
   submitAnalysisFeedback,
 } from "@/features/ai-analysis/api";
 import { addCampaignLeads, listCampaigns } from "@/features/campaigns/api";
+import { createLeadDeal, listCrmDeals } from "@/features/crm/api";
 import {
   listIcpProfiles,
   recomputeIcpProfileMatch,
@@ -149,6 +151,11 @@ export function LeadDetailPage() {
   const campaignsQuery = useQuery({
     queryKey: ["campaigns"],
     queryFn: listCampaigns,
+  });
+  const crmDealsQuery = useQuery({
+    queryKey: ["crm", "deals", "lead", leadId],
+    queryFn: () => listCrmDeals({ lead_id: leadId, status: "open" }),
+    enabled: Boolean(leadId),
   });
 
   useDocumentTitle(leadQuery.data?.company_name ?? "Lead Detail");
@@ -320,6 +327,17 @@ export function LeadDetailPage() {
     onSuccess: () => {
       refreshQueries();
       toast.success(t("campaigns.leadAdded"));
+    },
+    onError: (error) => {
+      toast.error(resolveErrorMessage(error, t));
+    },
+  });
+  const createDealMutation = useMutation({
+    mutationFn: () => createLeadDeal(leadId),
+    onSuccess: (deal) => {
+      void queryClient.invalidateQueries({ queryKey: ["crm"] });
+      toast.success(t("crm.dealCreated"));
+      setActionSuccess(t("crm.leadDealCreated", { title: deal.title }));
     },
     onError: (error) => {
       toast.error(resolveErrorMessage(error, t));
@@ -633,6 +651,30 @@ export function LeadDetailPage() {
                       ? t("common.saving")
                       : t("campaigns.addLead")}
                   </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("crm.deal")}</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {crmDealsQuery.data?.items[0] ? (
+                    <Button asChild variant="outline" className="bg-transparent">
+                      <Link to={appPaths.dealDetail(crmDealsQuery.data.items[0].public_id)}>
+                        {t("crm.viewOpenDeal")}
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      onClick={() => createDealMutation.mutate()}
+                      disabled={createDealMutation.isPending}
+                    >
+                      {createDealMutation.isPending
+                        ? t("common.creating")
+                        : t("crm.createDeal")}
+                    </Button>
+                  )}
                 </div>
               </div>
 
