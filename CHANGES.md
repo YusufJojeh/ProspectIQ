@@ -35,7 +35,7 @@
 - The capture folder is ignored by `.gitignore`, so screenshots remain available locally but are not committed by default.
 
 ### CI/CD
-- Existing `.github/workflows/ci.yml` covers backend Ruff, mypy, full pytest, Alembic offline render, frontend lint, unit tests, build, Playwright E2E, Docker build validation, and deploy-stack smoke checks.
+- `.github/workflows/ci.yml` now runs on push and pull request and covers backend Ruff, mypy, full pytest, Alembic offline render, frontend lint, unit tests, build, Playwright E2E, Docker build validation, and deploy-stack smoke checks.
 - No deployment pipeline or production deployment was added during closeout.
 
 ### Safety Notes
