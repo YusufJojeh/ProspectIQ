@@ -21,9 +21,20 @@ export function createUser(payload: UserCreateRequest) {
 }
 
 export function updateUser(userId: string, payload: UserUpdateRequest) {
-  return request<UserDetailResponse>(`/api/v1/users/${userId}`, { method: "PATCH" }, payload);
+  return request<UserDetailResponse>(
+    `/api/v1/users/${userId}`,
+    { method: "PATCH" },
+    payload,
+  );
 }
 
-export function resetUserPassword(userId: string, payload: UserPasswordResetRequest) {
-  return request<UserDetailResponse>(`/api/v1/users/${userId}/reset-password`, { method: "POST" }, payload);
+export function resetUserPassword(
+  userId: string,
+  payload: UserPasswordResetRequest,
+) {
+  return request<UserDetailResponse>(
+    `/api/v1/users/${userId}/reset-password`,
+    { method: "POST" },
+    payload,
+  );
 }

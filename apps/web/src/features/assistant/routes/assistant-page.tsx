@@ -5,7 +5,15 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { Bot, CornerDownRight, ExternalLink, History, MessageSquareText, SearchCheck, Sparkles } from "lucide-react";
+import {
+  Bot,
+  CornerDownRight,
+  ExternalLink,
+  History,
+  MessageSquareText,
+  SearchCheck,
+  Sparkles,
+} from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   Conversation,
@@ -30,7 +38,13 @@ import { AiPill, ConfidenceBadge } from "@/components/brand/badges";
 import { PageHeader } from "@/components/shell/page-header";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Sheet,
   SheetContent,
@@ -64,9 +78,11 @@ type AssistantSearchData = {
   sources?: AssistantSearchSource[];
 };
 
-function uiMessageFromDb(
-  m: { public_id: string; role: string; content: string },
-): UIMessage {
+function uiMessageFromDb(m: {
+  public_id: string;
+  role: string;
+  content: string;
+}): UIMessage {
   const role = m.role === "assistant" || m.role === "system" ? m.role : "user";
   return {
     id: m.public_id,
@@ -81,7 +97,9 @@ export function AssistantPage() {
   const [searchParams] = useSearchParams();
   const leadId = searchParams.get("leadId") ?? "";
   const [input, setInput] = useState("");
-  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(
+    undefined,
+  );
   const [historyOpen, setHistoryOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -101,18 +119,28 @@ export function AssistantPage() {
     return createAssistantTransport(body);
   }, [leadId, currentSessionId]);
 
-  const { messages, sendMessage, status, stop, error, setMessages } = useChat<UIMessage>({
-    transport,
-  });
+  const { messages, sendMessage, status, stop, error, setMessages } =
+    useChat<UIMessage>({
+      transport,
+    });
 
   const lead = leadQuery.data;
   const isStreaming = status === "submitted" || status === "streaming";
 
-  const starterPrompts = [
-    t("assistant.starterPrompt1"),
-    t("assistant.starterPrompt2"),
-    t("assistant.starterPrompt3"),
-  ];
+  const hasStoredScore = lead?.latest_score !== null && lead?.latest_score !== undefined;
+  const starterPrompts = leadId
+    ? [
+        t("assistant.starterPrompt1"),
+        t("assistant.starterPrompt2"),
+        hasStoredScore
+          ? t("assistant.starterPrompt3")
+          : t("assistant.starterPrompt3Unscored"),
+      ]
+    : [
+        t("assistant.workspacePrompt1"),
+        t("assistant.workspacePrompt2"),
+        t("assistant.workspacePrompt3"),
+      ];
 
   const submitPrompt = async (text: string) => {
     const trimmed = text.trim();
@@ -184,7 +212,11 @@ export function AssistantPage() {
                 </div>
               </SheetContent>
             </Sheet>
-            <Button variant="outline" className="bg-transparent" onClick={handleNewChat}>
+            <Button
+              variant="outline"
+              className="bg-transparent"
+              onClick={handleNewChat}
+            >
               <MessageSquareText className="size-3.5" />
               {t("assistant.newChat")}
             </Button>
@@ -196,7 +228,9 @@ export function AssistantPage() {
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
             <CardTitle>{t("assistant.groundingContext")}</CardTitle>
-            <CardDescription>{t("assistant.groundingContextDescription")}</CardDescription>
+            <CardDescription>
+              {t("assistant.groundingContextDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {leadId ? (
@@ -220,17 +254,32 @@ export function AssistantPage() {
                   </div>
 
                   <div>
-                    <div className="text-lg font-semibold">{lead.company_name}</div>
+                    <div className="text-lg font-semibold">
+                      {lead.company_name}
+                    </div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {lead.category ?? t("common.unknown")} · {lead.city ?? t("common.unknown")}
+                      {lead.category ?? t("common.unknown")} -{" "}
+                      {lead.city ?? t("common.unknown")}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <ContextMetric label={t("leads.score")} value={formatScore(lead.latest_score)} />
-                    <ContextMetric label={t("leads.band")} value={lead.latest_band ?? t("leads.unscored")} />
-                    <ContextMetric label={t("leads.reviews")} value={String(lead.review_count)} />
-                    <ContextMetric label={t("leads.website")} value={lead.website_domain ?? t("leads.noWebsite")} />
+                    <ContextMetric
+                      label={t("leads.score")}
+                      value={formatScore(lead.latest_score)}
+                    />
+                    <ContextMetric
+                      label={t("leads.band")}
+                      value={lead.latest_band ?? t("leads.unscored")}
+                    />
+                    <ContextMetric
+                      label={t("leads.reviews")}
+                      value={String(lead.review_count)}
+                    />
+                    <ContextMetric
+                      label={t("leads.website")}
+                      value={lead.website_domain ?? t("leads.noWebsite")}
+                    />
                   </div>
                 </div>
               ) : null
@@ -268,7 +317,9 @@ export function AssistantPage() {
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
             <CardTitle>{t("assistant.conversation")}</CardTitle>
-            <CardDescription>{t("assistant.conversationDescription")}</CardDescription>
+            <CardDescription>
+              {t("assistant.conversationDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex min-h-[620px] flex-col">
             {error ? (
@@ -340,7 +391,9 @@ export function AssistantPage() {
                 <PromptInputTools>
                   <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
                     <CornerDownRight className="size-3" />
-                    {leadId ? t("assistant.scopeLabel") : t("assistant.scopeLabelWorkspace")}
+                    {leadId
+                      ? t("assistant.scopeLabel")
+                      : t("assistant.scopeLabelWorkspace")}
                   </div>
                 </PromptInputTools>
                 <PromptInputSubmit
@@ -360,7 +413,9 @@ export function AssistantPage() {
 function ContextMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-background/70 p-3">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
+      <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </div>
       <div className="mt-1 text-sm font-medium">{value}</div>
     </div>
   );
@@ -392,7 +447,9 @@ export function AssistantSearchEvidence({ message }: { message: UIMessage }) {
       <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
         <SearchCheck className="size-3.5" />
         <span className="font-medium text-foreground">{statusLabel}</span>
-        {sources.length > 0 ? <span>{t("assistant.externalEvidence")}</span> : null}
+        {sources.length > 0 ? (
+          <span>{t("assistant.externalEvidence")}</span>
+        ) : null}
       </div>
 
       {sources.length > 0 ? (
@@ -413,7 +470,9 @@ export function AssistantSearchEvidence({ message }: { message: UIMessage }) {
                 <span className="truncate">{source.title || source.url}</span>
               </div>
               {source.snippet ? (
-                <p className="mt-1 line-clamp-2 text-muted-foreground">{source.snippet}</p>
+                <p className="mt-1 line-clamp-2 text-muted-foreground">
+                  {source.snippet}
+                </p>
               ) : null}
             </a>
           ))}

@@ -13,15 +13,53 @@ _ARABIC_RE = re.compile(r"[\u0600-\u06FF]")
 _WS_RE = re.compile(r"\s+")
 _PUNCT_RE = re.compile(r"[^\w\s\u0600-\u06FF]", re.UNICODE)
 
-_AR_EN_KEYWORDS: dict[str, str] = {
-    "real estate": "العقارات",
-    "development": "تطوير",
-    "financing": "تمويل",
-    "construction": "إنشاء",
-    "clinic": "عيادة",
-    "dentist": "طبيب أسنان",
+_EN_TO_AR_KEYWORDS: dict[str, str] = {
+    "beauty salon": "\u0635\u0627\u0644\u0648\u0646 \u062a\u062c\u0645\u064a\u0644",
+    "cafe": "\u0645\u0642\u0647\u0649",
+    "clinic": "\u0639\u064a\u0627\u062f\u0629",
+    "construction": "\u0625\u0646\u0634\u0627\u0621",
+    "dental clinic": "\u0639\u064a\u0627\u062f\u0629 \u0623\u0633\u0646\u0627\u0646",
+    "dentist": "\u0637\u0628\u064a\u0628 \u0623\u0633\u0646\u0627\u0646",
+    "dermatology clinic": "\u0639\u064a\u0627\u062f\u0629 \u062c\u0644\u062f\u064a\u0629",
+    "development": "\u062a\u0637\u0648\u064a\u0631",
+    "digital marketing agency": "\u0634\u0631\u0643\u0629 \u062a\u0633\u0648\u064a\u0642 \u0631\u0642\u0645\u064a",
+    "financing": "\u062a\u0645\u0648\u064a\u0644",
+    "gym": "\u0646\u0627\u062f\u064a \u0631\u064a\u0627\u0636\u064a",
+    "language school": "\u0645\u0631\u0643\u0632 \u062a\u0639\u0644\u064a\u0645 \u0644\u063a\u0627\u062a",
+    "law firm": "\u0645\u0643\u062a\u0628 \u0645\u062d\u0627\u0645\u0627\u0629",
+    "real estate": "\u0627\u0644\u0639\u0642\u0627\u0631\u0627\u062a",
+    "restaurant": "\u0645\u0637\u0639\u0645",
+    "veterinary clinic": "\u0639\u064a\u0627\u062f\u0629 \u0628\u064a\u0637\u0631\u064a\u0629",
 }
-_EN_AR_KEYWORDS = {v: k for k, v in _AR_EN_KEYWORDS.items()}
+_AR_TO_EN_KEYWORDS: dict[str, str] = {
+    "\u0627\u0644\u062a\u0637\u0648\u064a\u0631 \u0627\u0644\u0639\u0642\u0627\u0631\u064a": "real estate development",
+    "\u0627\u0644\u0639\u0642\u0627\u0631\u0627\u062a": "real estate",
+    "\u062a\u0637\u0648\u064a\u0631": "development",
+    "\u062a\u0645\u0648\u064a\u0644": "financing",
+    "\u0625\u0646\u0634\u0627\u0621": "construction",
+    "\u0639\u064a\u0627\u062f\u0627\u062a \u0623\u0633\u0646\u0627\u0646": "dental clinic",
+    "\u0639\u064a\u0627\u062f\u0629 \u0623\u0633\u0646\u0627\u0646": "dental clinic",
+    "\u0623\u0637\u0628\u0627\u0621 \u0623\u0633\u0646\u0627\u0646": "dentist",
+    "\u0637\u0628\u064a\u0628 \u0623\u0633\u0646\u0627\u0646": "dentist",
+    "\u0635\u0627\u0644\u0648\u0646\u0627\u062a \u062a\u062c\u0645\u064a\u0644": "beauty salon",
+    "\u0635\u0627\u0644\u0648\u0646 \u062a\u062c\u0645\u064a\u0644": "beauty salon",
+    "\u0645\u0643\u0627\u062a\u0628 \u0645\u062d\u0627\u0645\u0627\u0629": "law firm",
+    "\u0645\u0643\u062a\u0628 \u0645\u062d\u0627\u0645\u0627\u0629": "law firm",
+    "\u0645\u0637\u0627\u0639\u0645": "restaurant",
+    "\u0645\u0637\u0639\u0645": "restaurant",
+    "\u0639\u064a\u0627\u062f\u0627\u062a \u062c\u0644\u062f\u064a\u0629": "dermatology clinic",
+    "\u0639\u064a\u0627\u062f\u0629 \u062c\u0644\u062f\u064a\u0629": "dermatology clinic",
+    "\u0634\u0631\u0643\u0627\u062a \u062a\u0633\u0648\u064a\u0642 \u0631\u0642\u0645\u064a": "digital marketing agency",
+    "\u0634\u0631\u0643\u0629 \u062a\u0633\u0648\u064a\u0642 \u0631\u0642\u0645\u064a": "digital marketing agency",
+    "\u0645\u0631\u0627\u0643\u0632 \u0644\u064a\u0627\u0642\u0629 \u0628\u062f\u0646\u064a\u0629": "gym",
+    "\u0646\u0627\u062f\u064a \u0631\u064a\u0627\u0636\u064a": "gym",
+    "\u0639\u064a\u0627\u062f\u0627\u062a \u0628\u064a\u0637\u0631\u064a\u0629": "veterinary clinic",
+    "\u0639\u064a\u0627\u062f\u0629 \u0628\u064a\u0637\u0631\u064a\u0629": "veterinary clinic",
+    "\u0645\u0642\u0627\u0647\u064a": "cafe",
+    "\u0645\u0642\u0647\u0649": "cafe",
+    "\u0645\u0631\u0627\u0643\u0632 \u062a\u0639\u0644\u064a\u0645 \u0644\u063a\u0627\u062a": "language school",
+    "\u0645\u0631\u0643\u0632 \u062a\u0639\u0644\u064a\u0645 \u0644\u063a\u0627\u062a": "language school",
+}
 
 
 @dataclass(frozen=True)
@@ -64,12 +102,16 @@ class QueryPlanner:
         variants: list[QueryVariant] = []
         variants.append(QueryVariant("original", base, self._detect_language(base)))
         if with_keywords and with_keywords != base:
-            variants.append(QueryVariant("normalized", with_keywords, self._detect_language(with_keywords)))
+            variants.append(
+                QueryVariant("normalized", with_keywords, self._detect_language(with_keywords))
+            )
         if bilingual_enabled:
             bilingual = self._bilingual_variant(with_keywords or base)
             if bilingual and bilingual not in {item.text for item in variants}:
                 variants.append(
-                    QueryVariant("bilingual_keyword_expansion", bilingual, self._detect_language(bilingual))
+                    QueryVariant(
+                        "bilingual_keyword_expansion", bilingual, self._detect_language(bilingual)
+                    )
                 )
         return variants
 
@@ -90,14 +132,13 @@ class QueryPlanner:
 
     def _bilingual_variant(self, text: str) -> str:
         lowered = text.casefold()
-        parts = text.split()
-        output = list(parts)
+        output = text.split()
         if _ARABIC_RE.search(text):
-            for ar, en in _EN_AR_KEYWORDS.items():
+            for ar, en in _AR_TO_EN_KEYWORDS.items():
                 if ar in text and en not in output:
                     output.append(en)
         else:
-            for en, ar in _AR_EN_KEYWORDS.items():
+            for en, ar in _EN_TO_AR_KEYWORDS.items():
                 if en in lowered and ar not in output:
                     output.append(ar)
         return self._normalize(" ".join(output))
@@ -122,7 +163,9 @@ class EngineExecutionPlanner:
             variants = query_variants
         else:
             allowed = {"google_maps_search", "google_web"}
-            adapters = [engine for engine in enabled_engines if engine in allowed] or ["google_maps_search"]
+            adapters = [engine for engine in enabled_engines if engine in allowed] or [
+                "google_maps_search"
+            ]
             variants = query_variants
 
         tasks: list[ExecutionTask] = []
@@ -130,13 +173,17 @@ class EngineExecutionPlanner:
         for variant in variants:
             for adapter_name in effective_adapters:
                 tasks.append(
-                    ExecutionTask(adapter_name=adapter_name, stage="discover", query_variant=variant)
+                    ExecutionTask(
+                        adapter_name=adapter_name, stage="discover", query_variant=variant
+                    )
                 )
         return tasks[:max_calls_per_job]
 
 
 class ResultMerger:
-    def merge(self, collections: list[list[LeadCandidate]], *, max_candidates: int) -> list[LeadCandidate]:
+    def merge(
+        self, collections: list[list[LeadCandidate]], *, max_candidates: int
+    ) -> list[LeadCandidate]:
         merged: list[LeadCandidate] = []
         for group in collections:
             merged.extend(group)

@@ -15,7 +15,12 @@ export const MOCK_IDS = {
 
 type UserRole = "account_owner" | "admin" | "manager" | "member";
 type UserStatus = "active" | "inactive" | "pending";
-type SearchJobStatus = "queued" | "running" | "completed" | "partially_completed" | "failed";
+type SearchJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "partially_completed"
+  | "failed";
 type LeadStatus =
   | "new"
   | "reviewed"
@@ -25,7 +30,16 @@ type LeadStatus =
   | "won"
   | "lost"
   | "archived";
-type LeadScoreBand = "high" | "medium" | "low" | "not_qualified";
+type LeadScoreBand =
+  | "high"
+  | "medium"
+  | "low"
+  | "not_qualified"
+  | "hot_lead"
+  | "warm_lead"
+  | "research_more"
+  | "low_priority"
+  | "do_not_contact";
 type WebsitePreference = "any" | "must_have" | "must_be_missing";
 type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
 
@@ -84,6 +98,11 @@ type LeadRecord = {
   status: LeadStatus;
   assigned_to_user_public_id: string | null;
   latest_score: number | null;
+  latest_fit_score: number | null;
+  latest_need_score: number | null;
+  latest_urgency_score: number | null;
+  latest_reachability_score: number | null;
+  latest_final_priority_score: number | null;
   latest_band: LeadScoreBand | null;
   latest_qualified: boolean | null;
   created_at: string;
@@ -229,13 +248,21 @@ export type MockState = {
   }>;
   searchJobs: SearchJobResponse[];
   leads: LeadRecord[];
-  evidenceByLeadId: Record<string, { lead_id: string; items: LeadEvidenceItem[] }>;
+  evidenceByLeadId: Record<
+    string,
+    { lead_id: string; items: LeadEvidenceItem[] }
+  >;
   scoreBreakdownsByLeadId: Record<
     string,
     {
       lead_id: string;
       scoring_version_id: string;
       total_score: number;
+      fit_score: number | null;
+      need_score: number | null;
+      urgency_score: number | null;
+      reachability_score: number | null;
+      final_priority_score: number | null;
       band: LeadScoreBand;
       qualified: boolean;
       breakdown: ScoreBreakdownItem[];
@@ -361,7 +388,12 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   });
 }
 
-async function fulfillText(route: Route, body: string, contentType: string, status = 200) {
+async function fulfillText(
+  route: Route,
+  body: string,
+  contentType: string,
+  status = 200,
+) {
   await route.fulfill({
     status,
     headers: CORS_HEADERS,
@@ -459,6 +491,11 @@ function createState(): MockState {
       status: "new",
       assigned_to_user_public_id: null,
       latest_score: 82.5,
+      latest_fit_score: 90,
+      latest_need_score: 72,
+      latest_urgency_score: 82,
+      latest_reachability_score: 88,
+      latest_final_priority_score: 82.5,
       latest_band: "high",
       latest_qualified: true,
       created_at: iso(4),
@@ -484,6 +521,11 @@ function createState(): MockState {
       status: "reviewed",
       assigned_to_user_public_id: "usr_manager_1",
       latest_score: 61.5,
+      latest_fit_score: 66,
+      latest_need_score: 82,
+      latest_urgency_score: 58,
+      latest_reachability_score: 60,
+      latest_final_priority_score: 61.5,
       latest_band: "medium",
       latest_qualified: true,
       created_at: iso(5),
@@ -594,6 +636,11 @@ function createState(): MockState {
         lead_id: "lead_acme_1",
         scoring_version_id: scoringVersion.public_id,
         total_score: 82.5,
+        fit_score: 90,
+        need_score: 72,
+        urgency_score: 82,
+        reachability_score: 88,
+        final_priority_score: 82.5,
         band: "high",
         qualified: true,
         breakdown: [
@@ -617,6 +664,11 @@ function createState(): MockState {
         lead_id: "lead_north_1",
         scoring_version_id: scoringVersion.public_id,
         total_score: 61.5,
+        fit_score: 66,
+        need_score: 82,
+        urgency_score: 58,
+        reachability_score: 60,
+        final_priority_score: 61.5,
         band: "medium",
         qualified: true,
         breakdown: [
@@ -815,7 +867,11 @@ function ensureAnalysis(state: MockState, leadId: string) {
   };
 
   state.analysisByLeadId[leadId] = analysis;
-  addAudit(state, "lead.analyzed", `Generated an assistive analysis for lead ${leadId}.`);
+  addAudit(
+    state,
+    "lead.analyzed",
+    `Generated an assistive analysis for lead ${leadId}.`,
+  );
   return analysis;
 }
 
@@ -860,7 +916,10 @@ function ensureOutreach(
 
   const analysis = ensureAnalysis(state, leadId);
   const lead = getLeadOrThrow(state, leadId);
-  const { subject, message } = buildOutreachCopy(lead.company_name, requestedTone);
+  const { subject, message } = buildOutreachCopy(
+    lead.company_name,
+    requestedTone,
+  );
   state.counters.outreach += 1;
   const createdAt = nextTimestamp(state);
   const draft: OutreachDraft = {
@@ -879,7 +938,11 @@ function ensureOutreach(
   };
 
   state.outreachByLeadId[leadId] = draft;
-  addAudit(state, "lead.outreach_generated", `Generated an outreach draft for lead ${leadId}.`);
+  addAudit(
+    state,
+    "lead.outreach_generated",
+    `Generated an outreach draft for lead ${leadId}.`,
+  );
   return draft;
 }
 
@@ -904,7 +967,12 @@ function filterLeads(state: MockState, url: URL) {
         return false;
       }
       if (q) {
-        const haystack = [lead.company_name, lead.city ?? "", lead.website_domain ?? "", lead.address ?? ""]
+        const haystack = [
+          lead.company_name,
+          lead.city ?? "",
+          lead.website_domain ?? "",
+          lead.address ?? "",
+        ]
           .join(" ")
           .toLowerCase();
         if (!haystack.includes(q)) {
@@ -935,10 +1003,18 @@ function filterLeads(state: MockState, url: URL) {
       if (qualified === "false" && lead.latest_qualified !== false) {
         return false;
       }
-      if (ownerUserId && ownerUserId !== "all" && lead.assigned_to_user_public_id !== ownerUserId) {
+      if (
+        ownerUserId &&
+        ownerUserId !== "all" &&
+        lead.assigned_to_user_public_id !== ownerUserId
+      ) {
         return false;
       }
-      if (searchJobId && searchJobId !== "all" && lead.search_job_public_id !== searchJobId) {
+      if (
+        searchJobId &&
+        searchJobId !== "all" &&
+        lead.search_job_public_id !== searchJobId
+      ) {
         return false;
       }
       if (hasWebsite === "true" && !lead.has_website) {
@@ -980,7 +1056,9 @@ async function handleApiRoute(route: Route, state: MockState) {
 
   if (path === "/api/v1/auth/login" && method === "POST") {
     const payload = readJsonBody(route);
-    const email = String(payload.email ?? "").trim().toLowerCase();
+    const email = String(payload.email ?? "")
+      .trim()
+      .toLowerCase();
     const password = String(payload.password ?? "");
     const credentialMap: Record<
       string,
@@ -1016,7 +1094,16 @@ async function handleApiRoute(route: Route, state: MockState) {
     };
     const record = credentialMap[email];
     if (!record || record.password !== password) {
-      await fulfillJson(route, { error: { code: "invalid_credentials", detail: "Invalid email or password." } }, 401);
+      await fulfillJson(
+        route,
+        {
+          error: {
+            code: "invalid_credentials",
+            detail: "Invalid email or password.",
+          },
+        },
+        401,
+      );
       return;
     }
     if (record.status !== "active") {
@@ -1025,7 +1112,8 @@ async function handleApiRoute(route: Route, state: MockState) {
         {
           error: {
             code: "inactive_user",
-            detail: "Your account is inactive. Contact your workspace administrator.",
+            detail:
+              "Your account is inactive. Contact your workspace administrator.",
           },
         },
         403,
@@ -1058,7 +1146,9 @@ async function handleApiRoute(route: Route, state: MockState) {
       full_name: String(payload.full_name ?? "New Owner"),
       email: String(payload.email ?? "owner@prospectiq.dev"),
       workspace_name: String(payload.workspace_name ?? "New Workspace"),
-      workspace_slug: String(payload.workspace_name ?? "new-workspace").toLowerCase().replace(/\s+/g, "-"),
+      workspace_slug: String(payload.workspace_name ?? "new-workspace")
+        .toLowerCase()
+        .replace(/\s+/g, "-"),
       role: "account_owner",
       status: "active",
       permissions: permissionsForRole("account_owner"),
@@ -1072,7 +1162,10 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  if ((path === "/api/v1/me" || path === "/api/v1/auth/me") && method === "GET") {
+  if (
+    (path === "/api/v1/me" || path === "/api/v1/auth/me") &&
+    method === "GET"
+  ) {
     await fulfillJson(route, state.sessionUser);
     return;
   }
@@ -1093,11 +1186,17 @@ async function handleApiRoute(route: Route, state: MockState) {
       created_at: nextTimestamp(state),
     };
     state.users.push(newUser);
-    const teamUsage = state.billing.usage.find((item) => item.metric_key === "max_team_users");
+    const teamUsage = state.billing.usage.find(
+      (item) => item.metric_key === "max_team_users",
+    );
     if (teamUsage) {
       teamUsage.current_value = state.users.length;
     }
-    addAudit(state, "user.created", `Created user ${newUser.public_id} (${newUser.role}).`);
+    addAudit(
+      state,
+      "user.created",
+      `Created user ${newUser.public_id} (${newUser.role}).`,
+    );
     await fulfillJson(route, newUser, 201);
     return;
   }
@@ -1126,7 +1225,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const resetPasswordMatch = path.match(/^\/api\/v1\/users\/([^/]+)\/reset-password$/);
+  const resetPasswordMatch = path.match(
+    /^\/api\/v1\/users\/([^/]+)\/reset-password$/,
+  );
   if (resetPasswordMatch && method === "POST") {
     const userId = resetPasswordMatch[1];
     const target = state.users.find((item) => item.public_id === userId);
@@ -1148,7 +1249,11 @@ async function handleApiRoute(route: Route, state: MockState) {
     const jobId = searchJobByIdMatch[1];
     const job = state.searchJobs.find((item) => item.public_id === jobId);
     if (!job) {
-      await fulfillJson(route, { error: { code: "not_found", detail: "Search job was not found." } }, 404);
+      await fulfillJson(
+        route,
+        { error: { code: "not_found", detail: "Search job was not found." } },
+        404,
+      );
       return;
     }
     await fulfillJson(route, job);
@@ -1170,13 +1275,19 @@ async function handleApiRoute(route: Route, state: MockState) {
       business_type: String(payload.business_type ?? "Unknown"),
       city: String(payload.city ?? "Unknown"),
       region: (payload.region as string | undefined) ?? null,
-      radius_km: typeof payload.radius_km === "number" ? payload.radius_km : null,
+      radius_km:
+        typeof payload.radius_km === "number" ? payload.radius_km : null,
       max_results: Number(payload.max_results ?? 25),
-      min_rating: typeof payload.min_rating === "number" ? payload.min_rating : null,
-      max_rating: typeof payload.max_rating === "number" ? payload.max_rating : null,
-      min_reviews: typeof payload.min_reviews === "number" ? payload.min_reviews : null,
-      max_reviews: typeof payload.max_reviews === "number" ? payload.max_reviews : null,
-      website_preference: (payload.website_preference as WebsitePreference | undefined) ?? "any",
+      min_rating:
+        typeof payload.min_rating === "number" ? payload.min_rating : null,
+      max_rating:
+        typeof payload.max_rating === "number" ? payload.max_rating : null,
+      min_reviews:
+        typeof payload.min_reviews === "number" ? payload.min_reviews : null,
+      max_reviews:
+        typeof payload.max_reviews === "number" ? payload.max_reviews : null,
+      website_preference:
+        (payload.website_preference as WebsitePreference | undefined) ?? "any",
       keyword_filter: (payload.keyword_filter as string | undefined) ?? null,
       status: "queued",
       queued_at: now,
@@ -1297,14 +1408,18 @@ async function handleApiRoute(route: Route, state: MockState) {
           public_id: "inv_mock_1",
           amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
           currency: "USD",
-          status: state.billing.subscription.status === "past_due" ? "past_due" : "open",
+          status:
+            state.billing.subscription.status === "past_due"
+              ? "past_due"
+              : "open",
           issued_at: iso(10),
           due_at: iso(1440),
           paid_at: null,
           items: [
             {
               description: `${state.billing.subscription.plan_name} simulated subscription`,
-              amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
+              amount:
+                state.billing.subscription.plan_code === "growth" ? 149 : 49,
               quantity: 1,
             },
           ],
@@ -1322,11 +1437,18 @@ async function handleApiRoute(route: Route, state: MockState) {
 
   if (path === "/api/v1/billing/subscription/change" && method === "POST") {
     const payload = readJsonBody(route);
-    const plan = state.billing.plans.find((item) => item.code === payload.plan_code) ?? state.billing.plans[0];
+    const plan =
+      state.billing.plans.find((item) => item.code === payload.plan_code) ??
+      state.billing.plans[0];
     state.billing.subscription.plan_code = plan.code;
     state.billing.subscription.plan_name = plan.name;
-    state.billing.subscription.billing_cycle = (payload.billing_cycle as "monthly" | "yearly" | undefined) ?? "monthly";
-    addAudit(state, "billing.subscription_changed", `Changed plan to ${plan.code}.`);
+    state.billing.subscription.billing_cycle =
+      (payload.billing_cycle as "monthly" | "yearly" | undefined) ?? "monthly";
+    addAudit(
+      state,
+      "billing.subscription_changed",
+      `Changed plan to ${plan.code}.`,
+    );
     await fulfillJson(route, state.billing.subscription);
     return;
   }
@@ -1361,7 +1483,10 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  if (path === "/api/v1/billing/invoices/simulate-failure" && method === "POST") {
+  if (
+    path === "/api/v1/billing/invoices/simulate-failure" &&
+    method === "POST"
+  ) {
     state.billing.subscription.status = "past_due";
     addAudit(state, "billing.payment_failed", "Simulated payment failure.");
     await fulfillJson(route, {
@@ -1384,7 +1509,11 @@ async function handleApiRoute(route: Route, state: MockState) {
       ...state.providerSettings,
       ...(payload as Partial<typeof state.providerSettings>),
     };
-    addAudit(state, "admin.provider_settings_updated", "Updated provider defaults.");
+    addAudit(
+      state,
+      "admin.provider_settings_updated",
+      "Updated provider defaults.",
+    );
     await fulfillJson(route, state.providerSettings);
     return;
   }
@@ -1399,7 +1528,10 @@ async function handleApiRoute(route: Route, state: MockState) {
     state.counters.promptTemplates += 1;
     const activate = Boolean(payload.activate ?? true);
     if (activate) {
-      state.promptTemplates = state.promptTemplates.map((item) => ({ ...item, is_active: false }));
+      state.promptTemplates = state.promptTemplates.map((item) => ({
+        ...item,
+        is_active: false,
+      }));
     }
     const template: PromptTemplate = {
       public_id: `pt_mock_${state.counters.promptTemplates}`,
@@ -1410,20 +1542,32 @@ async function handleApiRoute(route: Route, state: MockState) {
       created_by_user_public_id: state.sessionUser.public_id,
     };
     state.promptTemplates.unshift(template);
-    addAudit(state, "admin.prompt_template_created", `Created prompt template ${template.public_id}.`);
+    addAudit(
+      state,
+      "admin.prompt_template_created",
+      `Created prompt template ${template.public_id}.`,
+    );
     await fulfillJson(route, template);
     return;
   }
 
-  const activatePromptTemplateMatch = path.match(/^\/api\/v1\/admin\/prompt-templates\/activate\/([^/]+)$/);
+  const activatePromptTemplateMatch = path.match(
+    /^\/api\/v1\/admin\/prompt-templates\/activate\/([^/]+)$/,
+  );
   if (activatePromptTemplateMatch && method === "POST") {
     const promptTemplateId = activatePromptTemplateMatch[1];
     state.promptTemplates = state.promptTemplates.map((item) => ({
       ...item,
       is_active: item.public_id === promptTemplateId,
     }));
-    const activeTemplate = state.promptTemplates.find((item) => item.public_id === promptTemplateId);
-    addAudit(state, "admin.prompt_template_activated", `Activated prompt template ${promptTemplateId}.`);
+    const activeTemplate = state.promptTemplates.find(
+      (item) => item.public_id === promptTemplateId,
+    );
+    addAudit(
+      state,
+      "admin.prompt_template_activated",
+      `Activated prompt template ${promptTemplateId}.`,
+    );
     await fulfillJson(route, activeTemplate);
     return;
   }
@@ -1444,7 +1588,9 @@ async function handleApiRoute(route: Route, state: MockState) {
       openai_fallback_configured: true,
       demo_fallbacks_enabled: false,
       runtime_warnings: [],
-      failed_jobs_last_7_days: state.searchJobs.filter((job) => job.status === "failed").length,
+      failed_jobs_last_7_days: state.searchJobs.filter(
+        (job) => job.status === "failed",
+      ).length,
       provider_failures_last_7_days: state.searchJobs.reduce(
         (count, job) => count + (job.provider_error_count > 0 ? 1 : 0),
         0,
@@ -1503,12 +1649,18 @@ async function handleApiRoute(route: Route, state: MockState) {
       created_by_user_public_id: state.sessionUser.public_id,
     };
     state.scoringVersions.unshift(version);
-    addAudit(state, "admin.scoring_version_created", `Created scoring version ${version.public_id}.`);
+    addAudit(
+      state,
+      "admin.scoring_version_created",
+      `Created scoring version ${version.public_id}.`,
+    );
     await fulfillJson(route, version);
     return;
   }
 
-  const activateScoringMatch = path.match(/^\/api\/v1\/admin\/scoring-config\/activate\/([^/]+)$/);
+  const activateScoringMatch = path.match(
+    /^\/api\/v1\/admin\/scoring-config\/activate\/([^/]+)$/,
+  );
   if (activateScoringMatch && method === "POST") {
     state.activeScoringVersionId = activateScoringMatch[1];
     addAudit(
@@ -1528,7 +1680,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const analysisLatestMatch = path.match(/^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/latest$/);
+  const analysisLatestMatch = path.match(
+    /^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/latest$/,
+  );
   if (analysisLatestMatch && method === "GET") {
     const leadId = analysisLatestMatch[1];
     await fulfillJson(route, {
@@ -1538,14 +1692,18 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const analysisGenerateMatch = path.match(/^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/generate$/);
+  const analysisGenerateMatch = path.match(
+    /^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/generate$/,
+  );
   if (analysisGenerateMatch && method === "POST") {
     const leadId = analysisGenerateMatch[1];
     await fulfillJson(route, ensureAnalysis(state, leadId));
     return;
   }
 
-  const outreachLatestMatch = path.match(/^\/api\/v1\/outreach\/leads\/([^/]+)\/latest$/);
+  const outreachLatestMatch = path.match(
+    /^\/api\/v1\/outreach\/leads\/([^/]+)\/latest$/,
+  );
   if (outreachLatestMatch && method === "GET") {
     const leadId = outreachLatestMatch[1];
     await fulfillJson(route, {
@@ -1555,33 +1713,49 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const outreachGenerateMatch = path.match(/^\/api\/v1\/outreach\/leads\/([^/]+)\/generate$/);
+  const outreachGenerateMatch = path.match(
+    /^\/api\/v1\/outreach\/leads\/([^/]+)\/generate$/,
+  );
   if (outreachGenerateMatch && method === "POST") {
     const leadId = outreachGenerateMatch[1];
     const payload = readJsonBody(route);
-    await fulfillJson(route, ensureOutreach(state, leadId, {
-      tone: payload.tone as OutreachTone | undefined,
-      regenerate: Boolean(payload.regenerate),
-    }));
+    await fulfillJson(
+      route,
+      ensureOutreach(state, leadId, {
+        tone: payload.tone as OutreachTone | undefined,
+        regenerate: Boolean(payload.regenerate),
+      }),
+    );
     return;
   }
 
-  const outreachUpdateMatch = path.match(/^\/api\/v1\/outreach\/messages\/([^/]+)$/);
+  const outreachUpdateMatch = path.match(
+    /^\/api\/v1\/outreach\/messages\/([^/]+)$/,
+  );
   if (outreachUpdateMatch && method === "PATCH") {
     const payload = readJsonBody(route);
     const messageId = outreachUpdateMatch[1];
     const message = Object.values(state.outreachByLeadId).find(
-      (item): item is OutreachDraft => Boolean(item && item.public_id === messageId),
+      (item): item is OutreachDraft =>
+        Boolean(item && item.public_id === messageId),
     );
     if (!message) {
-      await fulfillJson(route, { error: { detail: "Message not found." } }, 404);
+      await fulfillJson(
+        route,
+        { error: { detail: "Message not found." } },
+        404,
+      );
       return;
     }
     message.subject = String(payload.subject ?? message.subject);
     message.message = String(payload.message ?? message.message);
     message.has_manual_edits = true;
     message.updated_at = nextTimestamp(state);
-    addAudit(state, "lead.outreach_updated", `Updated outreach draft ${message.public_id}.`);
+    addAudit(
+      state,
+      "lead.outreach_updated",
+      `Updated outreach draft ${message.public_id}.`,
+    );
     await fulfillJson(route, message);
     return;
   }
@@ -1619,7 +1793,10 @@ async function handleApiRoute(route: Route, state: MockState) {
       to_status: null,
       note: String(payload.note ?? ""),
     };
-    state.activityByLeadId[leadId] = [entry, ...(state.activityByLeadId[leadId] ?? [])];
+    state.activityByLeadId[leadId] = [
+      entry,
+      ...(state.activityByLeadId[leadId] ?? []),
+    ];
     addAudit(state, "lead.note_added", `Added a note to lead ${leadId}.`);
     await fulfillJson(route, {
       public_id: entry.entry_id,
@@ -1631,7 +1808,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const leadOutreachMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/outreach\/generate$/);
+  const leadOutreachMatch = path.match(
+    /^\/api\/v1\/leads\/([^/]+)\/outreach\/generate$/,
+  );
   if (leadOutreachMatch && method === "POST") {
     const leadId = leadOutreachMatch[1];
     const payload = readJsonBody(route);
@@ -1668,9 +1847,14 @@ async function handleApiRoute(route: Route, state: MockState) {
       to_status: lead.status,
       note: null,
     };
-    state.activityByLeadId[leadId] = [historyEntry, ...(state.activityByLeadId[leadId] ?? [])];
+    state.activityByLeadId[leadId] = [
+      historyEntry,
+      ...(state.activityByLeadId[leadId] ?? []),
+    ];
     const noteText =
-      typeof payload.note === "string" && payload.note.trim().length > 0 ? payload.note : null;
+      typeof payload.note === "string" && payload.note.trim().length > 0
+        ? payload.note
+        : null;
     if (noteText) {
       state.counters.notes += 1;
       state.activityByLeadId[leadId].unshift({
@@ -1684,7 +1868,11 @@ async function handleApiRoute(route: Route, state: MockState) {
         note: noteText,
       });
     }
-    addAudit(state, "lead.status_updated", `Updated lead ${leadId} status to ${lead.status}.`);
+    addAudit(
+      state,
+      "lead.status_updated",
+      `Updated lead ${leadId} status to ${lead.status}.`,
+    );
     await fulfillJson(route, serializeLead(lead));
     return;
   }
@@ -1713,7 +1901,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const leadScoreBreakdownMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/score-breakdown$/);
+  const leadScoreBreakdownMatch = path.match(
+    /^\/api\/v1\/leads\/([^/]+)\/score-breakdown$/,
+  );
   if (leadScoreBreakdownMatch && method === "GET") {
     const leadId = leadScoreBreakdownMatch[1];
     await fulfillJson(route, state.scoreBreakdownsByLeadId[leadId]);
@@ -1724,10 +1914,18 @@ async function handleApiRoute(route: Route, state: MockState) {
   if (leadRefreshMatch && method === "POST") {
     const leadId = leadRefreshMatch[1];
     const lead = getLeadOrThrow(state, leadId);
-    lead.data_confidence = Number(Math.min(0.99, lead.data_confidence + 0.05).toFixed(2));
-    lead.data_completeness = Number(Math.min(0.99, lead.data_completeness + 0.03).toFixed(2));
+    lead.data_confidence = Number(
+      Math.min(0.99, lead.data_confidence + 0.05).toFixed(2),
+    );
+    lead.data_completeness = Number(
+      Math.min(0.99, lead.data_completeness + 0.03).toFixed(2),
+    );
     lead.updated_at = nextTimestamp(state);
-    addAudit(state, "lead.refreshed", `Refreshed provider evidence for lead ${leadId}.`);
+    addAudit(
+      state,
+      "lead.refreshed",
+      `Refreshed provider evidence for lead ${leadId}.`,
+    );
     await fulfillJson(route, serializeLead(lead));
     return;
   }
@@ -1759,23 +1957,32 @@ export async function installMockApi(page: Page) {
 
   // Mock OpenStreetMap tile requests
   // Matches: https://a.tile.openstreetmap.org/z/x/y.png, etc.
-  await page.route(/https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i, async (route) => {
-    await route.fulfill({ 
-      status: 200,
-      contentType: "image/png",
-      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
-    });
-  });
+  await page.route(
+    /https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      });
+    },
+  );
 
   // Also catch any other tile requests (other providers, etc.)
   await page.route("**/*.png", async (route) => {
     const url = route.request().url();
     // Only mock tile URLs that look like they're trying to fetch map tiles
     if (url.includes("tile") || url.includes("map")) {
-      await route.fulfill({ 
+      await route.fulfill({
         status: 200,
         contentType: "image/png",
-        body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64",
+        ),
       });
     } else {
       await route.continue();

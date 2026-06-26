@@ -24,7 +24,9 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
 
 
 @router.post("/signup", response_model=TokenResponse)
-def signup(request: Request, payload: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def signup(
+    request: Request, payload: SignupRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
     check_rate_limit(request, scope="auth:signup", limit=5, window_seconds=60)
     return AuthService().signup(db, payload)
 

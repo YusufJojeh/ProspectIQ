@@ -4,7 +4,20 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.admin.schemas import (
     ActiveScoringConfigResponse,
+    AdminActionResponse,
+    AdminAIUsageResponse,
+    AdminFeatureHealthResponse,
+    AdminInvoiceListResponse,
+    AdminPlanListResponse,
+    AdminProvidersResponse,
+    AdminSearchJobListResponse,
+    AdminSubscriptionListResponse,
+    AdminUsageListResponse,
+    AdminUserListResponse,
+    AdminWorkspaceDetailResponse,
+    AdminWorkspaceListResponse,
     OperationalHealthResponse,
+    PlatformAdminOverviewResponse,
     PromptTemplateCreateRequest,
     PromptTemplateListResponse,
     PromptTemplateResponse,
@@ -22,10 +35,167 @@ from app.modules.admin.schemas import (
 from app.modules.admin.service import AdminService
 from app.modules.ai_analysis.schemas import LeadAnalysisSnapshotResponse
 from app.modules.ai_analysis.service import AIAnalysisService
-from app.modules.auth.policies import get_current_workspace_id, require_role
+from app.modules.auth.policies import (
+    get_current_workspace_id,
+    require_platform_admin,
+    require_role,
+)
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+@router.get("/overview", response_model=PlatformAdminOverviewResponse)
+def get_platform_overview(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> PlatformAdminOverviewResponse:
+    return AdminService().get_platform_overview(db)
+
+
+@router.get("/workspaces", response_model=AdminWorkspaceListResponse)
+def list_platform_workspaces(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminWorkspaceListResponse:
+    return AdminService().list_platform_workspaces(db)
+
+
+@router.get("/workspaces/{workspace_id}", response_model=AdminWorkspaceDetailResponse)
+def get_platform_workspace(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminWorkspaceDetailResponse:
+    return AdminService().get_platform_workspace_detail(db, workspace_public_id=workspace_id)
+
+
+@router.post("/workspaces/{workspace_id}/disable", response_model=AdminActionResponse)
+def disable_platform_workspace(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+) -> AdminActionResponse:
+    return AdminService().set_workspace_enabled(
+        db,
+        workspace_public_id=workspace_id,
+        enabled=False,
+        actor=current_user,
+    )
+
+
+@router.post("/workspaces/{workspace_id}/enable", response_model=AdminActionResponse)
+def enable_platform_workspace(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+) -> AdminActionResponse:
+    return AdminService().set_workspace_enabled(
+        db,
+        workspace_public_id=workspace_id,
+        enabled=True,
+        actor=current_user,
+    )
+
+
+@router.get("/users", response_model=AdminUserListResponse)
+def list_platform_users(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminUserListResponse:
+    return AdminService().list_platform_users(db)
+
+
+@router.post("/users/{user_id}/disable", response_model=AdminActionResponse)
+def disable_platform_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+) -> AdminActionResponse:
+    return AdminService().set_user_enabled(
+        db,
+        user_public_id=user_id,
+        enabled=False,
+        actor=current_user,
+    )
+
+
+@router.post("/users/{user_id}/enable", response_model=AdminActionResponse)
+def enable_platform_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+) -> AdminActionResponse:
+    return AdminService().set_user_enabled(
+        db,
+        user_public_id=user_id,
+        enabled=True,
+        actor=current_user,
+    )
+
+
+@router.get("/plans", response_model=AdminPlanListResponse)
+def list_platform_plans(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminPlanListResponse:
+    return AdminService().list_platform_plans(db)
+
+
+@router.get("/subscriptions", response_model=AdminSubscriptionListResponse)
+def list_platform_subscriptions(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminSubscriptionListResponse:
+    return AdminService().list_platform_subscriptions(db)
+
+
+@router.get("/invoices", response_model=AdminInvoiceListResponse)
+def list_platform_invoices(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminInvoiceListResponse:
+    return AdminService().list_platform_invoices(db)
+
+
+@router.get("/usage", response_model=AdminUsageListResponse)
+def list_platform_usage(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminUsageListResponse:
+    return AdminService().list_platform_usage(db)
+
+
+@router.get("/providers", response_model=AdminProvidersResponse)
+def get_platform_providers(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminProvidersResponse:
+    return AdminService().get_platform_providers(db)
+
+
+@router.get("/search-jobs", response_model=AdminSearchJobListResponse)
+def list_platform_search_jobs(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminSearchJobListResponse:
+    return AdminService().list_platform_search_jobs(db)
+
+
+@router.get("/ai-usage", response_model=AdminAIUsageResponse)
+def get_platform_ai_usage(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminAIUsageResponse:
+    return AdminService().get_platform_ai_usage(db)
+
+
+@router.get("/feature-health", response_model=AdminFeatureHealthResponse)
+def get_platform_feature_health(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_platform_admin),
+) -> AdminFeatureHealthResponse:
+    return AdminService().get_platform_feature_health(db)
 
 
 @router.get("/scoring-config/active", response_model=ActiveScoringConfigResponse)
@@ -207,9 +377,7 @@ def delete_catalog_item(
     )
 
 
-@router.post(
-    "/prompt-templates/{template_id}/test", response_model=LeadAnalysisSnapshotResponse
-)
+@router.post("/prompt-templates/{template_id}/test", response_model=LeadAnalysisSnapshotResponse)
 def test_prompt_template(
     template_id: str,
     payload: PromptTemplateTestRequest,

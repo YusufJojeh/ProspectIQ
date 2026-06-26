@@ -11,6 +11,8 @@ def _weights() -> ScoringWeights:
         search_visibility=0.2,
         opportunity=0.2,
         data_confidence=0.15,
+        review_score=0.0,
+        news_presence=0.0,
     )
 
 

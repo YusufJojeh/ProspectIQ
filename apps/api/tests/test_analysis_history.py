@@ -62,7 +62,7 @@ def test_history_endpoint_returns_snapshot_after_analysis(monkeypatch) -> None:
     assert items[0]["analysis"]["summary"]
 
 
-def test_history_deduplication_returns_one_snapshot_for_same_facts(monkeypatch) -> None:
+def test_generate_endpoint_creates_fresh_snapshot_for_same_facts(monkeypatch) -> None:
     session_factory = _build_session_factory()
     seed = _seed_workspace(session_factory)
     monkeypatch.setattr(
@@ -94,7 +94,8 @@ def test_history_deduplication_returns_one_snapshot_for_same_facts(monkeypatch) 
         )
 
     items = history_response.json()["items"]
-    assert len(items) == 1
+    assert len(items) == 2
+    assert items[0]["public_id"] != items[1]["public_id"]
 
 
 def test_history_endpoint_returns_404_for_unknown_lead() -> None:

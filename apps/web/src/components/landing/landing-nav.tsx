@@ -16,7 +16,9 @@ type LandingLink = { label: string; href: string };
 
 export function LandingNav() {
   const { t } = useTranslation();
-  const links = t("landing.nav.links", { returnObjects: true }) as LandingLink[];
+  const links = t("landing.nav.links", {
+    returnObjects: true,
+  }) as LandingLink[];
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -26,10 +28,16 @@ export function LandingNav() {
   });
 
   useEffect(() => {
-    const pageRegions = [document.querySelector("main"), document.querySelector("footer")].filter(Boolean) as HTMLElement[];
+    const pageRegions = [
+      document.querySelector("main"),
+      document.querySelector("footer"),
+    ].filter(Boolean) as HTMLElement[];
     if (open) {
-      pageRegions.forEach((region) => region.setAttribute("aria-hidden", "true"));
-      return () => pageRegions.forEach((region) => region.removeAttribute("aria-hidden"));
+      pageRegions.forEach((region) =>
+        region.setAttribute("aria-hidden", "true"),
+      );
+      return () =>
+        pageRegions.forEach((region) => region.removeAttribute("aria-hidden"));
     }
     pageRegions.forEach((region) => region.removeAttribute("aria-hidden"));
   }, [open]);
@@ -68,12 +76,22 @@ export function LandingNav() {
         <div className="hidden items-center gap-0.5 md:flex lg:gap-1">
           <LanguageSwitcher />
           <ThemeSwitcher />
-          <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[12px] font-medium lg:px-3 lg:text-[13px]">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-[12px] font-medium lg:px-3 lg:text-[13px]"
+          >
             <Link to={appPaths.login}>{t("landing.nav.signIn")}</Link>
           </Button>
-          <Button asChild size="sm" className="h-8 gap-1 px-2 text-[12px] font-medium lg:px-3 lg:text-[13px]">
+          <Button
+            asChild
+            size="sm"
+            className="h-8 gap-1 px-2 text-[12px] font-medium lg:px-3 lg:text-[13px]"
+          >
             <Link to={appPaths.signUp}>
-              {t("landing.nav.requestAccess")} <ArrowRight className="size-3.5" />
+              {t("landing.nav.requestAccess")}{" "}
+              <ArrowRight className="size-3.5" />
             </Link>
           </Button>
         </div>
@@ -118,11 +136,18 @@ export function LandingNav() {
               <ThemeSwitcher />
             </div>
             <div className="flex gap-2">
-              <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="flex-1 bg-transparent"
+              >
                 <Link to={appPaths.login}>{t("landing.nav.signIn")}</Link>
               </Button>
               <Button asChild size="sm" className="flex-1">
-                <Link to={appPaths.signUp}>{t("landing.nav.requestAccess")}</Link>
+                <Link to={appPaths.signUp}>
+                  {t("landing.nav.requestAccess")}
+                </Link>
               </Button>
             </div>
           </div>

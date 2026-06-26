@@ -11,7 +11,12 @@ interface AnimatedGridProps {
  */
 export function AnimatedGrid({ className }: AnimatedGridProps) {
   return (
-    <div className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}>
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-0 overflow-hidden",
+        className,
+      )}
+    >
       {/* Dot grid */}
       <div className="absolute inset-0 animated-dot-grid opacity-[0.35]" />
 

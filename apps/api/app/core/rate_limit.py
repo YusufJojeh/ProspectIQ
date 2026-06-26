@@ -27,7 +27,11 @@ _enabled: bool = True
 
 def _client_key(request: Request, scope: str) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    ip = (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
     return f"{scope}:{ip}"
 
 

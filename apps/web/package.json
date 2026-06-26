@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "dev:e2e": "vite --host 127.0.0.1 --port 4173",
     "preview:e2e": "vite preview --host 127.0.0.1 --port 4173",
     "build": "npx tsc -b && vite build",

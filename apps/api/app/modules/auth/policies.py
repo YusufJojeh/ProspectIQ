@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.security import decode_access_token
-from app.modules.auth.exceptions import InactiveUserError
+from app.modules.auth.exceptions import InactiveUserError, InactiveWorkspaceError
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import AuthTokenClaims
 from app.modules.users.models import User
@@ -38,6 +38,8 @@ def get_current_user(
         raise UnauthorizedError("Token workspace mismatch.")
     if user.status != "active":
         raise InactiveUserError()
+    if user.workspace.status != "active":
+        raise InactiveWorkspaceError()
     return user
 
 
@@ -54,3 +56,18 @@ def require_role(*allowed: str) -> Callable[[User], User]:
         return user
 
     return dep
+
+
+PLATFORM_ADMIN_ROLE = "platform_admin"
+
+
+def require_platform_admin(user: User = Depends(get_current_user)) -> User:
+    """Server-side gate for platform-level (SaaS operator) endpoints.
+
+    Only users carrying the dedicated ``platform_admin`` role may pass. Workspace
+    owners, admins, managers, and members are all rejected, regardless of any
+    frontend state.
+    """
+    if user.role != PLATFORM_ADMIN_ROLE:
+        raise ForbiddenError("Platform administrator access is required.")
+    return user

@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ApiError(Exception):
     """Base exception for API errors. Always includes a stable error code."""
+
     status_code = 400
     code = ErrorCodes.INTERNAL_SERVER_ERROR
 
@@ -65,11 +66,11 @@ def build_error_response(
 
 
 def _make_json_safe(value: Any) -> Any:
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, dict):
         return {str(key): _make_json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         return [_make_json_safe(item) for item in value]
     return str(value)
 
@@ -121,17 +122,16 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> Response:
 def register_exception_handlers(app: FastAPI) -> None:
     from starlette.responses import Response as StarletteResponse
 
+    from app.core.rate_limit import RateLimitExceededError
+
     async def rate_limit_handler(_: Request, exc: Exception) -> StarletteResponse:
-        from app.core.rate_limit import RateLimitExceededError as _RLE
-        rle = cast(_RLE, exc)
+        rle = cast(RateLimitExceededError, exc)
         resp = build_error_response(status_code=429, code=rle.code, detail=rle.detail)
         resp.headers["Retry-After"] = "60"
         return resp
 
-    from app.core.rate_limit import RateLimitExceededError
     app.add_exception_handler(RateLimitExceededError, rate_limit_handler)
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_error_handler)
     app.add_exception_handler(Exception, unhandled_error_handler)
-

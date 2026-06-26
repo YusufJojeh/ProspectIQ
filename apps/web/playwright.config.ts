@@ -2,7 +2,8 @@ import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4173";
-const artifactRoot = process.env.PLAYWRIGHT_ARTIFACT_ROOT ?? "test-artifacts/playwright";
+const artifactRoot =
+  process.env.PLAYWRIGHT_ARTIFACT_ROOT ?? "test-artifacts/playwright";
 const authStatePath = path.resolve(process.cwd(), "tests/e2e/.auth/admin.json");
 const configuredGlobalTimeout = process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS
   ? Number(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS)

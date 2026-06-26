@@ -1,8 +1,21 @@
-export type UserRole = "account_owner" | "admin" | "manager" | "member";
+export type UserRole =
+  | "platform_admin"
+  | "account_owner"
+  | "admin"
+  | "manager"
+  | "member";
 export type UserStatus = "active" | "inactive" | "pending";
 export type WebsitePreference = "any" | "must_have" | "must_be_missing";
-export type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
-export type LeadSortOption = "newest" | "score_desc" | "reviews_desc" | "rating_desc";
+export type OutreachTone =
+  | "formal"
+  | "friendly"
+  | "consultative"
+  | "short_pitch";
+export type LeadSortOption =
+  | "newest"
+  | "score_desc"
+  | "reviews_desc"
+  | "rating_desc";
 
 export type SearchJobStatus =
   | "queued"
@@ -21,7 +34,16 @@ export type LeadStatus =
   | "lost"
   | "archived";
 
-export type LeadScoreBand = "high" | "medium" | "low" | "not_qualified";
+export type LeadScoreBand =
+  | "high"
+  | "medium"
+  | "low"
+  | "not_qualified"
+  | "hot_lead"
+  | "warm_lead"
+  | "research_more"
+  | "low_priority"
+  | "do_not_contact";
 
 export interface PaginationMeta {
   page: number;
@@ -118,12 +140,28 @@ export interface LeadResponse {
   data_completeness: number;
   data_confidence: number;
   has_website: boolean;
+  email: string | null;
+  email_confidence: number | null;
+  linkedin_url: string | null;
+  industry: string | null;
+  employee_count: number | null;
+  ai_opener: string | null;
+  logo_url: string | null;
   status: LeadStatus;
   assigned_to_user_public_id: string | null;
   latest_score: number | null;
+  latest_fit_score: number | null;
+  latest_need_score: number | null;
+  latest_urgency_score: number | null;
+  latest_reachability_score: number | null;
+  latest_final_priority_score: number | null;
   latest_band: LeadScoreBand | null;
   latest_qualified: boolean | null;
   latest_outreach_status: string | null;
+  top_signal_type: string | null;
+  top_signal_strength: number | null;
+  top_signal_evidence: string | null;
+  signals_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -176,9 +214,90 @@ export interface LeadScoreBreakdownResponse {
   lead_id: string;
   scoring_version_id: string;
   total_score: number;
+  fit_score: number | null;
+  need_score: number | null;
+  urgency_score: number | null;
+  reachability_score: number | null;
+  final_priority_score: number | null;
   band: LeadScoreBand;
   qualified: boolean;
   breakdown: ScoreBreakdownItem[];
+}
+
+export interface LeadSignalResponse {
+  public_id: string;
+  signal_type: string;
+  signal_strength: number;
+  evidence_text: string;
+  source_url: string | null;
+  detected_at: string;
+}
+
+export interface LeadSignalScoreResponse {
+  signal_type: string;
+  score: number;
+  confidence: number;
+  evidence_count: number;
+  calculated_at: string;
+}
+
+export interface LeadSignalsResponse {
+  lead_id: string;
+  items: LeadSignalResponse[];
+  scores: LeadSignalScoreResponse[];
+}
+
+export interface IcpProfileResponse {
+  public_id: string;
+  name: string;
+  description: string | null;
+  target_industries: string[];
+  target_cities: string[];
+  min_rating: number | null;
+  max_rating: number | null;
+  min_reviews: number | null;
+  max_reviews: number | null;
+  website_preference: WebsitePreference;
+  required_signals: string[];
+  excluded_keywords: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IcpProfileListResponse {
+  items: IcpProfileResponse[];
+}
+
+export interface IcpProfileCreateRequest {
+  name: string;
+  description?: string | null;
+  target_industries?: string[];
+  target_cities?: string[];
+  min_rating?: number | null;
+  max_rating?: number | null;
+  min_reviews?: number | null;
+  max_reviews?: number | null;
+  website_preference?: WebsitePreference;
+  required_signals?: string[];
+  excluded_keywords?: string[];
+  is_active?: boolean;
+}
+
+export type IcpProfileUpdateRequest = Partial<IcpProfileCreateRequest>;
+
+export interface LeadIcpMatchResponse {
+  public_id: string;
+  lead_id: string;
+  icp_profile_id: string;
+  fit_score: number;
+  matched: boolean;
+  match_reasons: Record<string, unknown>;
+  calculated_at: string;
+}
+
+export interface LeadIcpMatchListResponse {
+  items: LeadIcpMatchResponse[];
 }
 
 export interface LeadAnalysisResult {
@@ -189,6 +308,42 @@ export interface LeadAnalysisResult {
   outreach_subject: string;
   outreach_message: string;
   confidence: number;
+  recommended_tone?: string | null;
+  pain_points?: string[];
+  opportunity_reason?: string | null;
+  outreach_angle?: string | null;
+  risks_or_uncertainties?: string[];
+  evidence_used?: string[];
+}
+
+export interface AIEvidenceItem {
+  public_id: string;
+  source_type: string;
+  source_url: string | null;
+  evidence_text: string;
+  confidence: number;
+  created_at: string;
+}
+
+export interface LeadAiEvidenceResponse {
+  lead_id: string;
+  snapshot_public_id: string | null;
+  items: AIEvidenceItem[];
+}
+
+export type AIFeedbackRating = "useful" | "not_useful";
+
+export interface AIFeedbackRequest {
+  rating: AIFeedbackRating;
+  correction_text?: string | null;
+}
+
+export interface AIFeedbackResponse {
+  public_id: string;
+  snapshot_public_id: string;
+  rating: string;
+  correction_text: string | null;
+  created_at: string;
 }
 
 export interface ServiceRecommendationResponse {
@@ -561,4 +716,243 @@ export interface AuditLogResponse {
 
 export interface AuditLogListResponse {
   items: AuditLogResponse[];
+}
+
+export interface AdminUsageMetricResponse {
+  metric_key: string;
+  current_value: number;
+}
+
+export interface PlatformAdminOverviewResponse {
+  total_workspaces: number;
+  active_workspaces: number;
+  disabled_workspaces: number;
+  total_users: number;
+  active_users: number;
+  total_leads: number;
+  total_search_jobs: number;
+  failed_search_jobs: number;
+  total_ai_analyses: number;
+  total_evidence_rows: number;
+  total_icp_profiles: number;
+  total_signals: number;
+  monthly_recurring_revenue: number;
+  unpaid_invoices_count: number;
+  provider_error_count: number;
+  usage_by_metric: AdminUsageMetricResponse[];
+}
+
+export interface AdminWorkspaceSummaryResponse {
+  public_id: string;
+  name: string;
+  slug: string;
+  status: string;
+  owner_public_id: string | null;
+  owner_email: string | null;
+  users_count: number;
+  leads_count: number;
+  plan_code: string | null;
+  subscription_status: string | null;
+  created_at: string;
+}
+
+export interface AdminWorkspaceListResponse {
+  items: AdminWorkspaceSummaryResponse[];
+}
+
+export interface AdminUserSummaryResponse {
+  public_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  status: string;
+  workspace_public_id: string;
+  workspace_name: string;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface AdminUserListResponse {
+  items: AdminUserSummaryResponse[];
+}
+
+export interface AdminSubscriptionResponse {
+  public_id: string;
+  workspace_public_id: string;
+  workspace_name: string;
+  plan_code: string;
+  plan_name: string;
+  status: string;
+  billing_cycle: string;
+  started_at: string;
+  renews_at: string | null;
+  ends_at: string | null;
+}
+
+export interface AdminInvoiceResponse {
+  public_id: string;
+  workspace_public_id: string;
+  workspace_name: string;
+  amount: number;
+  currency: string;
+  status: string;
+  issued_at: string;
+  due_at: string | null;
+  paid_at: string | null;
+  items: InvoiceItemResponse[];
+  payment_attempts: PaymentAttemptResponse[];
+}
+
+export interface AdminUsageCounterResponse {
+  workspace_public_id: string;
+  workspace_name: string;
+  metric_key: string;
+  current_value: number;
+  period_start: string;
+  period_end: string;
+}
+
+export interface AdminSearchJobResponse {
+  public_id: string;
+  workspace_public_id: string;
+  workspace_name: string;
+  business_type: string;
+  city: string;
+  status: SearchJobStatus;
+  queued_at: string;
+  finished_at: string | null;
+  candidates_found: number;
+  leads_upserted: number;
+  provider_error_count: number;
+}
+
+export interface AdminAuditLogResponse {
+  public_id: string;
+  actor_user_public_id: string | null;
+  event_name: string;
+  details: string;
+  created_at: string;
+}
+
+export interface AdminWorkspaceDetailResponse {
+  workspace: AdminWorkspaceSummaryResponse;
+  owner: AdminUserSummaryResponse | null;
+  users: AdminUserSummaryResponse[];
+  users_count: number;
+  leads_count: number;
+  searches_count: number;
+  icp_profiles_count: number;
+  signals_count: number;
+  scoring_versions_count: number;
+  lead_scores_count: number;
+  ai_analyses_count: number;
+  ai_evidence_count: number;
+  ai_feedback_count: number;
+  subscription: AdminSubscriptionResponse | null;
+  invoices: AdminInvoiceResponse[];
+  usage_counters: AdminUsageCounterResponse[];
+  recent_jobs: AdminSearchJobResponse[];
+  recent_provider_errors: AdminProviderFetchResponse[];
+  recent_audit_logs: AdminAuditLogResponse[];
+}
+
+export interface AdminActionResponse {
+  status: string;
+}
+
+export interface AdminPlanListResponse {
+  items: PlanResponse[];
+}
+
+export interface AdminSubscriptionListResponse {
+  items: AdminSubscriptionResponse[];
+}
+
+export interface AdminInvoiceListResponse {
+  items: AdminInvoiceResponse[];
+}
+
+export interface AdminUsageListResponse {
+  items: AdminUsageCounterResponse[];
+  quota_override_supported: boolean;
+  quota_override_todo: string;
+}
+
+export interface AdminProviderSettingResponse {
+  workspace_public_id: string;
+  workspace_name: string;
+  hl: string;
+  gl: string;
+  google_domain: string;
+  enrich_top_n: number;
+}
+
+export interface AdminProviderFetchResponse {
+  public_id: string;
+  workspace_public_id: string;
+  workspace_name: string;
+  provider: string;
+  engine: string;
+  mode: string;
+  status: string;
+  http_status: number | null;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface AdminProvidersResponse {
+  settings: AdminProviderSettingResponse[];
+  recent_fetches: AdminProviderFetchResponse[];
+  recent_errors: AdminProviderFetchResponse[];
+  success_count: number;
+  failure_count: number;
+}
+
+export interface AdminSearchJobListResponse {
+  items: AdminSearchJobResponse[];
+}
+
+export interface AdminAIFeedbackSummaryResponse {
+  rating: string;
+  count: number;
+}
+
+export interface AdminAIFeedbackResponse {
+  public_id: string;
+  workspace_public_id: string;
+  rating: string;
+  correction_text: string | null;
+  created_at: string;
+}
+
+export interface AdminFlaggedAnalysisResponse {
+  public_id: string;
+  workspace_public_id: string;
+  workspace_name: string;
+  lead_public_id: string;
+  lead_name: string;
+  confidence: number;
+  risks_or_uncertainties: string[];
+  created_at: string;
+}
+
+export interface AdminAIUsageResponse {
+  analyses_count: number;
+  evidence_rows_count: number;
+  feedback_counts: AdminAIFeedbackSummaryResponse[];
+  latest_feedback: AdminAIFeedbackResponse[];
+  flagged_analyses: AdminFlaggedAnalysisResponse[];
+}
+
+export interface AdminFeatureHealthResponse {
+  icp_profiles_count: number;
+  lead_signals_count: number;
+  scoring_versions_count: number;
+  lead_scores_count: number;
+  ai_evidence_count: number;
+  ai_feedback_count: number;
+  top_signal_types: AdminUsageMetricResponse[];
+  priority_band_distribution: AdminUsageMetricResponse[];
+  failed_jobs: AdminSearchJobResponse[];
 }

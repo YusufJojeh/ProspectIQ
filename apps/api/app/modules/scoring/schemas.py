@@ -55,6 +55,11 @@ class ScoringThresholds(BaseModel):
 
 class LeadScoreResult(BaseModel):
     total_score: float
+    fit_score: float | None = None
+    need_score: float | None = None
+    urgency_score: float | None = None
+    reachability_score: float | None = None
+    final_priority_score: float | None = None
     band: LeadScoreBand
     qualified: bool
     breakdown: list[ScoreBreakdownItem]

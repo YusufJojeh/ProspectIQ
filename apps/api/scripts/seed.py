@@ -12,6 +12,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -21,9 +22,17 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.modules.admin.models import SystemSetting
-from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
+from app.modules.ai_analysis.evidence_builder import EvidenceBuilder
+from app.modules.ai_analysis.models import (
+    AIAnalysisEvidence,
+    AIAnalysisSnapshot,
+    PromptTemplate,
+    ServiceRecommendation,
+)
 from app.modules.ai_analysis.schemas import LeadAnalysisResult
 from app.modules.audit_logs.models import AuditLog
+from app.modules.icp.models import IcpProfile, LeadIcpMatch
+from app.modules.icp.service import LeadIcpMatcherService
 from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
 from app.modules.outreach.models import OutreachMessage
 from app.modules.provider_serpapi.models import (
@@ -41,6 +50,8 @@ from app.modules.scoring.models import (
     WorkspaceScoringActive,
 )
 from app.modules.search_jobs.models import SearchJob, SearchRequest
+from app.modules.signals.models import LeadSignal, LeadSignalScore
+from app.modules.signals.service import LeadSignalDetectorService
 from app.modules.users.models import User
 from app.modules.users.service import seed_default_workspace_and_admin
 from app.shared.enums.jobs import (
@@ -240,11 +251,41 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             score_band=LeadScoreBand.MEDIUM.value,
             score_qualified=True,
             score_breakdown=[
-                ("local_trust", "Local trust", 0.25, 19.0, "Solid reviews, though not top-tier volume."),
-                ("website_presence", "Website presence", 0.25, 18.0, "Official site exists and matches the brand."),
-                ("search_visibility", "Search visibility", 0.20, 14.0, "Some visibility signals are present but not dominant."),
-                ("opportunity", "Commercial opportunity", 0.20, 14.0, "Room to grow around implant and cosmetic treatment positioning."),
-                ("data_confidence", "Data confidence", 0.10, 7.0, "Evidence is good, but some fields are thinner than the top leads."),
+                (
+                    "local_trust",
+                    "Local trust",
+                    0.25,
+                    19.0,
+                    "Solid reviews, though not top-tier volume.",
+                ),
+                (
+                    "website_presence",
+                    "Website presence",
+                    0.25,
+                    18.0,
+                    "Official site exists and matches the brand.",
+                ),
+                (
+                    "search_visibility",
+                    "Search visibility",
+                    0.20,
+                    14.0,
+                    "Some visibility signals are present but not dominant.",
+                ),
+                (
+                    "opportunity",
+                    "Commercial opportunity",
+                    0.20,
+                    14.0,
+                    "Room to grow around implant and cosmetic treatment positioning.",
+                ),
+                (
+                    "data_confidence",
+                    "Data confidence",
+                    0.10,
+                    7.0,
+                    "Evidence is good, but some fields are thinner than the top leads.",
+                ),
             ],
             analysis=LeadAnalysisResult(
                 summary=(
@@ -306,11 +347,41 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             score_band=LeadScoreBand.MEDIUM.value,
             score_qualified=True,
             score_breakdown=[
-                ("local_trust", "Local trust", 0.25, 16.0, "Reasonable rating and review count for a local clinic."),
-                ("website_presence", "Website presence", 0.25, 7.0, "No clear official website is visible."),
-                ("search_visibility", "Search visibility", 0.20, 13.0, "The business is visible in maps but weak on web presence."),
-                ("opportunity", "Commercial opportunity", 0.20, 17.0, "Missing owned digital assets creates a strong improvement angle."),
-                ("data_confidence", "Data confidence", 0.10, 8.0, "Enough evidence exists to support outreach with confidence."),
+                (
+                    "local_trust",
+                    "Local trust",
+                    0.25,
+                    16.0,
+                    "Reasonable rating and review count for a local clinic.",
+                ),
+                (
+                    "website_presence",
+                    "Website presence",
+                    0.25,
+                    7.0,
+                    "No clear official website is visible.",
+                ),
+                (
+                    "search_visibility",
+                    "Search visibility",
+                    0.20,
+                    13.0,
+                    "The business is visible in maps but weak on web presence.",
+                ),
+                (
+                    "opportunity",
+                    "Commercial opportunity",
+                    0.20,
+                    17.0,
+                    "Missing owned digital assets creates a strong improvement angle.",
+                ),
+                (
+                    "data_confidence",
+                    "Data confidence",
+                    0.10,
+                    8.0,
+                    "Enough evidence exists to support outreach with confidence.",
+                ),
             ],
             analysis=None,
             recommendation_rationales=[],
@@ -347,10 +418,34 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             score_band=LeadScoreBand.HIGH.value,
             score_qualified=True,
             score_breakdown=[
-                ("local_trust", "Local trust", 0.25, 22.0, "Review profile is both strong and recent."),
-                ("website_presence", "Website presence", 0.25, 20.0, "Official site is present and looks trustworthy."),
-                ("search_visibility", "Search visibility", 0.20, 16.0, "The brand is discoverable across local and web surfaces."),
-                ("opportunity", "Commercial opportunity", 0.20, 17.0, "There is room to sharpen service-line demand capture."),
+                (
+                    "local_trust",
+                    "Local trust",
+                    0.25,
+                    22.0,
+                    "Review profile is both strong and recent.",
+                ),
+                (
+                    "website_presence",
+                    "Website presence",
+                    0.25,
+                    20.0,
+                    "Official site is present and looks trustworthy.",
+                ),
+                (
+                    "search_visibility",
+                    "Search visibility",
+                    0.20,
+                    16.0,
+                    "The brand is discoverable across local and web surfaces.",
+                ),
+                (
+                    "opportunity",
+                    "Commercial opportunity",
+                    0.20,
+                    17.0,
+                    "There is room to sharpen service-line demand capture.",
+                ),
                 ("data_confidence", "Data confidence", 0.10, 8.0, "Evidence consistency is high."),
             ],
             analysis=LeadAnalysisResult(
@@ -414,10 +509,34 @@ DEMO_LEADS_BY_JOB: dict[str, list[DemoLeadSpec]] = {
             score_qualified=False,
             score_breakdown=[
                 ("local_trust", "Local trust", 0.25, 13.0, "Review volume is still developing."),
-                ("website_presence", "Website presence", 0.25, 15.0, "Official site exists but is lightweight."),
-                ("search_visibility", "Search visibility", 0.20, 9.0, "Search visibility is inconsistent."),
-                ("opportunity", "Commercial opportunity", 0.20, 11.0, "There is upside, but not as immediate as the stronger leads."),
-                ("data_confidence", "Data confidence", 0.10, 6.0, "Evidence is usable but not especially rich."),
+                (
+                    "website_presence",
+                    "Website presence",
+                    0.25,
+                    15.0,
+                    "Official site exists but is lightweight.",
+                ),
+                (
+                    "search_visibility",
+                    "Search visibility",
+                    0.20,
+                    9.0,
+                    "Search visibility is inconsistent.",
+                ),
+                (
+                    "opportunity",
+                    "Commercial opportunity",
+                    0.20,
+                    11.0,
+                    "There is upside, but not as immediate as the stronger leads.",
+                ),
+                (
+                    "data_confidence",
+                    "Data confidence",
+                    0.10,
+                    6.0,
+                    "Evidence is usable but not especially rich.",
+                ),
             ],
             analysis=None,
             recommendation_rationales=[],
@@ -478,6 +597,8 @@ def ensure_base_workspace_configuration(db, *, workspace_id: int, admin_id: int)
                 "search_visibility": 0.2,
                 "opportunity": 0.2,
                 "data_confidence": 0.1,
+                "review_score": 0.0,
+                "news_presence": 0.0,
             },
             thresholds_json={
                 "high_min": 75,
@@ -511,11 +632,33 @@ def ensure_base_workspace_configuration(db, *, workspace_id: int, admin_id: int)
                 workspace_id=workspace_id,
                 name="Default lead analysis",
                 template_text=(
-                    "Analyze the lead using only normalized facts and deterministic "
-                    "score context."
+                    "Analyze the lead using only normalized facts and deterministic score context. "
+                    "Return every user-facing generated text in both Arabic and English."
                 ),
                 is_active=True,
                 created_by_user_id=admin_id,
+            )
+        )
+        db.commit()
+
+    existing_icp = db.scalar(
+        select(IcpProfile).where(IcpProfile.workspace_id == workspace_id).limit(1)
+    )
+    if existing_icp is None:
+        db.add(
+            IcpProfile(
+                workspace_id=workspace_id,
+                created_by_user_id=admin_id,
+                name="High-fit local service businesses",
+                description="Demo ICP for local businesses with clear demand and digital growth gaps.",
+                target_industries=["Dental Clinic", "Physiotherapy Center", "Clinic"],
+                target_cities=["Istanbul", "Ankara"],
+                min_rating=4.0,
+                min_reviews=10,
+                website_preference=WebsitePreference.ANY.value,
+                required_signals=["ready_for_outreach"],
+                excluded_keywords=["closed", "permanently closed"],
+                is_active=True,
             )
         )
         db.commit()
@@ -589,11 +732,11 @@ def _reset_workspace_demo_data(db, *, workspace_id: int) -> None:
     score_ids = []
     snapshot_ids = []
     if lead_ids:
-        score_ids = list(
-            db.scalars(select(LeadScore.id).where(LeadScore.lead_id.in_(lead_ids)))
-        )
+        score_ids = list(db.scalars(select(LeadScore.id).where(LeadScore.lead_id.in_(lead_ids))))
         snapshot_ids = list(
-            db.scalars(select(AIAnalysisSnapshot.id).where(AIAnalysisSnapshot.lead_id.in_(lead_ids)))
+            db.scalars(
+                select(AIAnalysisSnapshot.id).where(AIAnalysisSnapshot.lead_id.in_(lead_ids))
+            )
         )
         if score_ids:
             db.execute(delete(ScoreBreakdown).where(ScoreBreakdown.lead_score_id.in_(score_ids)))
@@ -609,30 +752,45 @@ def _reset_workspace_demo_data(db, *, workspace_id: int) -> None:
         db.execute(delete(LeadNote).where(LeadNote.lead_id.in_(lead_ids)))
         db.execute(delete(LeadSourceRecord).where(LeadSourceRecord.lead_id.in_(lead_ids)))
         db.execute(delete(LeadIdentity).where(LeadIdentity.lead_id.in_(lead_ids)))
+        db.execute(delete(LeadIcpMatch).where(LeadIcpMatch.lead_id.in_(lead_ids)))
+        db.execute(delete(LeadSignalScore).where(LeadSignalScore.lead_id.in_(lead_ids)))
+        db.execute(delete(LeadSignal).where(LeadSignal.lead_id.in_(lead_ids)))
         db.execute(delete(LeadScore).where(LeadScore.lead_id.in_(lead_ids)))
-        db.execute(delete(ProviderNormalizedFact).where(ProviderNormalizedFact.lead_id.in_(lead_ids)))
+        db.execute(
+            delete(ProviderNormalizedFact).where(ProviderNormalizedFact.lead_id.in_(lead_ids))
+        )
         db.execute(delete(Lead).where(Lead.id.in_(lead_ids)))
 
     if fetch_ids:
-        db.execute(delete(ProviderRawPayload).where(ProviderRawPayload.provider_fetch_id.in_(fetch_ids)))
+        db.execute(
+            delete(ProviderRawPayload).where(ProviderRawPayload.provider_fetch_id.in_(fetch_ids))
+        )
     db.execute(delete(ProviderFetch).where(ProviderFetch.workspace_id == workspace_id))
     db.execute(delete(SearchJob).where(SearchJob.workspace_id == workspace_id))
     db.execute(delete(SearchRequest).where(SearchRequest.workspace_id == workspace_id))
     db.execute(delete(AuditLog).where(AuditLog.workspace_id == workspace_id))
-    db.execute(delete(WorkspaceScoringActive).where(WorkspaceScoringActive.workspace_id == workspace_id))
-    db.execute(delete(ScoringConfigVersion).where(ScoringConfigVersion.workspace_id == workspace_id))
+    db.execute(
+        delete(WorkspaceScoringActive).where(WorkspaceScoringActive.workspace_id == workspace_id)
+    )
+    db.execute(
+        delete(ScoringConfigVersion).where(ScoringConfigVersion.workspace_id == workspace_id)
+    )
     db.execute(delete(PromptTemplate).where(PromptTemplate.workspace_id == workspace_id))
     db.execute(delete(ProviderSettings).where(ProviderSettings.workspace_id == workspace_id))
+    db.execute(delete(IcpProfile).where(IcpProfile.workspace_id == workspace_id))
     db.commit()
 
 
 def _seed_secondary_admin_records(db, *, workspace_id: int, admin_id: int) -> None:
-    if db.scalar(
-        select(ScoringConfigVersion).where(
-            ScoringConfigVersion.workspace_id == workspace_id,
-            ScoringConfigVersion.note == "Demo aggressive scoring config",
+    if (
+        db.scalar(
+            select(ScoringConfigVersion).where(
+                ScoringConfigVersion.workspace_id == workspace_id,
+                ScoringConfigVersion.note == "Demo aggressive scoring config",
+            )
         )
-    ) is None:
+        is None
+    ):
         db.add(
             ScoringConfigVersion(
                 workspace_id=workspace_id,
@@ -643,6 +801,8 @@ def _seed_secondary_admin_records(db, *, workspace_id: int, admin_id: int) -> No
                     "search_visibility": 0.15,
                     "opportunity": 0.25,
                     "data_confidence": 0.1,
+                    "review_score": 0.0,
+                    "news_presence": 0.0,
                 },
                 thresholds_json={
                     "high_min": 78,
@@ -653,19 +813,23 @@ def _seed_secondary_admin_records(db, *, workspace_id: int, admin_id: int) -> No
                 note="Demo aggressive scoring config",
             )
         )
-    if db.scalar(
-        select(PromptTemplate).where(
-            PromptTemplate.workspace_id == workspace_id,
-            PromptTemplate.name == "Demo concise outreach prompt",
+    if (
+        db.scalar(
+            select(PromptTemplate).where(
+                PromptTemplate.workspace_id == workspace_id,
+                PromptTemplate.name == "Demo concise outreach prompt",
+            )
         )
-    ) is None:
+        is None
+    ):
         db.add(
             PromptTemplate(
                 workspace_id=workspace_id,
                 name="Demo concise outreach prompt",
                 template_text=(
                     "Summarize the lead in practical sales language. Keep claims tied to stored "
-                    "evidence, and make the outreach draft concise enough for a presentation demo."
+                    "evidence, and make the outreach draft concise enough for a presentation demo. "
+                    "Return every user-facing generated text in both Arabic and English."
                 ),
                 is_active=False,
                 created_by_user_id=admin_id,
@@ -915,6 +1079,86 @@ def _seed_analysis_and_outreach(
     db.commit()
 
 
+def _backfill_demo_feature_records(db: Session, *, workspace_id: int) -> None:
+    """Derive post-seed feature rows from the workspace's persisted facts."""
+    signal_detector = LeadSignalDetectorService()
+    icp_matcher = LeadIcpMatcherService()
+    evidence_builder = EvidenceBuilder()
+    leads = list(db.scalars(select(Lead).where(Lead.workspace_id == workspace_id)))
+
+    for lead in leads:
+        signals = list(
+            db.scalars(
+                select(LeadSignal).where(
+                    LeadSignal.workspace_id == workspace_id,
+                    LeadSignal.lead_id == lead.id,
+                )
+            )
+        )
+        if not signals:
+            facts = signal_detector.evidence_repository.list_normalized_facts_for_lead(
+                db, lead.id
+            )
+            signals = signal_detector.recompute_for_lead(
+                db,
+                workspace_id=workspace_id,
+                lead=lead,
+                facts=facts,
+            )
+
+        has_icp_match = (
+            db.scalar(
+                select(LeadIcpMatch.id)
+                .where(
+                    LeadIcpMatch.workspace_id == workspace_id,
+                    LeadIcpMatch.lead_id == lead.id,
+                )
+                .limit(1)
+            )
+            is not None
+        )
+        if not has_icp_match:
+            icp_matcher.recompute_for_lead(
+                db,
+                workspace_id=workspace_id,
+                lead=lead,
+                signals=signals,
+            )
+
+        snapshots = list(
+            db.scalars(
+                select(AIAnalysisSnapshot).where(AIAnalysisSnapshot.lead_id == lead.id)
+            )
+        )
+        for snapshot in snapshots:
+            has_evidence = (
+                db.scalar(
+                    select(AIAnalysisEvidence.id)
+                    .where(AIAnalysisEvidence.ai_analysis_snapshot_id == snapshot.id)
+                    .limit(1)
+                )
+                is not None
+            )
+            if has_evidence:
+                continue
+            records = evidence_builder.build(db, workspace_id=workspace_id, lead=lead)
+            db.add_all(
+                [
+                    AIAnalysisEvidence(
+                        workspace_id=workspace_id,
+                        ai_analysis_snapshot_id=snapshot.id,
+                        source_type=record.source_type,
+                        source_url=record.source_url,
+                        evidence_text=record.evidence_text,
+                        confidence=record.confidence,
+                        created_at=snapshot.created_at,
+                    )
+                    for record in records
+                ]
+            )
+            db.commit()
+
+
 def _seed_demo_workspace(db) -> None:
     settings = get_settings()
     if settings.is_production:
@@ -940,6 +1184,7 @@ def _seed_demo_workspace(db) -> None:
     marker_key = _demo_seed_marker_key(workspace.public_id)
     existing_marker = db.scalar(select(SystemSetting).where(SystemSetting.key == marker_key))
     if existing_marker is not None:
+        _backfill_demo_feature_records(db, workspace_id=workspace.id)
         _ensure_system_setting(
             db,
             key=marker_key,
@@ -1083,6 +1328,22 @@ def _seed_demo_workspace(db) -> None:
                     "visibility_signal": "strong" if spec.review_count >= 80 else "developing",
                 },
             )
+            signal_detector = LeadSignalDetectorService()
+            facts = signal_detector.evidence_repository.list_normalized_facts_for_lead(
+                db, lead.id
+            )
+            signals = signal_detector.recompute_for_lead(
+                db,
+                workspace_id=workspace.id,
+                lead=lead,
+                facts=facts,
+            )
+            LeadIcpMatcherService().recompute_for_lead(
+                db,
+                workspace_id=workspace.id,
+                lead=lead,
+                signals=signals,
+            )
 
             lead_score = LeadScore(
                 lead_id=lead.id,
@@ -1191,6 +1452,7 @@ def _seed_demo_workspace(db) -> None:
     )
     db.commit()
 
+    _backfill_demo_feature_records(db, workspace_id=workspace.id)
     _ensure_system_setting(
         db,
         key=marker_key,

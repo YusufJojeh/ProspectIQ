@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { buildRequestUrl, readToken } from "@/lib/api-client";
 
-export type JobStreamStage = "fetching" | "normalizing" | "scoring" | "done" | "error";
+export type JobStreamStage =
+  | "fetching"
+  | "normalizing"
+  | "enriching"
+  | "scoring"
+  | "done"
+  | "error";
 
 export type JobStreamState = {
   stage: JobStreamStage | null;
@@ -72,7 +78,7 @@ export function useJobStream(jobId: string | null): JobStreamState & { reconnect
         const decoder = new TextDecoder();
         let buffer = "";
 
-        while (true) {
+        for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
 

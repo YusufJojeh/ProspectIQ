@@ -33,9 +33,12 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     return "system";
   });
 
-  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(getSystemTheme);
+  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(
+    getSystemTheme,
+  );
 
-  const resolvedTheme: "dark" | "light" = theme === "system" ? systemTheme : theme;
+  const resolvedTheme: "dark" | "light" =
+    theme === "system" ? systemTheme : theme;
 
   // Apply/remove .dark class whenever the resolved theme changes
   useEffect(() => {

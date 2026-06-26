@@ -41,9 +41,8 @@ class MapsPlaceNormalizer:
         data_id = clean_optional_text(place.get("data_id"), max_length=128)
         data_cid = clean_optional_text(place.get("data_cid"), max_length=128)
         place_id = clean_optional_text(place.get("place_id"), max_length=128)
-        city = (
-            clean_optional_text(place.get("city"), max_length=128)
-            or guess_city_from_address(address)
+        city = clean_optional_text(place.get("city"), max_length=128) or guess_city_from_address(
+            address
         )
         category = clean_optional_text(place.get("type"), max_length=255)
 

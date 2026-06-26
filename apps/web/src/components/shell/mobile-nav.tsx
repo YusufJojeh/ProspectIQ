@@ -1,5 +1,15 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Radar, Users, Sparkles, Send, ShieldCheck, ScrollText, FileDown, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Radar,
+  Users,
+  Sparkles,
+  Send,
+  ShieldCheck,
+  ScrollText,
+  FileDown,
+  Settings,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { appPaths } from "@/app/paths";
@@ -7,18 +17,87 @@ import { useAuthSession } from "@/features/auth/session";
 import type { UserRole } from "@/types/api";
 
 const ITEMS = [
-  { labelKey: "nav.dashboard", shortLabelKey: "mobileNav.home", href: appPaths.dashboard, icon: LayoutDashboard },
-  { labelKey: "nav.searches", shortLabelKey: "mobileNav.jobs", href: appPaths.searches, icon: Radar },
-  { labelKey: "nav.leads", shortLabelKey: "nav.leads", href: appPaths.leads, icon: Users },
-  { labelKey: "nav.aiAnalysis", shortLabelKey: "mobileNav.ai", href: appPaths.aiAnalysis, icon: Sparkles },
-  { labelKey: "nav.outreach", shortLabelKey: "nav.outreach", href: appPaths.outreach, icon: Send },
-  { labelKey: "nav.admin", shortLabelKey: "nav.admin", href: appPaths.admin, icon: ShieldCheck, roles: ["account_owner", "admin"] as UserRole[] },
-  { labelKey: "nav.team", shortLabelKey: "nav.team", href: appPaths.team, icon: Users },
-  { labelKey: "nav.billing", shortLabelKey: "nav.billing", href: appPaths.billing, icon: ShieldCheck },
-  { labelKey: "nav.invoices", shortLabelKey: "nav.invoices", href: appPaths.invoices, icon: ScrollText },
-  { labelKey: "nav.usage", shortLabelKey: "nav.usage", href: appPaths.usage, icon: FileDown },
-  { labelKey: "nav.exports", shortLabelKey: "nav.exports", href: appPaths.exports, icon: FileDown },
-  { labelKey: "nav.settings", shortLabelKey: "nav.settings", href: appPaths.settings, icon: Settings, roles: ["account_owner", "admin"] as UserRole[] },
+  {
+    labelKey: "nav.dashboard",
+    shortLabelKey: "mobileNav.home",
+    href: appPaths.dashboard,
+    icon: LayoutDashboard,
+  },
+  {
+    labelKey: "nav.searches",
+    shortLabelKey: "mobileNav.jobs",
+    href: appPaths.searches,
+    icon: Radar,
+  },
+  {
+    labelKey: "nav.leads",
+    shortLabelKey: "nav.leads",
+    href: appPaths.leads,
+    icon: Users,
+  },
+  {
+    labelKey: "nav.aiAnalysis",
+    shortLabelKey: "mobileNav.ai",
+    href: appPaths.aiAnalysis,
+    icon: Sparkles,
+  },
+  {
+    labelKey: "nav.outreach",
+    shortLabelKey: "nav.outreach",
+    href: appPaths.outreach,
+    icon: Send,
+  },
+  {
+    labelKey: "nav.admin",
+    shortLabelKey: "nav.admin",
+    href: appPaths.admin,
+    icon: ShieldCheck,
+    roles: ["platform_admin"] as UserRole[],
+  },
+  {
+    labelKey: "nav.admin",
+    shortLabelKey: "nav.admin",
+    href: appPaths.workspaceAdmin,
+    icon: ShieldCheck,
+    roles: ["account_owner", "admin"] as UserRole[],
+  },
+  {
+    labelKey: "nav.team",
+    shortLabelKey: "nav.team",
+    href: appPaths.team,
+    icon: Users,
+  },
+  {
+    labelKey: "nav.billing",
+    shortLabelKey: "nav.billing",
+    href: appPaths.billing,
+    icon: ShieldCheck,
+  },
+  {
+    labelKey: "nav.invoices",
+    shortLabelKey: "nav.invoices",
+    href: appPaths.invoices,
+    icon: ScrollText,
+  },
+  {
+    labelKey: "nav.usage",
+    shortLabelKey: "nav.usage",
+    href: appPaths.usage,
+    icon: FileDown,
+  },
+  {
+    labelKey: "nav.exports",
+    shortLabelKey: "nav.exports",
+    href: appPaths.exports,
+    icon: FileDown,
+  },
+  {
+    labelKey: "nav.settings",
+    shortLabelKey: "nav.settings",
+    href: appPaths.settings,
+    icon: Settings,
+    roles: ["account_owner", "admin"] as UserRole[],
+  },
 ];
 
 export function MobileNav() {
@@ -26,7 +105,9 @@ export function MobileNav() {
   const location = useLocation();
   const { user } = useAuthSession();
   const role = user?.role;
-  const visibleItems = ITEMS.filter((item) => !item.roles || (role && item.roles.includes(role)));
+  const visibleItems = ITEMS.filter(
+    (item) => !item.roles || (role && item.roles.includes(role)),
+  );
 
   return (
     <nav
@@ -34,7 +115,9 @@ export function MobileNav() {
       aria-label="Primary"
     >
       {visibleItems.map((it) => {
-        const active = location.pathname === it.href || location.pathname.startsWith(it.href + "/");
+        const active =
+          location.pathname === it.href ||
+          location.pathname.startsWith(it.href + "/");
         const Icon = it.icon;
         return (
           <NavLink

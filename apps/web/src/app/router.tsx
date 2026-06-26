@@ -1,5 +1,17 @@
-import { Suspense, lazy, type ComponentType, type LazyExoticComponent, type ReactElement } from "react";
-import { Navigate, Outlet, RouterProvider, createBrowserRouter, useParams } from "react-router-dom";
+import {
+  Suspense,
+  lazy,
+  type ComponentType,
+  type LazyExoticComponent,
+  type ReactElement,
+} from "react";
+import {
+  Navigate,
+  Outlet,
+  RouterProvider,
+  createBrowserRouter,
+  useParams,
+} from "react-router-dom";
 import { AppProviders } from "@/app/providers";
 import { AppShell } from "@/app/layouts/app-shell";
 import { appPaths } from "@/app/paths";
@@ -24,7 +36,8 @@ const SearchesPage = lazy(async () => {
   return { default: module.SearchesPage };
 });
 const SearchJobDetailPage = lazy(async () => {
-  const module = await import("@/features/searches/routes/search-job-detail-page");
+  const module =
+    await import("@/features/searches/routes/search-job-detail-page");
   return { default: module.SearchJobDetailPage };
 });
 const LeadsPage = lazy(async () => {
@@ -79,6 +92,11 @@ const AdminPage = lazy(async () => {
   const module = await import("@/features/admin/routes/admin-page");
   return { default: module.AdminPage };
 });
+const PlatformAdminPage = lazy(async () => {
+  const module =
+    await import("@/features/platform-admin/routes/platform-admin-page");
+  return { default: module.PlatformAdminPage };
+});
 
 function PublicOnlyRoute({ children }: { children: ReactElement }) {
   const { isAuthenticated } = useAuthSession();
@@ -104,7 +122,13 @@ function ProtectedShell() {
   );
 }
 
-function RequireRole({ allowedRoles }: { allowedRoles: Array<"account_owner" | "admin" | "manager" | "member"> }) {
+export function RequireRole({
+  allowedRoles,
+}: {
+  allowedRoles: Array<
+    "platform_admin" | "account_owner" | "admin" | "manager" | "member"
+  >;
+}) {
   const { isAuthenticated, user } = useAuthSession();
 
   if (!isAuthenticated) {
@@ -121,6 +145,29 @@ function RequireRole({ allowedRoles }: { allowedRoles: Array<"account_owner" | "
   }
 
   return <Outlet />;
+}
+
+export function AdminEntryPage() {
+  const { isAuthenticated, user } = useAuthSession();
+
+  if (!isAuthenticated) {
+    return <Navigate replace to={appPaths.login} />;
+  }
+
+  if (user?.role === "platform_admin") {
+    return lazyPage(PlatformAdminPage, {
+      title: "Loading platform admin",
+      description: "Preparing SaaS administration views.",
+      compact: true,
+    });
+  }
+
+  return (
+    <EmptyState
+      title={i18n.t("routeLoading.accessRestrictedTitle")}
+      description={i18n.t("routeLoading.accessRestrictedDescription")}
+    />
+  );
 }
 
 function LegacyLeadDetailRedirect() {
@@ -154,191 +201,264 @@ function lazyPage(
 
 function buildRouter() {
   return createBrowserRouter([
-  {
-    path: appPaths.home,
-    element: lazyPage(HomePage, {
-      title: i18n.t("routeLoading.homeTitle"),
-      description: i18n.t("routeLoading.homeDescription"),
-    }),
-  },
-  {
-    path: appPaths.login,
-    element: (
-      <PublicOnlyRoute>
-        <LoginPage />
-      </PublicOnlyRoute>
-    ),
-  },
-  {
-    path: appPaths.signUp,
-    element: (
-      <PublicOnlyRoute>
-        <SignUpPage />
-      </PublicOnlyRoute>
-    ),
-  },
-  {
-    path: appPaths.forgotPassword,
-    element: (
-      <PublicOnlyRoute>
-        <ForgotPasswordPage />
-      </PublicOnlyRoute>
-    ),
-  },
-  {
-    path: appPaths.dashboard,
-    element: <ProtectedShell />,
-    children: [
-      {
-        index: true,
-        element: lazyPage(DashboardPage, {
-          title: i18n.t("routeLoading.dashboardTitle"),
-          description: i18n.t("routeLoading.dashboardDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "searches/jobs/:jobId",
-        element: lazyPage(SearchJobDetailPage, {
-          title: i18n.t("routeLoading.discoveryRunTitle"),
-          description: i18n.t("routeLoading.discoveryRunDescription"),
-        }),
-      },
-      {
-        path: "searches",
-        element: lazyPage(SearchesPage, {
-          title: i18n.t("routeLoading.searchJobsTitle"),
-          description: i18n.t("routeLoading.searchJobsDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "leads",
-        element: lazyPage(LeadsPage, {
-          title: i18n.t("routeLoading.leadWorkspaceTitle"),
-          description: i18n.t("routeLoading.leadWorkspaceDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "leads/:leadId",
-        element: lazyPage(LeadDetailPage, {
-          title: i18n.t("routeLoading.leadDetailTitle"),
-          description: i18n.t("routeLoading.leadDetailDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "ai-analysis",
-        element: lazyPage(AiAnalysisPage, {
-          title: i18n.t("routeLoading.aiAnalysisTitle"),
-          description: i18n.t("routeLoading.aiAnalysisDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "assistant",
-        element: lazyPage(AssistantPage, {
-          title: i18n.t("routeLoading.assistantTitle"),
-          description: i18n.t("routeLoading.assistantDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "outreach",
-        element: lazyPage(OutreachPage, {
-          title: i18n.t("routeLoading.outreachTitle"),
-          description: i18n.t("routeLoading.outreachDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "exports",
-        element: lazyPage(ExportsPage, {
-          title: i18n.t("routeLoading.exportsTitle"),
-          description: i18n.t("routeLoading.exportsDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "team",
-        element: lazyPage(TeamPage, {
-          title: i18n.t("routeLoading.teamTitle"),
-          description: i18n.t("routeLoading.teamDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "billing",
-        element: lazyPage(BillingPage, {
-          title: i18n.t("routeLoading.billingTitle"),
-          description: i18n.t("routeLoading.billingDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "invoices",
-        element: lazyPage(InvoicesPage, {
-          title: i18n.t("routeLoading.invoicesTitle"),
-          description: i18n.t("routeLoading.invoicesDescription"),
-          compact: true,
-        }),
-      },
-      {
-        path: "usage",
-        element: lazyPage(UsagePage, {
-          title: i18n.t("routeLoading.usageTitle"),
-          description: i18n.t("routeLoading.usageDescription"),
-          compact: true,
-        }),
-      },
-      {
-        element: <RequireRole allowedRoles={["account_owner", "admin"]} />,
-        children: [
-          {
-            path: "admin",
-            element: lazyPage(AdminPage, {
-              title: i18n.t("routeLoading.adminTitle"),
-              description: i18n.t("routeLoading.adminDescription"),
-              compact: true,
-            }),
-          },
-          {
-            path: "settings",
-            element: lazyPage(SettingsPage, {
-              title: i18n.t("routeLoading.settingsTitle"),
-              description: i18n.t("routeLoading.settingsDescription"),
-              compact: true,
-            }),
-          },
-          {
-            path: "audit-logs",
-            element: lazyPage(AuditLogsPage, {
-              title: i18n.t("routeLoading.auditLogsTitle"),
-              description: i18n.t("routeLoading.auditLogsDescription"),
-              compact: true,
-            }),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    path: "/searches",
-    element: <Navigate replace to={appPaths.searches} />,
-  },
-  {
-    path: "/leads",
-    element: <Navigate replace to={appPaths.leads} />,
-  },
-  {
-    path: "/leads/:leadId",
-    element: <LegacyLeadDetailRedirect />,
-  },
-  {
-    path: "/settings",
-    element: <Navigate replace to={appPaths.settings} />,
-  },
+    {
+      path: appPaths.home,
+      element: lazyPage(HomePage, {
+        title: i18n.t("routeLoading.homeTitle"),
+        description: i18n.t("routeLoading.homeDescription"),
+      }),
+    },
+    {
+      path: appPaths.login,
+      element: (
+        <PublicOnlyRoute>
+          <LoginPage />
+        </PublicOnlyRoute>
+      ),
+    },
+    {
+      path: appPaths.signUp,
+      element: (
+        <PublicOnlyRoute>
+          <SignUpPage />
+        </PublicOnlyRoute>
+      ),
+    },
+    {
+      path: appPaths.forgotPassword,
+      element: (
+        <PublicOnlyRoute>
+          <ForgotPasswordPage />
+        </PublicOnlyRoute>
+      ),
+    },
+    {
+      path: appPaths.dashboard,
+      element: <ProtectedShell />,
+      children: [
+        {
+          index: true,
+          element: lazyPage(DashboardPage, {
+            title: i18n.t("routeLoading.dashboardTitle"),
+            description: i18n.t("routeLoading.dashboardDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "searches/jobs/:jobId",
+          element: lazyPage(SearchJobDetailPage, {
+            title: i18n.t("routeLoading.discoveryRunTitle"),
+            description: i18n.t("routeLoading.discoveryRunDescription"),
+          }),
+        },
+        {
+          path: "searches",
+          element: lazyPage(SearchesPage, {
+            title: i18n.t("routeLoading.searchJobsTitle"),
+            description: i18n.t("routeLoading.searchJobsDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "leads",
+          element: lazyPage(LeadsPage, {
+            title: i18n.t("routeLoading.leadWorkspaceTitle"),
+            description: i18n.t("routeLoading.leadWorkspaceDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "leads/:leadId",
+          element: lazyPage(LeadDetailPage, {
+            title: i18n.t("routeLoading.leadDetailTitle"),
+            description: i18n.t("routeLoading.leadDetailDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "ai-analysis",
+          element: lazyPage(AiAnalysisPage, {
+            title: i18n.t("routeLoading.aiAnalysisTitle"),
+            description: i18n.t("routeLoading.aiAnalysisDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "assistant",
+          element: lazyPage(AssistantPage, {
+            title: i18n.t("routeLoading.assistantTitle"),
+            description: i18n.t("routeLoading.assistantDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "outreach",
+          element: lazyPage(OutreachPage, {
+            title: i18n.t("routeLoading.outreachTitle"),
+            description: i18n.t("routeLoading.outreachDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "exports",
+          element: lazyPage(ExportsPage, {
+            title: i18n.t("routeLoading.exportsTitle"),
+            description: i18n.t("routeLoading.exportsDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "team",
+          element: lazyPage(TeamPage, {
+            title: i18n.t("routeLoading.teamTitle"),
+            description: i18n.t("routeLoading.teamDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "billing",
+          element: lazyPage(BillingPage, {
+            title: i18n.t("routeLoading.billingTitle"),
+            description: i18n.t("routeLoading.billingDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "invoices",
+          element: lazyPage(InvoicesPage, {
+            title: i18n.t("routeLoading.invoicesTitle"),
+            description: i18n.t("routeLoading.invoicesDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "usage",
+          element: lazyPage(UsagePage, {
+            title: i18n.t("routeLoading.usageTitle"),
+            description: i18n.t("routeLoading.usageDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "admin",
+          element: <AdminEntryPage />,
+        },
+        {
+          element: <RequireRole allowedRoles={["platform_admin"]} />,
+          children: [
+            {
+              path: "admin/workspaces",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading workspaces admin",
+                description: "Preparing platform workspace controls.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/workspaces/:workspaceId",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading workspace admin detail",
+                description: "Preparing workspace health and usage details.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/users",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading users admin",
+                description: "Preparing platform user controls.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/billing",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading billing admin",
+                description: "Preparing plans, subscriptions, and invoices.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/usage",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading usage admin",
+                description: "Preparing workspace usage counters.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/providers",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading provider admin",
+                description: "Preparing provider health and fetch history.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/jobs",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading jobs admin",
+                description: "Preparing search job operations.",
+                compact: true,
+              }),
+            },
+            {
+              path: "admin/ai",
+              element: lazyPage(PlatformAdminPage, {
+                title: "Loading AI admin",
+                description: "Preparing AI usage and feature health.",
+                compact: true,
+              }),
+            },
+          ],
+        },
+        {
+          element: <RequireRole allowedRoles={["account_owner", "admin"]} />,
+          children: [
+            {
+              path: "workspace-admin",
+              element: lazyPage(AdminPage, {
+                title: i18n.t("routeLoading.adminTitle"),
+                description: i18n.t("routeLoading.adminDescription"),
+                compact: true,
+              }),
+            },
+            {
+              path: "settings",
+              element: lazyPage(SettingsPage, {
+                title: i18n.t("routeLoading.settingsTitle"),
+                description: i18n.t("routeLoading.settingsDescription"),
+                compact: true,
+              }),
+            },
+            {
+              path: "audit-logs",
+              element: lazyPage(AuditLogsPage, {
+                title: i18n.t("routeLoading.auditLogsTitle"),
+                description: i18n.t("routeLoading.auditLogsDescription"),
+                compact: true,
+              }),
+            },
+          ],
+        },
+      ],
+    },
+    {
+      path: "/searches",
+      element: <Navigate replace to={appPaths.searches} />,
+    },
+    {
+      path: "/leads",
+      element: <Navigate replace to={appPaths.leads} />,
+    },
+    {
+      path: "/leads/:leadId",
+      element: <LegacyLeadDetailRedirect />,
+    },
+    {
+      path: "/settings",
+      element: <Navigate replace to={appPaths.settings} />,
+    },
   ]);
 }
 

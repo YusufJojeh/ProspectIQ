@@ -7,6 +7,14 @@ import httpx
 
 from app.modules.ai_analysis.schemas import LeadAnalysisInput
 
+BILINGUAL_ANALYSIS_INSTRUCTION = (
+    "BILINGUAL OUTPUT REQUIRED: every user-facing generated text field must include both "
+    "Arabic and English. For summary, outreach_subject, and outreach_message, use the exact "
+    "labels 'العربية:' and 'English:'. For each weaknesses/opportunities array item, include "
+    "both languages in the same string, separated by ' / '. Keep service names in "
+    "recommended_services unchanged from the allowed catalog."
+)
+
 
 class LLMClient(Protocol):
     def analyze(self, payload: LeadAnalysisInput) -> dict[str, object]: ...
@@ -82,6 +90,7 @@ def _build_llm_prompt(payload: LeadAnalysisInput) -> str:
         [
             payload.prompt_instructions
             or "Use only the supplied evidence. Do not invent facts or claims.",
+            BILINGUAL_ANALYSIS_INSTRUCTION,
             "Return an evidence-first analysis using only the supplied input.",
             "If the evidence is incomplete, state that directly instead of guessing.",
             "Return a single JSON object with keys:",
@@ -203,13 +212,14 @@ class FallbackAnalysisBuilder:
         business = payload.local_business
         gaps: list[str] = []
         if not payload.place_enrichment.official_website_found:
-            gaps.append("No official website was confirmed.")
+            gaps.append("لم يتم تأكيد موقع رسمي. / No official website was confirmed.")
         if business.review_count < 15:
-            gaps.append(f"Review count is only {business.review_count}.")
+            gaps.append(f"عدد المراجعات {business.review_count} فقط. / Review count is only {business.review_count}.")
         if (payload.web_visibility.official_site_discoverability or 0.0) < 0.5:
-            gaps.append("Official-site discoverability is weak.")
+            gaps.append("اكتشاف الموقع الرسمي ضعيف. / Official-site discoverability is weak.")
         if not gaps:
             gaps.append(
+                "الأدلة المخزنة تشير إلى أن بيانات النشاط مكتملة نسبياً لكنها ما زالت تستحق تدقيقاً. / "
                 "The stored evidence suggests the business is reasonably complete but still worth auditing."
             )
 
@@ -234,17 +244,26 @@ class FallbackAnalysisBuilder:
 
         return {
             "summary": (
-                f"{business.company_name} was analyzed from stored SerpAPI-derived facts only. "
+                f"العربية: تم تحليل {business.company_name} اعتماداً فقط على الحقائق المخزنة المستخرجة من SerpAPI. "
+                "تم استخدام المسار الاحتياطي لأن مزود الذكاء الاصطناعي الأساسي لم يرجع نتيجة صالحة.\n"
+                f"English: {business.company_name} was analyzed from stored SerpAPI-derived facts only. "
                 "The fallback path was used because the primary AI adapter did not return a valid payload."
             ),
             "weaknesses": gaps[:4],
             "opportunities": [
+                "إجراء تدقيق قصير مبني على الأدلة قبل اقتراح تعاون أوسع. / "
                 "Run a short evidence-led audit before proposing a broader engagement."
             ],
             "recommended_services": recommended_services[:3],
-            "outreach_subject": f"Evidence-backed growth ideas for {business.company_name}",
+            "outreach_subject": (
+                f"العربية: أفكار نمو مدعومة بالأدلة لـ {business.company_name}\n"
+                f"English: Evidence-backed growth ideas for {business.company_name}"
+            ),
             "outreach_message": (
-                f"Hi {business.company_name} team,\n\n"
+                f"العربية: مرحباً فريق {business.company_name}،\n\n"
+                "راجعنا حضوركم في نتائج البحث العامة وحددنا بعض الفرص المدعومة بالأدلة. "
+                "إذا كان مناسباً، يمكننا مشاركة تدقيق مختصر وخطوات مقترحة.\n\n"
+                f"English: Hi {business.company_name} team,\n\n"
                 "We reviewed your public search presence and identified a few evidence-backed opportunities. "
                 "If useful, we can share a concise audit and proposed next steps."
             ),

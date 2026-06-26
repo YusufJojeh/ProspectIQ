@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.search_jobs.models import SearchJob, SearchRequest
+from app.shared.enums.jobs import SearchJobStatus
 
 
 class SearchJobRepository:
@@ -38,6 +41,21 @@ class SearchJobRepository:
             .where(SearchJob.workspace_id == workspace_id)
             .order_by(SearchJob.queued_at.desc())
             .limit(limit)
+        )
+        return list(db.scalars(statement))
+
+    def list_stale_active_for_workspace(
+        self, db: Session, *, workspace_id: int, cutoff: datetime
+    ) -> list[SearchJob]:
+        statement = select(SearchJob).where(
+            SearchJob.workspace_id == workspace_id,
+            SearchJob.status.in_(
+                [SearchJobStatus.QUEUED.value, SearchJobStatus.RUNNING.value]
+            ),
+            (
+                (SearchJob.started_at.is_not(None) & (SearchJob.started_at < cutoff))
+                | (SearchJob.started_at.is_(None) & (SearchJob.queued_at < cutoff))
+            ),
         )
         return list(db.scalars(statement))
 

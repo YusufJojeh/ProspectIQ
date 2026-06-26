@@ -4,7 +4,12 @@ import { appPaths } from "@/app/paths";
 import { ScoreRing } from "@/components/brand/score-ring";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { bandTone, formatScore, statusTone, titleCaseLabel } from "@/lib/presenters";
+import {
+  bandTone,
+  formatScore,
+  statusTone,
+  titleCaseLabel,
+} from "@/lib/presenters";
 import type { LeadResponse } from "@/types/api";
 
 export function LeadsCards({
@@ -19,9 +24,15 @@ export function LeadsCards({
   return (
     <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
       {leads.map((lead) => (
-        <article key={lead.public_id} className="relative rounded-2xl border border-border bg-card/95 p-4">
+        <article
+          key={lead.public_id}
+          className="relative rounded-2xl border border-border bg-card/95 p-4"
+        >
           <div className="absolute left-4 top-4">
-            <Checkbox checked={selectedIds.has(lead.public_id)} onCheckedChange={() => onToggleSelect(lead.public_id)} />
+            <Checkbox
+              checked={selectedIds.has(lead.public_id)}
+              onCheckedChange={() => onToggleSelect(lead.public_id)}
+            />
           </div>
           <Link
             to={appPaths.leadDetail(lead.public_id)}
@@ -33,8 +44,12 @@ export function LeadsCards({
           <div className="flex items-start gap-3 pt-8">
             <ScoreRing value={lead.latest_score ?? 0} size={60} stroke={5} />
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold">{lead.company_name}</p>
-              <p className="text-sm text-muted-foreground">{lead.category ?? "Business"}</p>
+              <p className="truncate text-base font-semibold">
+                {lead.company_name}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {lead.category ?? "Business"}
+              </p>
               <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="size-3.5" />
                 <span>{lead.city ?? "Unknown city"}</span>
@@ -43,16 +58,26 @@ export function LeadsCards({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <Badge tone={bandTone(lead.latest_band)}>{lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}</Badge>
-            <Badge tone={statusTone(lead.status)}>{titleCaseLabel(lead.status)}</Badge>
+            <Badge tone={bandTone(lead.latest_band)}>
+              {lead.latest_band ? titleCaseLabel(lead.latest_band) : "Unscored"}
+            </Badge>
+            <Badge tone={statusTone(lead.status)}>
+              {titleCaseLabel(lead.status)}
+            </Badge>
             <Badge tone="neutral">{formatScore(lead.latest_score)}</Badge>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <Signal label="Reviews" icon={<Star className="size-3.5 text-[oklch(var(--caution))]" />}>
+            <Signal
+              label="Reviews"
+              icon={<Star className="size-3.5 text-[oklch(var(--caution))]" />}
+            >
               {lead.review_count}
             </Signal>
-            <Signal label="Website" icon={<Globe className="size-3.5 text-muted-foreground" />}>
+            <Signal
+              label="Website"
+              icon={<Globe className="size-3.5 text-muted-foreground" />}
+            >
               {lead.website_domain ?? "Missing"}
             </Signal>
           </div>

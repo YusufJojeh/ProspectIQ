@@ -26,11 +26,14 @@ type FakeMessage = {
  * Builds an in-memory assistant backend for Part 9 (resumable chat history).
  * Routes registered here take precedence over the catch-all in installMockApi.
  */
-async function installAssistantHistoryMocks(page: import("@playwright/test").Page) {
+async function installAssistantHistoryMocks(
+  page: import("@playwright/test").Page,
+) {
   const sessions = new Map<string, FakeSession>();
   const messagesBySession = new Map<string, FakeMessage[]>();
   let counter = 0;
-  const nextId = (prefix: string) => `${prefix}_${++counter}_${Date.now().toString(36)}`;
+  const nextId = (prefix: string) =>
+    `${prefix}_${++counter}_${Date.now().toString(36)}`;
   const now = () => new Date().toISOString();
 
   // Helper: build the Vercel AI SDK UI-message-stream SSE response body.
@@ -38,7 +41,8 @@ async function installAssistantHistoryMocks(page: import("@playwright/test").Pag
     const messageId = `msg_${nextId("m")}`;
     const textId = `text_${nextId("t")}`;
     const lines: string[] = [];
-    const emit = (obj: unknown) => lines.push(`data: ${JSON.stringify(obj)}\n\n`);
+    const emit = (obj: unknown) =>
+      lines.push(`data: ${JSON.stringify(obj)}\n\n`);
     emit({ type: "start", messageId });
     emit({ type: "text-start", id: textId });
     emit({
@@ -60,7 +64,10 @@ async function installAssistantHistoryMocks(page: import("@playwright/test").Pag
       return;
     }
     const body = JSON.parse(request.postData() ?? "{}") as {
-      messages?: Array<{ role: string; parts?: Array<{ type: string; text?: string }> }>;
+      messages?: Array<{
+        role: string;
+        parts?: Array<{ type: string; text?: string }>;
+      }>;
       lead_id?: string;
       session_id?: string;
     };
@@ -151,7 +158,9 @@ async function installAssistantHistoryMocks(page: import("@playwright/test").Pag
   await page.route(/\/api\/v1\/assistant\/sessions\/[^?#]+/, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    const match = url.pathname.match(/\/api\/v1\/assistant\/sessions\/([^/?#]+)/);
+    const match = url.pathname.match(
+      /\/api\/v1\/assistant\/sessions\/([^/?#]+)/,
+    );
     const sessionId = match?.[1];
     if (!sessionId) {
       await route.fallback();
@@ -191,8 +200,9 @@ test("assistant: user can send a message and resume the conversation from histor
   await installAssistantHistoryMocks(page);
   await gotoPath(page, routes.assistant);
 
-  await expect(page.getByRole("heading", { name: /Lead-aware conversational workspace/i }))
-    .toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Lead-aware conversational workspace/i }),
+  ).toBeVisible();
 
   // Send the first message (use the prompt textarea)
   const textarea = page.locator("textarea").first();
@@ -201,8 +211,11 @@ test("assistant: user can send a message and resume the conversation from histor
   await textarea.press("Enter");
 
   // The assistant reply should appear in the conversation
-  await expect(page.getByText(/E2E assistant reply for: What is the latest score driver\?/i))
-    .toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText(
+      /E2E assistant reply for: What is the latest score driver\?/i,
+    ),
+  ).toBeVisible({ timeout: 10_000 });
 
   // Open the history sheet
   await page.getByRole("button", { name: /History/i }).click();
@@ -211,9 +224,13 @@ test("assistant: user can send a message and resume the conversation from histor
   const historyDialog = page.getByRole("dialog");
   await expect(historyDialog).toBeVisible();
   // Title span (truncated) shows the session title we created
-  await expect(historyDialog.getByText(/What is the latest score driver/i).first()).toBeVisible();
+  await expect(
+    historyDialog.getByText(/What is the latest score driver/i).first(),
+  ).toBeVisible();
   // Preview shows the assistant reply
-  await expect(historyDialog.getByText(/E2E assistant reply for/i).first()).toBeVisible();
+  await expect(
+    historyDialog.getByText(/E2E assistant reply for/i).first(),
+  ).toBeVisible();
 
   // Click "New chat" to clear, then resume from history
   await historyDialog.getByRole("button", { name: /New chat/i }).click();
@@ -232,12 +249,19 @@ test("assistant: user can send a message and resume the conversation from histor
   // Both the user message and the echoed assistant reply contain the question
   // text, so use .first()/.last() to disambiguate.
   const main = page.locator("main");
-  await expect(main.getByText(/What is the latest score driver/i).first()).toBeVisible();
-  await expect(main.getByText(/E2E assistant reply for: What is the latest score driver\?/i).first())
-    .toBeVisible();
+  await expect(
+    main.getByText(/What is the latest score driver/i).first(),
+  ).toBeVisible();
+  await expect(
+    main
+      .getByText(/E2E assistant reply for: What is the latest score driver\?/i)
+      .first(),
+  ).toBeVisible();
 });
 
-test("assistant: deleting a chat session removes it from the history list", async ({ page }) => {
+test("assistant: deleting a chat session removes it from the history list", async ({
+  page,
+}) => {
   await installAssistantHistoryMocks(page);
   await gotoPath(page, routes.assistant);
 
@@ -245,16 +269,22 @@ test("assistant: deleting a chat session removes it from the history list", asyn
   const textarea = page.locator("textarea").first();
   await textarea.fill("Question to be deleted");
   await textarea.press("Enter");
-  await expect(page.getByText(/E2E assistant reply for: Question to be deleted/i))
-    .toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText(/E2E assistant reply for: Question to be deleted/i),
+  ).toBeVisible({ timeout: 10_000 });
 
   // Open history
   await page.getByRole("button", { name: /History/i }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText(/Question to be deleted/i).first()).toBeVisible();
+  await expect(
+    dialog.getByText(/Question to be deleted/i).first(),
+  ).toBeVisible();
 
   // Click the delete (trash) icon — Button with aria-label "Delete chat"
-  await dialog.getByRole("button", { name: /Delete chat/i }).first().click();
+  await dialog
+    .getByRole("button", { name: /Delete chat/i })
+    .first()
+    .click();
 
   // Confirm in the AlertDialog
   const confirmDialog = page.getByRole("alertdialog");
@@ -262,5 +292,7 @@ test("assistant: deleting a chat session removes it from the history list", asyn
   await confirmDialog.getByRole("button", { name: /Delete chat/i }).click();
 
   // The session should disappear; empty state appears
-  await expect(dialog.getByText(/No previous chats/i)).toBeVisible({ timeout: 5_000 });
+  await expect(dialog.getByText(/No previous chats/i)).toBeVisible({
+    timeout: 5_000,
+  });
 });

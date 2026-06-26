@@ -24,6 +24,7 @@ repos:
           - pyjwt
           - pwdlib[argon2]
           - email-validator
+          - httpx
   - repo: https://github.com/pre-commit/mirrors-eslint
     rev: v9.22.0
     hooks:
@@ -31,10 +32,10 @@ repos:
         files: ^apps/web/src/.*\.(ts|tsx)$
         args: ["--config", "apps/web/.eslintrc.cjs"]
         additional_dependencies:
-          - eslint@8.57.1
-          - @typescript-eslint/eslint-plugin@8.12.0
-          - @typescript-eslint/parser@8.12.0
-          - eslint-plugin-react-hooks@5.0.0
+          - "eslint@8.57.1"
+          - "@typescript-eslint/eslint-plugin@8.12.0"
+          - "@typescript-eslint/parser@8.12.0"
+          - "eslint-plugin-react-hooks@5.0.0"
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v4.0.0-alpha.8
     hooks:

@@ -44,7 +44,9 @@ export function QuickFilterBar({
           variant={hasWebsite === "true" ? "default" : "outline"}
           size="sm"
           className={`h-7 gap-1.5 text-xs ${hasWebsite === "true" ? "" : "bg-transparent"}`}
-          onClick={() => onHasWebsiteChange(hasWebsite === "true" ? "all" : "true")}
+          onClick={() =>
+            onHasWebsiteChange(hasWebsite === "true" ? "all" : "true")
+          }
         >
           <Globe className="size-3" />
           {t("leads.hasWebsite")}

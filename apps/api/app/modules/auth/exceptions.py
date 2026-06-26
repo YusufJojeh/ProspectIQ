@@ -14,3 +14,10 @@ class InactiveUserError(UnauthorizedError):
 
     def __init__(self) -> None:
         super().__init__("This account is inactive. Contact your workspace administrator.")
+
+
+class InactiveWorkspaceError(UnauthorizedError):
+    code = ErrorCodes.WORKSPACE_INACTIVE
+
+    def __init__(self) -> None:
+        super().__init__("This workspace is inactive. Contact platform support.")

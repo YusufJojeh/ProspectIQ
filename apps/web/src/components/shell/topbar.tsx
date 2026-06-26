@@ -1,7 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Search, Command, Bell, Plus, ChevronRight, Sparkles, Radar, LogOut, MessageSquareText } from "lucide-react";
+import {
+  Search,
+  Command,
+  Bell,
+  Plus,
+  ChevronRight,
+  Radar,
+  LogOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +47,9 @@ export function AppTopbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthSession();
 
-  const segments = location.pathname.split("/").filter((segment) => segment && SEGMENT_KEYS[segment] !== undefined);
+  const segments = location.pathname
+    .split("/")
+    .filter((segment) => segment && SEGMENT_KEYS[segment] !== undefined);
 
   const userInitials =
     user?.full_name
@@ -49,14 +60,26 @@ export function AppTopbar() {
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-background/85 px-3 py-2 backdrop-blur-xl sm:px-4 lg:px-6">
-      <nav aria-label="Breadcrumb" className="flex min-w-[7rem] flex-1 basis-32 items-center gap-1.5 text-sm">
-        <Link to={appPaths.dashboard} className="hidden shrink-0 text-muted-foreground hover:text-foreground sm:inline">
+      <SidebarTrigger className="shrink-0" />
+
+      <nav
+        aria-label="Breadcrumb"
+        className="flex min-w-[7rem] flex-1 basis-32 items-center gap-1.5 text-sm"
+      >
+        <Link
+          to={appPaths.dashboard}
+          className="hidden shrink-0 text-muted-foreground hover:text-foreground sm:inline"
+        >
           LeadScope
         </Link>
         {segments.map((segment, index) => (
           <div
             key={segment + index}
-            className={index === segments.length - 1 ? "flex min-w-0 items-center gap-1.5" : "hidden min-w-0 items-center gap-1.5 sm:flex"}
+            className={
+              index === segments.length - 1
+                ? "flex min-w-0 items-center gap-1.5"
+                : "hidden min-w-0 items-center gap-1.5 sm:flex"
+            }
           >
             <ChevronRight className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block rtl:rotate-180" />
             <span
@@ -66,7 +89,9 @@ export function AppTopbar() {
                   : "truncate text-muted-foreground hover:text-foreground"
               }
             >
-              {SEGMENT_KEYS[segment] ? t(SEGMENT_KEYS[segment]) : segment.replace(/-/g, " ")}
+              {SEGMENT_KEYS[segment]
+                ? t(SEGMENT_KEYS[segment])
+                : segment.replace(/-/g, " ")}
             </span>
           </div>
         ))}
@@ -76,34 +101,29 @@ export function AppTopbar() {
         className="order-4 hidden w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 md:flex md:max-w-sm xl:order-none xl:ms-2"
         aria-label={t("topbar.searchPlaceholder")}
         onClick={() => {
-          const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true });
+          const event = new KeyboardEvent("keydown", {
+            key: "k",
+            metaKey: true,
+            bubbles: true,
+          });
           document.dispatchEvent(event);
         }}
       >
         <Search className="size-4" />
-        <span className="flex-1 text-start">{t("topbar.searchPlaceholder")}</span>
+        <span className="flex-1 text-start">
+          {t("topbar.searchPlaceholder")}
+        </span>
         <kbd className="pointer-events-none inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
           <Command className="size-2.5" />K
         </kbd>
       </button>
 
       <div className="ms-auto flex min-w-0 items-center gap-1 sm:gap-1.5 md:ms-0">
-        <Button variant="outline" size="sm" className="hidden border-border bg-transparent font-medium sm:inline-flex" asChild>
-          <Link to={appPaths.aiAnalysis}>
-            <Sparkles className="size-3.5 text-[oklch(var(--signal))]" />
-            <span className="hidden lg:inline">{t("topbar.aiAnalysis")}</span>
-            <span className="lg:hidden">AI</span>
-          </Link>
-        </Button>
-
-        <Button variant="outline" size="sm" className="hidden border-border bg-transparent font-medium lg:inline-flex" asChild>
-          <Link to={appPaths.assistant}>
-            <MessageSquareText className="size-3.5 text-[oklch(var(--signal))]" />
-            <span>{t("topbar.assistant")}</span>
-          </Link>
-        </Button>
-
-        <Button size="sm" className="h-9 gap-1.5 px-2.5 font-medium sm:px-3" asChild>
+        <Button
+          size="sm"
+          className="h-9 gap-1.5 px-2.5 font-medium sm:px-3"
+          asChild
+        >
           <Link to={appPaths.searches}>
             <Plus className="size-3.5" />
             <span className="hidden sm:inline">{t("topbar.newSearch")}</span>
@@ -116,24 +136,35 @@ export function AppTopbar() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative size-9 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative size-9 shrink-0"
+            >
               <Bell className="size-4" />
               <span className="absolute right-2 top-2 size-1.5 rounded-full bg-[oklch(var(--signal))] shadow-[0_0_0_3px_oklch(var(--signal)/0.2)]" />
               <span className="sr-only">{t("topbar.notifications")}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>{t("topbar.operationalEvents")}</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              {t("topbar.operationalEvents")}
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="flex-col items-start gap-0.5">
               <div className="flex items-center gap-1.5 text-sm">
-                <Radar className="size-3.5 text-[oklch(var(--signal))]" /> {t("topbar.discoveryActive")}
+                <Radar className="size-3.5 text-[oklch(var(--signal))]" />{" "}
+                {t("topbar.discoveryActive")}
               </div>
-              <div className="text-xs text-muted-foreground">{t("topbar.discoveryActiveTime")}</div>
+              <div className="text-xs text-muted-foreground">
+                {t("topbar.discoveryActiveTime")}
+              </div>
             </DropdownMenuItem>
             <DropdownMenuItem className="flex-col items-start gap-0.5">
               <div className="text-sm">{t("topbar.scoringUpdated")}</div>
-              <div className="text-xs text-muted-foreground">{t("topbar.scoringUpdatedTime")}</div>
+              <div className="text-xs text-muted-foreground">
+                {t("topbar.scoringUpdatedTime")}
+              </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -146,12 +177,18 @@ export function AppTopbar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel className="flex flex-col">
-              <span className="text-sm font-medium">{user?.full_name ?? t("common.workspace")}</span>
-              <span className="text-xs text-muted-foreground">{user?.email ?? ""}</span>
+              <span className="text-sm font-medium">
+                {user?.full_name ?? t("common.workspace")}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {user?.email ?? ""}
+              </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link to={appPaths.settings}>{t("topbar.profilePreferences")}</Link>
+              <Link to={appPaths.settings}>
+                {t("topbar.profilePreferences")}
+              </Link>
             </DropdownMenuItem>
             {user?.role === "account_owner" || user?.role === "admin" ? (
               <>

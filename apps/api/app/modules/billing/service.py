@@ -165,7 +165,9 @@ class BillingService:
 
     def list_plans(self, db: Session) -> PlanListResponse:
         self.ensure_seed_data(db)
-        return PlanListResponse(items=[self._to_plan_response(item) for item in self.repository.list_plans(db)])
+        return PlanListResponse(
+            items=[self._to_plan_response(item) for item in self.repository.list_plans(db)]
+        )
 
     def get_subscription(self, db: Session, *, workspace_id: int) -> SubscriptionResponse:
         subscription = self._get_subscription_or_raise(db, workspace_id)
@@ -181,13 +183,19 @@ class BillingService:
         plan = self._get_plan_or_raise(db, subscription.plan_id)
         period_start, period_end = self.current_month_period()
         items: list[UsageMetricResponse] = []
-        counters = {item.metric_key: item for item in self.repository.list_usage_for_workspace(db, workspace_id)}
+        counters = {
+            item.metric_key: item
+            for item in self.repository.list_usage_for_workspace(db, workspace_id)
+        }
         for metric_key, limit_value in plan.limits_json.items():
             current_value = 0
             if metric_key == "max_team_users":
                 current_value = self.users_repository.count_for_workspace(db, workspace_id)
             else:
-                current_value = counters.get(metric_key, self._empty_usage_counter(workspace_id, metric_key, period_start, period_end)).current_value
+                current_value = counters.get(
+                    metric_key,
+                    self._empty_usage_counter(workspace_id, metric_key, period_start, period_end),
+                ).current_value
             items.append(
                 UsageMetricResponse(
                     metric_key=metric_key,
@@ -199,14 +207,18 @@ class BillingService:
             )
         return UsageSummaryResponse(items=items)
 
-    def enforce_usage(self, db: Session, *, workspace_id: int, metric_key: str, actor_user_id: int | None = None) -> None:
+    def enforce_usage(
+        self, db: Session, *, workspace_id: int, metric_key: str, actor_user_id: int | None = None
+    ) -> None:
         subscription = self._get_subscription_or_raise(
             db,
             workspace_id,
             actor_user_id=actor_user_id,
         )
         if not self._is_subscription_operational(subscription):
-            raise SubscriptionAccessError("The current subscription status does not allow this action.")
+            raise SubscriptionAccessError(
+                "The current subscription status does not allow this action."
+            )
         plan = self._get_plan_or_raise(db, subscription.plan_id)
         limit_value = plan.limits_json.get(metric_key)
         if limit_value is None:
@@ -275,7 +287,9 @@ class BillingService:
         subscription.renews_at = self._next_renewal_at(now, payload.billing_cycle)
         subscription.updated_at = now
         self.repository.save(db, subscription)
-        invoice_amount = plan.yearly_price if payload.billing_cycle == "yearly" else plan.monthly_price
+        invoice_amount = (
+            plan.yearly_price if payload.billing_cycle == "yearly" else plan.monthly_price
+        )
         self._create_invoice(
             db,
             workspace_id=workspace_id,
@@ -292,7 +306,9 @@ class BillingService:
         )
         return self._to_subscription_response(subscription, plan)
 
-    def cancel_subscription(self, db: Session, *, workspace_id: int, actor: User) -> SubscriptionResponse:
+    def cancel_subscription(
+        self, db: Session, *, workspace_id: int, actor: User
+    ) -> SubscriptionResponse:
         self._assert_owner(actor)
         subscription = self._get_subscription_or_raise(
             db,
@@ -317,7 +333,9 @@ class BillingService:
         )
         return self._to_subscription_response(subscription, plan)
 
-    def renew_subscription(self, db: Session, *, workspace_id: int, actor: User) -> SubscriptionResponse:
+    def renew_subscription(
+        self, db: Session, *, workspace_id: int, actor: User
+    ) -> SubscriptionResponse:
         self._assert_owner(actor)
         subscription = self._get_subscription_or_raise(
             db,
@@ -332,7 +350,9 @@ class BillingService:
         subscription.updated_at = now
         self.repository.save(db, subscription)
         plan = self._get_plan_or_raise(db, subscription.plan_id)
-        renewal_amount = plan.yearly_price if subscription.billing_cycle == "yearly" else plan.monthly_price
+        renewal_amount = (
+            plan.yearly_price if subscription.billing_cycle == "yearly" else plan.monthly_price
+        )
         self._create_invoice(
             db,
             workspace_id=workspace_id,
@@ -349,7 +369,9 @@ class BillingService:
         )
         return self._to_subscription_response(subscription, plan)
 
-    def mark_invoice_paid(self, db: Session, *, workspace_id: int, invoice_public_id: str, actor: User) -> InvoiceResponse:
+    def mark_invoice_paid(
+        self, db: Session, *, workspace_id: int, invoice_public_id: str, actor: User
+    ) -> InvoiceResponse:
         self._assert_owner(actor)
         invoice = self.repository.get_invoice_for_workspace(db, workspace_id, invoice_public_id)
         if invoice is None:
@@ -358,7 +380,9 @@ class BillingService:
         invoice.status = "paid"
         invoice.paid_at = now
         self.repository.save(db, invoice)
-        db.add(PaymentAttempt(invoice_id=invoice.id, status="succeeded", simulated_result="success"))
+        db.add(
+            PaymentAttempt(invoice_id=invoice.id, status="succeeded", simulated_result="success")
+        )
         db.commit()
         subscription = self._get_subscription_or_raise(
             db,
@@ -444,7 +468,9 @@ class BillingService:
         )
         db.add(invoice)
         db.flush()
-        db.add(InvoiceItem(invoice_id=invoice.id, description=description, amount=amount, quantity=1))
+        db.add(
+            InvoiceItem(invoice_id=invoice.id, description=description, amount=amount, quantity=1)
+        )
         db.commit()
         db.refresh(invoice)
         return invoice
@@ -566,7 +592,9 @@ class BillingService:
             is_active=plan.is_active,
         )
 
-    def _to_subscription_response(self, subscription: Subscription, plan: Plan) -> SubscriptionResponse:
+    def _to_subscription_response(
+        self, subscription: Subscription, plan: Plan
+    ) -> SubscriptionResponse:
         return SubscriptionResponse(
             public_id=subscription.public_id,
             plan_code=plan.code,

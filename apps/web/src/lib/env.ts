@@ -31,11 +31,16 @@ function normalizeApiBaseUrl(value: string | undefined): string {
 }
 
 const runtimeApiBaseUrl =
-  typeof window !== "undefined" ? window.__APP_CONFIG__?.VITE_API_BASE_URL : undefined;
+  typeof window !== "undefined"
+    ? window.__APP_CONFIG__?.VITE_API_BASE_URL
+    : undefined;
 
 export const env = envSchema.parse({
   VITE_API_BASE_URL: normalizeApiBaseUrl(
-    runtimeApiBaseUrl ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
+    runtimeApiBaseUrl ??
+      import.meta.env.VITE_API_BASE_URL ??
+      "http://localhost:8000",
   ),
-  VITE_ENABLE_BILLING_SIMULATION: import.meta.env.VITE_ENABLE_BILLING_SIMULATION,
+  VITE_ENABLE_BILLING_SIMULATION: import.meta.env
+    .VITE_ENABLE_BILLING_SIMULATION,
 });

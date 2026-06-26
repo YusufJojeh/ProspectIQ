@@ -11,7 +11,9 @@ export function createAssistantTransport(body?: AssistantChatRequestBody) {
   return new DefaultChatTransport<UIMessage>({
     api: buildRequestUrl("/api/v1/assistant/chat"),
     body,
-    headers: readToken() ? { Authorization: `Bearer ${readToken()}` } : undefined,
+    headers: readToken()
+      ? { Authorization: `Bearer ${readToken()}` }
+      : undefined,
   });
 }
 
@@ -42,7 +44,9 @@ type ChatSessionListResponse = {
   items: ChatSessionSummary[];
 };
 
-export async function listChatSessions(leadId?: string): Promise<ChatSessionSummary[]> {
+export async function listChatSessions(
+  leadId?: string,
+): Promise<ChatSessionSummary[]> {
   const query = leadId ? `?lead_id=${encodeURIComponent(leadId)}` : "";
   const response = await request<ChatSessionListResponse>(
     `/api/v1/assistant/sessions${query}`,
@@ -51,7 +55,9 @@ export async function listChatSessions(leadId?: string): Promise<ChatSessionSumm
   return response.items;
 }
 
-export async function getChatSession(sessionId: string): Promise<ChatSessionDetail> {
+export async function getChatSession(
+  sessionId: string,
+): Promise<ChatSessionDetail> {
   return request<ChatSessionDetail>(
     `/api/v1/assistant/sessions/${encodeURIComponent(sessionId)}`,
     { method: "GET" },

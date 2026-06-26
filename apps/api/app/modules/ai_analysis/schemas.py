@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -60,6 +61,13 @@ class LeadAnalysisResult(BaseModel):
     outreach_message: str
     confidence: float = Field(ge=0, le=1)
     recommended_tone: str | None = None
+    # Evidence-grounded fields (Phase 2). All optional with defaults so existing
+    # snapshots and frontend consumers remain backward compatible.
+    pain_points: list[str] = Field(default_factory=list)
+    opportunity_reason: str | None = None
+    outreach_angle: str | None = None
+    risks_or_uncertainties: list[str] = Field(default_factory=list)
+    evidence_used: list[str] = Field(default_factory=list)
 
 
 class ServiceRecommendationResponse(BaseModel):
@@ -91,6 +99,34 @@ class LeadAnalysisHistoryResponse(BaseModel):
     items: list[LeadAnalysisSnapshotResponse]
 
 
+class AIEvidenceItem(BaseModel):
+    public_id: str
+    source_type: str
+    source_url: str | None = None
+    evidence_text: str
+    confidence: float
+    created_at: datetime
+
+
+class LeadAiEvidenceResponse(BaseModel):
+    lead_id: str
+    snapshot_public_id: str | None = None
+    items: list[AIEvidenceItem] = Field(default_factory=list)
+
+
+class AIFeedbackRequest(BaseModel):
+    rating: Literal["useful", "not_useful"]
+    correction_text: str | None = Field(default=None, max_length=2000)
+
+
+class AIFeedbackResponse(BaseModel):
+    public_id: str
+    snapshot_public_id: str
+    rating: str
+    correction_text: str | None = None
+    created_at: datetime
+
+
 class BatchAnalysisRequest(BaseModel):
     lead_ids: list[str] = Field(min_length=1, max_length=50)
 
@@ -107,9 +143,13 @@ class BatchAnalysisResponse(BaseModel):
 
 
 __all__ = [
+    "AIEvidenceItem",
+    "AIFeedbackRequest",
+    "AIFeedbackResponse",
     "BatchAnalysisRequest",
     "BatchAnalysisResponse",
     "BatchAnalysisResult",
+    "LeadAiEvidenceResponse",
     "LatestLeadAnalysisResponse",
     "LeadAnalysisHistoryResponse",
     "LeadAnalysisInput",

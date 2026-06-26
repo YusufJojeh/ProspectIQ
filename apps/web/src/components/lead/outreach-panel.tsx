@@ -3,7 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { formatDate, titleCaseLabel } from "@/lib/presenters";
@@ -44,7 +50,9 @@ export function LeadOutreachPanel({
     <section className="rounded-2xl border border-border bg-card/95">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
         <div>
-          <h2 className="text-sm font-semibold">{t("leadDetail.outreachWorkspace")}</h2>
+          <h2 className="text-sm font-semibold">
+            {t("leadDetail.outreachWorkspace")}
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("leadDetail.outreachDescription")}
           </p>
@@ -53,18 +61,33 @@ export function LeadOutreachPanel({
       </header>
 
       <div className="space-y-4 p-4">
-        {error ? <QueryStateNotice tone="error" title={t("leadDetail.outreachUnavailable")} error={error} /> : null}
+        {error ? (
+          <QueryStateNotice
+            tone="error"
+            title={t("leadDetail.outreachUnavailable")}
+            error={error}
+          />
+        ) : null}
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-          <Select value={tone} onValueChange={(value) => onToneChange(value as OutreachTone)}>
+          <Select
+            value={tone}
+            onValueChange={(value) => onToneChange(value as OutreachTone)}
+          >
             <SelectTrigger>
               <SelectValue placeholder={t("outreach.toneLabel")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="consultative">{t("outreach.toneConsultative")}</SelectItem>
-              <SelectItem value="friendly">{t("outreach.toneFriendly")}</SelectItem>
+              <SelectItem value="consultative">
+                {t("outreach.toneConsultative")}
+              </SelectItem>
+              <SelectItem value="friendly">
+                {t("outreach.toneFriendly")}
+              </SelectItem>
               <SelectItem value="formal">{t("outreach.toneFormal")}</SelectItem>
-              <SelectItem value="short_pitch">{t("outreach.toneShortPitch")}</SelectItem>
+              <SelectItem value="short_pitch">
+                {t("outreach.toneShortPitch")}
+              </SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -88,13 +111,29 @@ export function LeadOutreachPanel({
             <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
               <span>{formatDate(draft.updated_at)}</span>
               <span>{titleCaseLabel(draft.tone)}</span>
-              <span>{draft.has_manual_edits ? t("leadDetail.editedDraft") : t("leadDetail.generatedDraft")}</span>
+              <span>
+                {draft.has_manual_edits
+                  ? t("leadDetail.editedDraft")
+                  : t("leadDetail.generatedDraft")}
+              </span>
             </div>
             <div className="space-y-2">
-              <Input value={subject} onChange={(event) => onSubjectChange(event.target.value)} placeholder={t("leadDetail.outreachSubject")} />
-              <Textarea value={message} onChange={(event) => onMessageChange(event.target.value)} className="min-h-[220px]" />
+              <Input
+                value={subject}
+                onChange={(event) => onSubjectChange(event.target.value)}
+                placeholder={t("leadDetail.outreachSubject")}
+              />
+              <Textarea
+                value={message}
+                onChange={(event) => onMessageChange(event.target.value)}
+                className="min-h-[220px]"
+              />
             </div>
-            <Button data-testid="lead-outreach-save" onClick={onSave} disabled={!canSave || saving}>
+            <Button
+              data-testid="lead-outreach-save"
+              onClick={onSave}
+              disabled={!canSave || saving}
+            >
               <Save className="size-3.5" />
               {saving ? t("common.loading") : t("leadDetail.saveEdits")}
             </Button>

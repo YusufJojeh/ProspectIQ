@@ -26,21 +26,37 @@ export function getUsageSummary() {
 }
 
 export function changeSubscription(payload: SubscriptionChangeRequest) {
-  return request<SubscriptionResponse>("/api/v1/billing/subscription/change", { method: "POST" }, payload);
+  return request<SubscriptionResponse>(
+    "/api/v1/billing/subscription/change",
+    { method: "POST" },
+    payload,
+  );
 }
 
 export function cancelSubscription() {
-  return request<SubscriptionResponse>("/api/v1/billing/subscription/cancel", { method: "POST" });
+  return request<SubscriptionResponse>("/api/v1/billing/subscription/cancel", {
+    method: "POST",
+  });
 }
 
 export function renewSubscription() {
-  return request<SubscriptionResponse>("/api/v1/billing/subscription/renew", { method: "POST" });
+  return request<SubscriptionResponse>("/api/v1/billing/subscription/renew", {
+    method: "POST",
+  });
 }
 
 export function markInvoicePaid(payload: BillingSimulationRequest) {
-  return request<InvoiceResponse>("/api/v1/billing/invoices/mark-paid", { method: "POST" }, payload);
+  return request<InvoiceResponse>(
+    "/api/v1/billing/invoices/mark-paid",
+    { method: "POST" },
+    payload,
+  );
 }
 
 export function simulateInvoiceFailure(payload: BillingSimulationRequest) {
-  return request<InvoiceResponse>("/api/v1/billing/invoices/simulate-failure", { method: "POST" }, payload);
+  return request<InvoiceResponse>(
+    "/api/v1/billing/invoices/simulate-failure",
+    { method: "POST" },
+    payload,
+  );
 }

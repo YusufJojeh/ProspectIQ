@@ -2,12 +2,17 @@ import { readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 
-const pidPath = path.resolve(process.cwd(), "test-artifacts/playwright/web-server.pid");
+const pidPath = path.resolve(
+  process.cwd(),
+  "test-artifacts/playwright/web-server.pid",
+);
 
 function stopProcess(pid: number): Promise<void> {
   return new Promise((resolve) => {
     if (process.platform === "win32") {
-      const killer = spawn("taskkill", ["/pid", String(pid), "/t", "/f"], { stdio: "ignore" });
+      const killer = spawn("taskkill", ["/pid", String(pid), "/t", "/f"], {
+        stdio: "ignore",
+      });
       killer.on("exit", () => resolve());
       killer.on("error", () => resolve());
       return;

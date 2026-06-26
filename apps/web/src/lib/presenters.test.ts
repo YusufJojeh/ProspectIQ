@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { bandTone, searchJobTone, statusTone } from "@/lib/presenters";
+import {
+  bandTone,
+  formatRelativeTime,
+  searchJobTone,
+  statusTone,
+} from "@/lib/presenters";
 
 describe("presenter tone helpers", () => {
   it("maps score bands to the expected badge tones", () => {
@@ -22,5 +27,22 @@ describe("presenter tone helpers", () => {
     expect(searchJobTone("failed")).toBe("danger");
     expect(searchJobTone("running")).toBe("accent");
     expect(searchJobTone("queued")).toBe("accent");
+  });
+
+  it("formats relative time from the supplied current time", () => {
+    expect(
+      formatRelativeTime(
+        "2026-05-30T20:59:30.000Z",
+        "en",
+        new Date("2026-05-30T21:00:00.000Z"),
+      ),
+    ).toBe("30 seconds ago");
+    expect(
+      formatRelativeTime(
+        "2026-05-30T20:58:00.000Z",
+        "en",
+        new Date("2026-05-30T21:00:00.000Z"),
+      ),
+    ).toBe("2 minutes ago");
   });
 });

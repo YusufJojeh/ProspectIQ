@@ -8,7 +8,14 @@ import { z } from "zod";
 import { appPaths } from "@/app/paths";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { signup } from "@/features/auth/api";
 import { AuthShell } from "@/features/auth/components/auth-shell";
@@ -32,7 +39,13 @@ export function SignUpPage() {
       full_name: z.string().min(2),
       workspace_name: z.string().min(2),
       email: z.string().email(),
-      password: z.string().min(12).regex(/[a-z]/).regex(/[A-Z]/).regex(/\d/).regex(/[^A-Za-z0-9]/),
+      password: z
+        .string()
+        .min(12)
+        .regex(/[a-z]/)
+        .regex(/[A-Z]/)
+        .regex(/\d/)
+        .regex(/[^A-Za-z0-9]/),
       confirm_password: z.string().min(12),
     })
     .refine((value) => value.password === value.confirm_password, {
@@ -70,14 +83,20 @@ export function SignUpPage() {
       footer={
         <p className="text-[12px] text-muted-foreground">
           {t("auth.haveAccount")}{" "}
-          <Link to={appPaths.login} className="font-medium text-foreground hover:text-[oklch(var(--signal))]">
+          <Link
+            to={appPaths.login}
+            className="font-medium text-foreground hover:text-[oklch(var(--signal))]"
+          >
             {t("auth.signIn")}
           </Link>
         </p>
       }
     >
       <Form {...form}>
-        <form className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+        >
           <FormField
             control={form.control}
             name="full_name"
@@ -85,7 +104,11 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.fullName")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="name" placeholder={t("auth.namePlaceholder") as string} {...field} />
+                  <Input
+                    autoComplete="name"
+                    placeholder={t("auth.namePlaceholder") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -99,7 +122,11 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.workspaceName")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="organization" placeholder={t("auth.workspacePlaceholder") as string} {...field} />
+                  <Input
+                    autoComplete="organization"
+                    placeholder={t("auth.workspacePlaceholder") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -113,7 +140,11 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.workEmail")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="email" placeholder={t("auth.workspaceEmailPlaceholder") as string} {...field} />
+                  <Input
+                    autoComplete="email"
+                    placeholder={t("auth.workspaceEmailPlaceholder") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -127,7 +158,12 @@ export function SignUpPage() {
               <FormItem>
                 <FormLabel>{t("auth.password")}</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" placeholder={t("auth.passwordPlaceholder") as string} {...field} />
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={t("auth.passwordPlaceholder") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -154,9 +190,17 @@ export function SignUpPage() {
           />
 
           {mutation.error ? (
-            <QueryStateNotice tone="error" title={t("auth.signUpFailed")} description={mutation.error} />
+            <QueryStateNotice
+              tone="error"
+              title={t("auth.signUpFailed")}
+              description={mutation.error}
+            />
           ) : (
-            <QueryStateNotice tone="info" title={t("auth.starterTrialTitle")} description={t("auth.starterTrialDescription")} />
+            <QueryStateNotice
+              tone="info"
+              title={t("auth.starterTrialTitle")}
+              description={t("auth.starterTrialDescription")}
+            />
           )}
 
           <Button type="submit" disabled={mutation.isPending}>

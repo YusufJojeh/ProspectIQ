@@ -42,9 +42,7 @@ class OutreachRepository:
         statement = select(OutreachMessage).where(OutreachMessage.public_id == public_id).limit(1)
         return db.scalar(statement)
 
-    def get_latest_outreach_statuses(
-        self, db: Session, lead_ids: list[int]
-    ) -> dict[int, str]:
+    def get_latest_outreach_statuses(self, db: Session, lead_ids: list[int]) -> dict[int, str]:
         if not lead_ids:
             return {}
         subq = (
@@ -56,9 +54,9 @@ class OutreachRepository:
             .group_by(OutreachMessage.lead_id)
             .subquery()
         )
-        statement = select(
-            OutreachMessage.lead_id, OutreachMessage.outreach_status
-        ).join(subq, OutreachMessage.id == subq.c.max_id)
+        statement = select(OutreachMessage.lead_id, OutreachMessage.outreach_status).join(
+            subq, OutreachMessage.id == subq.c.max_id
+        )
         rows = db.execute(statement).all()
         return {row.lead_id: row.outreach_status for row in rows}
 

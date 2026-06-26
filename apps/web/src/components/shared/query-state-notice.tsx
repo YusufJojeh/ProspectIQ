@@ -51,11 +51,12 @@ export function QueryStateNotice({
 
   // Prefer description; fall back to error prop; fall back to generic message
   const effectiveDescription = description ?? error ?? null;
-  const resolvedDescription = typeof effectiveDescription === "string"
-    ? effectiveDescription
-    : effectiveDescription
-      ? resolveErrorMessage(effectiveDescription, t)
-      : t("errors.generic");
+  const resolvedDescription =
+    typeof effectiveDescription === "string"
+      ? effectiveDescription
+      : effectiveDescription
+        ? resolveErrorMessage(effectiveDescription, t)
+        : t("errors.generic");
 
   return (
     <div
@@ -68,14 +69,27 @@ export function QueryStateNotice({
       aria-busy={tone === "loading"}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card/80 shadow-sm">
-        <Icon className={cn("h-4 w-4 shrink-0", toneStyles[tone].iconClassName)} />
+        <Icon
+          className={cn("h-4 w-4 shrink-0", toneStyles[tone].iconClassName)}
+        />
       </div>
       <div className="space-y-2">
-        <Badge tone={tone === "error" ? "danger" : tone === "success" ? "success" : "neutral"} className="w-fit">
+        <Badge
+          tone={
+            tone === "error"
+              ? "danger"
+              : tone === "success"
+                ? "success"
+                : "neutral"
+          }
+          className="w-fit"
+        >
           {tone}
         </Badge>
         <p className="text-sm font-semibold">{title}</p>
-        <p className="text-sm leading-6 text-[color:var(--muted)]">{resolvedDescription}</p>
+        <p className="text-sm leading-6 text-[color:var(--muted)]">
+          {resolvedDescription}
+        </p>
       </div>
     </div>
   );

@@ -20,7 +20,12 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-9 shrink-0" aria-label={t("language.switch")}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-9 shrink-0"
+          aria-label={t("language.switch")}
+        >
           <Globe className="size-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -32,9 +37,13 @@ export function LanguageSwitcher() {
             className="gap-2"
             aria-current={currentLang === lang.code ? "true" : undefined}
           >
-            <span className="w-4 text-center text-xs font-bold uppercase text-muted-foreground">{lang.code}</span>
+            <span className="w-4 text-center text-xs font-bold uppercase text-muted-foreground">
+              {lang.code}
+            </span>
             <span>{lang.nativeLabel}</span>
-            {currentLang === lang.code ? <span className="ms-auto text-xs text-muted-foreground">✓</span> : null}
+            {currentLang === lang.code ? (
+              <span className="ms-auto text-xs text-muted-foreground">✓</span>
+            ) : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

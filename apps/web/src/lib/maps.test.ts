@@ -12,7 +12,9 @@ describe("maps helpers", () => {
   it("rejects null or non-finite coordinates", () => {
     expect(hasCoordinates({ lat: null, lng: 29.042 })).toBe(false);
     expect(hasCoordinates({ lat: Number.NaN, lng: 29.042 })).toBe(false);
-    expect(hasCoordinates({ lat: 41.015, lng: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(hasCoordinates({ lat: 41.015, lng: Number.POSITIVE_INFINITY })).toBe(
+      false,
+    );
   });
 
   it("rejects coordinates outside the supported map range", () => {

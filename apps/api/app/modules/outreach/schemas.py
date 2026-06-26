@@ -23,9 +23,7 @@ class OutreachGenerateRequest(BaseModel):
     @classmethod
     def validate_language(cls, v: str) -> str:
         if v not in _SUPPORTED_LANGUAGES:
-            raise ValueError(
-                f"language must be one of: {', '.join(sorted(_SUPPORTED_LANGUAGES))}"
-            )
+            raise ValueError(f"language must be one of: {', '.join(sorted(_SUPPORTED_LANGUAGES))}")
         return v
 
 

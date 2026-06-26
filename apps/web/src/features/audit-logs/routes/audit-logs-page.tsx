@@ -24,16 +24,55 @@ import { formatDate } from "@/lib/presenters";
 import { cn } from "@/lib/utils";
 import type { AuditLogResponse } from "@/types/api";
 
-function categoryOf(eventName: string, t: ReturnType<typeof useTranslation>["t"]) {
-  if (eventName.includes("lead")) return { label: t("auditLogs.categories.lead"), icon: User, color: "oklch(var(--signal))" };
-  if (eventName.includes("export")) return { label: t("auditLogs.categories.export"), icon: FileDown, color: "oklch(var(--caution))" };
+function categoryOf(
+  eventName: string,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  if (eventName.includes("lead"))
+    return {
+      label: t("auditLogs.categories.lead"),
+      icon: User,
+      color: "oklch(var(--signal))",
+    };
+  if (eventName.includes("export"))
+    return {
+      label: t("auditLogs.categories.export"),
+      icon: FileDown,
+      color: "oklch(var(--caution))",
+    };
   if (eventName.includes("job") || eventName.includes("provider"))
-    return { label: t("auditLogs.categories.pipeline"), icon: Zap, color: "oklch(var(--signal))" };
-  if (eventName.includes("user") || eventName.includes("api") || eventName.includes("workspace"))
-    return { label: t("auditLogs.categories.security"), icon: ShieldCheck, color: "oklch(var(--evidence))" };
-  if (eventName.includes("scoring")) return { label: t("auditLogs.categories.scoring"), icon: SettingsIcon, color: "oklch(var(--signal))" };
-  if (eventName.includes("outreach")) return { label: t("auditLogs.categories.outreach"), icon: ScrollText, color: "oklch(var(--caution))" };
-  return { label: t("auditLogs.categories.system"), icon: Database, color: "oklch(var(--muted-foreground))" };
+    return {
+      label: t("auditLogs.categories.pipeline"),
+      icon: Zap,
+      color: "oklch(var(--signal))",
+    };
+  if (
+    eventName.includes("user") ||
+    eventName.includes("api") ||
+    eventName.includes("workspace")
+  )
+    return {
+      label: t("auditLogs.categories.security"),
+      icon: ShieldCheck,
+      color: "oklch(var(--evidence))",
+    };
+  if (eventName.includes("scoring"))
+    return {
+      label: t("auditLogs.categories.scoring"),
+      icon: SettingsIcon,
+      color: "oklch(var(--signal))",
+    };
+  if (eventName.includes("outreach"))
+    return {
+      label: t("auditLogs.categories.outreach"),
+      icon: ScrollText,
+      color: "oklch(var(--caution))",
+    };
+  return {
+    label: t("auditLogs.categories.system"),
+    icon: Database,
+    color: "oklch(var(--muted-foreground))",
+  };
 }
 
 export function AuditLogsPage() {
@@ -69,12 +108,22 @@ export function AuditLogsPage() {
     });
 
   if (logsQuery.isPending) {
-    return <QueryStateNotice tone="loading" title={t("auditLogs.loadingTitle")} description={t("auditLogs.loadingDescription")} />;
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title={t("auditLogs.loadingTitle")}
+        description={t("auditLogs.loadingDescription")}
+      />
+    );
   }
 
   if (logsQuery.isError) {
     return (
-      <QueryStateNotice tone="error" title={t("auditLogs.loadErrorTitle")} error={logsQuery.error} />
+      <QueryStateNotice
+        tone="error"
+        title={t("auditLogs.loadErrorTitle")}
+        error={logsQuery.error}
+      />
     );
   }
 
@@ -104,7 +153,10 @@ export function AuditLogsPage() {
               />
             </div>
             <span className="ms-auto font-mono text-[11px] tabular-nums text-muted-foreground">
-              {t("auditLogs.eventsCount", { visible: filtered.length, total: logs.length })}
+              {t("auditLogs.eventsCount", {
+                visible: filtered.length,
+                total: logs.length,
+              })}
             </span>
           </header>
 
@@ -132,9 +184,13 @@ export function AuditLogsPage() {
                         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                           {formatDate(e.created_at)}
                         </span>
-                        <span className="font-mono text-[11.5px] text-[oklch(var(--signal))]">{e.event_name}</span>
+                        <span className="font-mono text-[11.5px] text-[oklch(var(--signal))]">
+                          {e.event_name}
+                        </span>
                       </div>
-                      <div className="mt-0.5 truncate text-[12px] text-muted-foreground">{e.details}</div>
+                      <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                        {e.details}
+                      </div>
                     </div>
                     {isOpen ? (
                       <ChevronDown className="size-3.5 text-muted-foreground" />
@@ -147,16 +203,27 @@ export function AuditLogsPage() {
                       <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-[12px] md:grid-cols-2">
                         {[
                           [t("auditLogs.eventId"), e.public_id],
-                          [t("auditLogs.timestampUtc"), new Date(e.created_at).toISOString()],
-                          [t("auditLogs.actor"), e.actor_user_public_id ?? t("common.system")],
+                          [
+                            t("auditLogs.timestampUtc"),
+                            new Date(e.created_at).toISOString(),
+                          ],
+                          [
+                            t("auditLogs.actor"),
+                            e.actor_user_public_id ?? t("common.system"),
+                          ],
                           [t("auditLogs.event"), e.event_name],
                           [t("auditLogs.details"), e.details],
                         ].map(([k, v]) => (
-                          <div key={k as string} className="grid grid-cols-[100px,1fr] gap-2 sm:grid-cols-[140px,1fr]">
+                          <div
+                            key={k as string}
+                            className="grid grid-cols-[100px,1fr] gap-2 sm:grid-cols-[140px,1fr]"
+                          >
                             <dt className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
                               {k}
                             </dt>
-                            <dd className="font-mono text-[11.5px] text-foreground">{v}</dd>
+                            <dd className="font-mono text-[11.5px] text-foreground">
+                              {v}
+                            </dd>
                           </div>
                         ))}
                       </dl>
@@ -168,10 +235,18 @@ export function AuditLogsPage() {
           </ul>
 
           {filtered.length === 0 && (
-            <div className={cn("flex flex-col items-center gap-2 py-12 text-center")}>
+            <div
+              className={cn(
+                "flex flex-col items-center gap-2 py-12 text-center",
+              )}
+            >
               <ScrollText className="size-5 text-muted-foreground" />
-              <div className="text-sm font-medium">{t("auditLogs.noEventsTitle")}</div>
-              <div className="text-xs text-muted-foreground">{t("auditLogs.noEventsDescription")}</div>
+              <div className="text-sm font-medium">
+                {t("auditLogs.noEventsTitle")}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {t("auditLogs.noEventsDescription")}
+              </div>
             </div>
           )}
         </section>

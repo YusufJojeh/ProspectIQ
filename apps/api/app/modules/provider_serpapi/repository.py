@@ -180,9 +180,7 @@ class ProviderEvidenceRepository:
         visibility_confidence = item.facts_json.get("visibility_confidence")
         source = item.facts_json.get("source")
         confidence = (
-            float(visibility_confidence)
-            if isinstance(visibility_confidence, (int, float))
-            else None
+            float(visibility_confidence) if isinstance(visibility_confidence, int | float) else None
         )
         return confidence, source if isinstance(source, str) else None
 

@@ -24,11 +24,19 @@ import {
   Zap,
 } from "lucide-react";
 import { appPaths } from "@/app/paths";
+import { useAuthSession } from "@/features/auth/session";
 
 export function CommandMenu() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuthSession();
+  const adminPath =
+    user?.role === "platform_admin"
+      ? appPaths.admin
+      : user?.role === "account_owner" || user?.role === "admin"
+        ? appPaths.workspaceAdmin
+        : null;
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -90,10 +98,12 @@ export function CommandMenu() {
             <Send className="size-4" />
             {t("nav.outreach")}
           </CommandItem>
-          <CommandItem onSelect={() => go(appPaths.admin)}>
-            <ShieldCheck className="size-4" />
-            {t("nav.admin")}
-          </CommandItem>
+          {adminPath ? (
+            <CommandItem onSelect={() => go(adminPath)}>
+              <ShieldCheck className="size-4" />
+              {t("nav.admin")}
+            </CommandItem>
+          ) : null}
           <CommandItem onSelect={() => go(appPaths.auditLogs)}>
             <ScrollText className="size-4" />
             {t("nav.auditLogs")}

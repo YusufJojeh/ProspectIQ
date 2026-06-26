@@ -30,8 +30,16 @@ export async function gotoPath(page: Page, path: string) {
   await waitForPageReady(page);
 }
 
-export async function delayApiResponseOnce(page: Page, urlPattern: string | RegExp, delayMs = 1200) {
-  const handler = async (route: Parameters<Page["route"]>[1] extends (route: infer R) => unknown ? R : never) => {
+export async function delayApiResponseOnce(
+  page: Page,
+  urlPattern: string | RegExp,
+  delayMs = 1200,
+) {
+  const handler = async (
+    route: Parameters<Page["route"]>[1] extends (route: infer R) => unknown
+      ? R
+      : never,
+  ) => {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
     await route.fallback();
     await page.unroute(urlPattern, handler);
@@ -53,7 +61,9 @@ export async function expectNoHorizontalOverflow(page: Page) {
           return false;
         }
 
-        const scrollParent = element.closest<HTMLElement>('[data-slot="table-container"], .overflow-x-auto, .overflow-x-scroll');
+        const scrollParent = element.closest<HTMLElement>(
+          '[data-slot="table-container"], .overflow-x-auto, .overflow-x-scroll',
+        );
         if (scrollParent) {
           return false;
         }
@@ -78,7 +88,9 @@ export async function expectNoHorizontalOverflow(page: Page) {
     };
   });
   if (overflow > 1) {
-    throw new Error(`Horizontal overflow detected: ${overflow}px :: ${JSON.stringify(offenders)}`);
+    throw new Error(
+      `Horizontal overflow detected: ${overflow}px :: ${JSON.stringify(offenders)}`,
+    );
   }
 }
 

@@ -9,6 +9,22 @@ from app.modules.ai_analysis.schemas import (
 )
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 
+BILINGUAL_ANALYSIS_INSTRUCTION = (
+    "BILINGUAL OUTPUT REQUIRED: every user-facing generated text field must include both "
+    "Arabic and English. Use 'العربية:' and 'English:' labels for prose fields, and include "
+    "both languages in each weakness/opportunity item."
+)
+
+EVIDENCE_GROUNDING_INSTRUCTION = (
+    "EVIDENCE-GROUNDED OUTPUT: Base every claim strictly on the documented facts, "
+    "deterministic score, signals, and evidence provided above. Do not invent facts. "
+    "When a detail is not present in the evidence, write 'unknown' or 'insufficient evidence' "
+    "instead of guessing. In addition to summary, weaknesses, opportunities, "
+    "recommended_services, outreach_subject and outreach_message, also return: "
+    "pain_points (list), opportunity_reason (string), outreach_angle (string), "
+    "risks_or_uncertainties (list), and evidence_used (list of the specific facts you relied on)."
+)
+
 
 class PromptBuilder:
     def build_input_payload(
@@ -69,6 +85,8 @@ class PromptBuilder:
         )
         return (
             f"{instruction_block}\n"
+            f"{BILINGUAL_ANALYSIS_INSTRUCTION}\n"
+            f"{EVIDENCE_GROUNDING_INSTRUCTION}\n"
             f"Company: {business.company_name}\n"
             f"Category: {business.category or 'Unknown'}\n"
             f"City: {business.city or 'Unknown'}\n"

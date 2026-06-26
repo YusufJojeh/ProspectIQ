@@ -1,11 +1,20 @@
 import type { TFunction } from "i18next";
-import type { LeadScoreBand, LeadStatus, UserRole, UserStatus, WebsitePreference } from "@/types/api";
+import type {
+  LeadScoreBand,
+  LeadStatus,
+  UserRole,
+  UserStatus,
+  WebsitePreference,
+} from "@/types/api";
 
 export function leadStatusLabel(t: TFunction, status: LeadStatus) {
   return t(`leads.statuses.${status}`);
 }
 
-export function scoreBandLabel(t: TFunction, band: LeadScoreBand | null | undefined) {
+export function scoreBandLabel(
+  t: TFunction,
+  band: LeadScoreBand | null | undefined,
+) {
   return band ? t(`leads.bands.${band}`) : t("leads.unscored");
 }
 
@@ -17,12 +26,17 @@ export function userStatusLabel(t: TFunction, status: UserStatus) {
   return t(`team.statuses.${status}`);
 }
 
-export function websitePreferenceLabel(t: TFunction, preference: WebsitePreference) {
+export function websitePreferenceLabel(
+  t: TFunction,
+  preference: WebsitePreference,
+) {
   return t(`searches.websitePreferences.${preference}`);
 }
 
 export function searchJobStatusLabel(t: TFunction, status: string) {
-  return t(`searches.statuses.${status}`, { defaultValue: status.replace(/_/g, " ") });
+  return t(`searches.statuses.${status}`, {
+    defaultValue: status.replace(/_/g, " "),
+  });
 }
 
 export function discoveryRuntimeLabel(t: TFunction, runtime: string) {
@@ -34,9 +48,13 @@ export function billingCycleLabel(t: TFunction, cycle: string) {
 }
 
 export function billingStatusLabel(t: TFunction, status: string) {
-  return t(`billing.statuses.${status}`, { defaultValue: status.replace(/_/g, " ") });
+  return t(`billing.statuses.${status}`, {
+    defaultValue: status.replace(/_/g, " "),
+  });
 }
 
 export function usageMetricLabel(t: TFunction, metric: string) {
-  return t(`billing.metrics.${metric}`, { defaultValue: metric.replace(/_/g, " ") });
+  return t(`billing.metrics.${metric}`, {
+    defaultValue: metric.replace(/_/g, " "),
+  });
 }

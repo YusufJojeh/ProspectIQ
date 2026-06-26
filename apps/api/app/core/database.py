@@ -4,6 +4,7 @@ from functools import lru_cache
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
@@ -19,12 +20,21 @@ def create_db_engine(
     echo: bool | None = None,
 ) -> Engine:
     settings = get_settings()
+    url = database_url or settings.database_url
+    engine_kwargs: dict[str, object] = {
+        "echo": settings.sql_echo if echo is None else echo,
+        "future": True,
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+    }
+
+    if make_url(url).get_backend_name() == "sqlite":
+        engine_kwargs["connect_args"] = {"check_same_thread": False}
+        engine_kwargs.pop("pool_recycle")
+
     return create_engine(
-        database_url or settings.database_url,
-        echo=settings.sql_echo if echo is None else echo,
-        future=True,
-        pool_pre_ping=True,
-        pool_recycle=1800,
+        url,
+        **engine_kwargs,
     )
 
 

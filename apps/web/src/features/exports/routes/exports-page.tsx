@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
-import { listLeads, downloadLeadsExport } from "@/features/leads/api";
+import { listLeads, downloadLeadsExport, downloadLeadsExportJson } from "@/features/leads/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,14 @@ export function ExportsPage() {
       }),
   });
 
+  const exportJsonMutation = useMutation({
+    mutationFn: () =>
+      downloadLeadsExportJson({
+        band: band === "all" ? undefined : band,
+        status: status === "all" ? undefined : status,
+      }),
+  });
+
   const totalLeads = leadsQuery.data?.pagination.total ?? 0;
 
   return (
@@ -56,18 +64,33 @@ export function ExportsPage() {
         title={t("exports.workspaceTitle")}
         description={t("exports.workspaceDescription")}
         actions={
-          <Button
-            size="sm"
-            onClick={() => exportMutation.mutate()}
-            disabled={exportMutation.isPending || totalLeads === 0}
-          >
-            {exportMutation.isPending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Download className="size-3.5" />
-            )}
-            {exportMutation.isPending ? t("exports.preparing") : t("exports.downloadCsv")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending || totalLeads === 0}
+            >
+              {exportMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Download className="size-3.5" />
+              )}
+              {exportMutation.isPending ? t("exports.preparing") : t("exports.downloadCsv")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => exportJsonMutation.mutate()}
+              disabled={exportJsonMutation.isPending || totalLeads === 0}
+            >
+              {exportJsonMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <FileDown className="size-3.5" />
+              )}
+              {exportJsonMutation.isPending ? t("exports.preparing") : t("exports.downloadJson")}
+            </Button>
+          </div>
         }
       />
 

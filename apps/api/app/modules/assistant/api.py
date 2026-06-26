@@ -130,9 +130,7 @@ def list_sessions(
             return ChatSessionListResponse(items=[])
         internal_lead_id = lead.id
 
-    sessions = service.list_sessions(
-        db, workspace_id=workspace_id, lead_id=internal_lead_id
-    )
+    sessions = service.list_sessions(db, workspace_id=workspace_id, lead_id=internal_lead_id)
     items: list[ChatSessionResponse] = []
     for s in sessions:
         count, preview = service.session_repository.get_session_preview(db, session_id=s.id)
@@ -187,6 +185,4 @@ def delete_session(
     _: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> None:
-    AssistantService().delete_session(
-        db, workspace_id=workspace_id, session_public_id=session_id
-    )
+    AssistantService().delete_session(db, workspace_id=workspace_id, session_public_id=session_id)

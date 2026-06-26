@@ -11,17 +11,29 @@ type EmptyStateProps = {
   className?: string;
 };
 
-export function EmptyState({ title, description, action, className }: EmptyStateProps) {
+export function EmptyState({
+  title,
+  description,
+  action,
+  className,
+}: EmptyStateProps) {
   const { t } = useTranslation();
 
   return (
-    <Card className={cn("border-dashed bg-[color:var(--surface-contrast)]", className)}>
+    <Card
+      className={cn(
+        "border-dashed bg-[color:var(--surface-contrast)]",
+        className,
+      )}
+    >
       <CardContent className="space-y-4 py-10 text-center">
         <div className="flex justify-center">
           <Badge tone="neutral">{t("common.noData")}</Badge>
         </div>
         <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mx-auto max-w-xl text-sm leading-6 text-[color:var(--muted)]">{description}</p>
+        <p className="mx-auto max-w-xl text-sm leading-6 text-[color:var(--muted)]">
+          {description}
+        </p>
         {action}
       </CardContent>
     </Card>

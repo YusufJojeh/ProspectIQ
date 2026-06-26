@@ -67,9 +67,7 @@ def normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
 
 
-def clean_optional_text(
-    value: object, *, max_length: int | None = None
-) -> str | None:
+def clean_optional_text(value: object, *, max_length: int | None = None) -> str | None:
     if not isinstance(value, str):
         return None
     cleaned = re.sub(r"\s+", " ", value.strip())
@@ -83,7 +81,7 @@ def clean_optional_text(
 def coerce_float(value: object) -> float | None:
     if isinstance(value, bool):
         return None
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         numeric = float(value)
     elif isinstance(value, str):
         stripped = value.strip().replace(",", "")

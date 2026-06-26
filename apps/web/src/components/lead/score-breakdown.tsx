@@ -1,4 +1,12 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 
@@ -19,7 +27,13 @@ function barColor(contribution: number, weight: number): string {
   return "oklch(var(--destructive))";
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: BreakdownItem }> }) {
+function CustomTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: BreakdownItem }>;
+}) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   const maxContrib = item.weight * 100;
@@ -28,7 +42,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
       <p className="font-semibold">{item.label}</p>
       <p className="mt-1 text-muted-foreground">{item.reason}</p>
       <div className="mt-2 flex items-center justify-between gap-4 font-mono text-xs tabular-nums">
-        <span>{item.contribution.toFixed(1)} / {maxContrib.toFixed(0)}</span>
+        <span>
+          {item.contribution.toFixed(1)} / {maxContrib.toFixed(0)}
+        </span>
         <span className="text-muted-foreground">{item.percent}% of total</span>
       </div>
     </div>
@@ -63,7 +79,9 @@ export function LeadScoreBreakdownCard({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {scoringVersionId ? <Badge tone="neutral">{scoringVersionId}</Badge> : null}
+          {scoringVersionId ? (
+            <Badge tone="neutral">{scoringVersionId}</Badge>
+          ) : null}
           <Badge tone={qualified ? "success" : "warning"}>
             {qualified ? t("leads.qualified") : t("leadDetail.belowThreshold")}
           </Badge>
@@ -104,7 +122,13 @@ export function LeadScoreBreakdownCard({
             layout="vertical"
             margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
           >
-            <XAxis type="number" domain={[0, 25]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+            <XAxis
+              type="number"
+              domain={[0, 25]}
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+            />
             <YAxis
               type="category"
               dataKey="label"
@@ -113,10 +137,16 @@ export function LeadScoreBreakdownCard({
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "oklch(var(--muted)/0.4)" }} />
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ fill: "oklch(var(--muted)/0.4)" }}
+            />
             <Bar dataKey="contribution" radius={4} maxBarSize={20}>
               {chartData.map((item) => (
-                <Cell key={item.key} fill={barColor(item.contribution, item.weight)} />
+                <Cell
+                  key={item.key}
+                  fill={barColor(item.contribution, item.weight)}
+                />
               ))}
             </Bar>
           </BarChart>
@@ -126,12 +156,27 @@ export function LeadScoreBreakdownCard({
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-2">
         {[
-          { label: t("leadDetail.strengthStrong"), color: "oklch(var(--success))" },
-          { label: t("leadDetail.strengthModerate"), color: "oklch(var(--caution))" },
-          { label: t("leadDetail.strengthWeak"), color: "oklch(var(--destructive))" },
+          {
+            label: t("leadDetail.strengthStrong"),
+            color: "oklch(var(--success))",
+          },
+          {
+            label: t("leadDetail.strengthModerate"),
+            color: "oklch(var(--caution))",
+          },
+          {
+            label: t("leadDetail.strengthWeak"),
+            color: "oklch(var(--destructive))",
+          },
         ].map(({ label, color }) => (
-          <div key={label} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+          <div
+            key={label}
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+          >
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: color }}
+            />
             {label}
           </div>
         ))}

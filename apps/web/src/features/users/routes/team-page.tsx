@@ -1,16 +1,33 @@
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { createUser, listUsers, resetUserPassword, updateUser } from "@/features/users/api";
+import {
+  createUser,
+  listUsers,
+  resetUserPassword,
+  updateUser,
+} from "@/features/users/api";
 import { useAuthSession } from "@/features/auth/session";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import type { UserRole, UserStatus } from "@/types/api";
 
@@ -44,8 +61,13 @@ export function TeamPage() {
   const [password, setPassword] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [role, setRole] = useState<UserRole>("member");
-  const [drafts, setDrafts] = useState<Record<string, { role: UserRole; status: UserStatus; jobTitle: string }>>({});
-  const [resetResult, setResetResult] = useState<{ userId: string; tempPassword: string } | null>(null);
+  const [drafts, setDrafts] = useState<
+    Record<string, { role: UserRole; status: UserStatus; jobTitle: string }>
+  >({});
+  const [resetResult, setResetResult] = useState<{
+    userId: string;
+    tempPassword: string;
+  } | null>(null);
   const tempPasswordRef = useRef<HTMLInputElement>(null);
 
   const usersQuery = useQuery({
@@ -73,8 +95,13 @@ export function TeamPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ userId, payload }: { userId: string; payload: { role: UserRole; status: UserStatus; job_title: string | null } }) =>
-      updateUser(userId, payload),
+    mutationFn: ({
+      userId,
+      payload,
+    }: {
+      userId: string;
+      payload: { role: UserRole; status: UserStatus; job_title: string | null };
+    }) => updateUser(userId, payload),
     onSuccess: refreshTeam,
   });
 
@@ -91,14 +118,31 @@ export function TeamPage() {
   });
 
   if (usersQuery.isPending) {
-    return <QueryStateNotice tone="loading" title={t("team.loadingTitle")} description={t("team.loadingDescription")} />;
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title={t("team.loadingTitle")}
+        description={t("team.loadingDescription")}
+      />
+    );
   }
 
   if (usersQuery.isError) {
-    return <QueryStateNotice tone="error" title={t("team.unavailableTitle")} error={usersQuery.error} />;
+    return (
+      <QueryStateNotice
+        tone="error"
+        title={t("team.unavailableTitle")}
+        error={usersQuery.error}
+      />
+    );
   }
 
-  const getDraft = (userId: string, currentRole: UserRole, currentStatus: UserStatus, currentJobTitle?: string | null) =>
+  const getDraft = (
+    userId: string,
+    currentRole: UserRole,
+    currentStatus: UserStatus,
+    currentJobTitle?: string | null,
+  ) =>
     drafts[userId] ?? {
       role: currentRole,
       status: currentStatus,
@@ -108,7 +152,9 @@ export function TeamPage() {
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("team.usersTitle")}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          {t("team.usersTitle")}
+        </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
           {t("team.usersDescription")}
         </p>
@@ -150,32 +196,56 @@ export function TeamPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t("team.usersTitle")}</CardTitle>
-          <CardDescription>
-            {t("team.usersCardDescription")}
-          </CardDescription>
+          <CardDescription>{t("team.usersCardDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {canManage ? (
             <div className="grid gap-3 rounded-xl border border-border bg-card/50 p-4 md:grid-cols-2 xl:grid-cols-5">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="team-full-name">{t("team.fullName")}</Label>
-                <Input id="team-full-name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Jordan Lee" />
+                <Input
+                  id="team-full-name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Jordan Lee"
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="team-email">{t("common.email")}</Label>
-                <Input id="team-email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="jordan@company.com" />
+                <Input
+                  id="team-email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="jordan@company.com"
+                />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="team-password">{t("team.temporaryPassword")}</Label>
-                <Input id="team-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="TempPass123!" />
+                <Label htmlFor="team-password">
+                  {t("team.temporaryPassword")}
+                </Label>
+                <Input
+                  id="team-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="TempPass123!"
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="team-job-title">{t("team.jobTitle")}</Label>
-                <Input id="team-job-title" value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} placeholder="RevOps Lead" />
+                <Input
+                  id="team-job-title"
+                  value={jobTitle}
+                  onChange={(event) => setJobTitle(event.target.value)}
+                  placeholder="RevOps Lead"
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label>{t("common.role")}</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+                <Select
+                  value={role}
+                  onValueChange={(value) => setRole(value as UserRole)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -201,10 +271,16 @@ export function TeamPage() {
                   })
                 }
               >
-                {createMutation.isPending ? t("team.creating") : t("team.createTeamUser")}
+                {createMutation.isPending
+                  ? t("team.creating")
+                  : t("team.createTeamUser")}
               </Button>
               {createMutation.error ? (
-                <QueryStateNotice tone="error" title={t("team.createErrorTitle")} error={createMutation.error} />
+                <QueryStateNotice
+                  tone="error"
+                  title={t("team.createErrorTitle")}
+                  error={createMutation.error}
+                />
               ) : (
                 <QueryStateNotice
                   tone="info"
@@ -214,26 +290,50 @@ export function TeamPage() {
               )}
             </div>
           ) : (
-            <QueryStateNotice tone="info" title={t("team.readOnlyTitle")} description={t("team.readOnlyDescription")} />
+            <QueryStateNotice
+              tone="info"
+              title={t("team.readOnlyTitle")}
+              description={t("team.readOnlyDescription")}
+            />
           )}
 
           <div className="grid gap-3">
             {usersQuery.data.items.map((item) => {
-              const draft = getDraft(item.public_id, item.role, item.status, item.job_title);
+              const draft = getDraft(
+                item.public_id,
+                item.role,
+                item.status,
+                item.job_title,
+              );
               const isOwner = item.role === "account_owner";
               const isSelf = item.public_id === user?.public_id;
 
               return (
-                <div key={item.public_id} className="grid gap-4 rounded-xl border border-border bg-card/50 p-4 xl:grid-cols-[1.4fr_1fr_auto]">
+                <div
+                  key={item.public_id}
+                  className="grid gap-4 rounded-xl border border-border bg-card/50 p-4 xl:grid-cols-[1.4fr_1fr_auto]"
+                >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium text-foreground">{item.full_name}</p>
-                      <Badge tone={item.status === "active" ? "success" : "warning"}>{item.status}</Badge>
+                      <p className="truncate font-medium text-foreground">
+                        {item.full_name}
+                      </p>
+                      <Badge
+                        tone={item.status === "active" ? "success" : "warning"}
+                      >
+                        {item.status}
+                      </Badge>
                       <Badge>{t(`team.roles.${item.role}`)}</Badge>
-                      {isSelf ? <Badge tone="neutral">{t("team.you")}</Badge> : null}
+                      {isSelf ? (
+                        <Badge tone="neutral">{t("team.you")}</Badge>
+                      ) : null}
                     </div>
-                    <p className="text-sm text-muted-foreground">{item.email}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.job_title || t("team.noJobTitle")}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {item.email}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {item.job_title || t("team.noJobTitle")}
+                    </p>
                   </div>
 
                   {canManage && !isOwner ? (
@@ -245,7 +345,10 @@ export function TeamPage() {
                           onValueChange={(value) =>
                             setDrafts((current) => ({
                               ...current,
-                              [item.public_id]: { ...draft, role: value as UserRole },
+                              [item.public_id]: {
+                                ...draft,
+                                role: value as UserRole,
+                              },
                             }))
                           }
                         >
@@ -268,7 +371,10 @@ export function TeamPage() {
                           onValueChange={(value) =>
                             setDrafts((current) => ({
                               ...current,
-                              [item.public_id]: { ...draft, status: value as UserStatus },
+                              [item.public_id]: {
+                                ...draft,
+                                status: value as UserStatus,
+                              },
                             }))
                           }
                         >
@@ -291,7 +397,10 @@ export function TeamPage() {
                           onChange={(event) =>
                             setDrafts((current) => ({
                               ...current,
-                              [item.public_id]: { ...draft, jobTitle: event.target.value },
+                              [item.public_id]: {
+                                ...draft,
+                                jobTitle: event.target.value,
+                              },
                             }))
                           }
                           placeholder="Sales lead"
@@ -300,7 +409,9 @@ export function TeamPage() {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                      {isOwner ? t("team.ownerProtected") : t("team.membersViewOnly")}
+                      {isOwner
+                        ? t("team.ownerProtected")
+                        : t("team.membersViewOnly")}
                     </div>
                   )}
 
@@ -322,7 +433,13 @@ export function TeamPage() {
                       >
                         {t("team.saveChanges")}
                       </Button>
-                      <Button variant="outline" disabled={resetPasswordMutation.isPending} onClick={() => resetPasswordMutation.mutate(item.public_id)}>
+                      <Button
+                        variant="outline"
+                        disabled={resetPasswordMutation.isPending}
+                        onClick={() =>
+                          resetPasswordMutation.mutate(item.public_id)
+                        }
+                      >
                         {t("team.resetPassword")}
                       </Button>
                     </div>

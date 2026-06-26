@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Session, sessionmaker
@@ -11,6 +13,7 @@ from app.modules.leads.repository import LeadsRepository
 from app.modules.leads.schemas import LeadSortOption
 from app.modules.leads.service import LeadsService
 from app.modules.scoring.models import LeadScore
+from app.modules.search_jobs.models import SearchJob  # noqa: F401
 from app.modules.users.models import User, Workspace
 
 
@@ -85,6 +88,10 @@ def test_lead_list_filters_support_score_owner_category_and_sorting() -> None:
             company_name="Gamma Salon",
             category="Salon",
             city="Istanbul",
+            phone="+90 555 123 4567",
+            email="owner@gammasalon.test",
+            industry="Beauty services",
+            ai_opener="Your booking flow could capture more high-intent clients.",
             review_count=55,
             rating=4.8,
             has_website=True,
@@ -181,6 +188,36 @@ def test_lead_list_filters_support_score_owner_category_and_sorting() -> None:
         names = {item.company_name for item in by_ids.items}
         assert names == {"Acme Dental", "Gamma Salon"}
 
+        category_search = LeadsService().list_leads(
+            db,
+            workspace_id=workspace.id,
+            page=1,
+            page_size=20,
+            status=None,
+            search_job_id=None,
+            has_website=None,
+            q="beauty",
+            sort=LeadSortOption.NEWEST,
+        )
+
+        assert category_search.pagination.total == 1
+        assert category_search.items[0].company_name == "Gamma Salon"
+
+        ai_opener_search = LeadsService().list_leads(
+            db,
+            workspace_id=workspace.id,
+            page=1,
+            page_size=20,
+            status=None,
+            search_job_id=None,
+            has_website=None,
+            q="booking flow",
+            sort=LeadSortOption.NEWEST,
+        )
+
+        assert ai_opener_search.pagination.total == 1
+        assert ai_opener_search.items[0].company_name == "Gamma Salon"
+
 
 def test_lead_sort_sql_is_mariadb_safe() -> None:
     repository = LeadsRepository()
@@ -204,3 +241,74 @@ def test_lead_sort_sql_is_mariadb_safe() -> None:
 
     assert "NULLS LAST" not in score_sql.upper()
     assert "NULLS LAST" not in rating_sql.upper()
+
+
+def test_lead_list_uses_single_latest_score_when_timestamps_tie() -> None:
+    session_factory = _build_session_factory()
+    with session_factory() as db:
+        workspace = Workspace(name="Tie Score Workspace")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
+
+        lead = Lead(
+            workspace_id=workspace.id,
+            company_name="Si3 Digital Marketing Agency Dubai",
+            category="Internet marketing service",
+            city="Dubai",
+            website_domain="si3.ae",
+            has_website=True,
+            data_completeness=0.9,
+            data_confidence=0.9,
+        )
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+
+        scored_at = datetime(2026, 5, 29, 22, 47, 5, tzinfo=UTC)
+        db.add_all(
+            [
+                LeadScore(
+                    lead_id=lead.id,
+                    scoring_config_version_id=1,
+                    total_score=68,
+                    band="medium",
+                    qualified=True,
+                    scored_at=scored_at,
+                ),
+                LeadScore(
+                    lead_id=lead.id,
+                    scoring_config_version_id=1,
+                    total_score=69,
+                    band="medium",
+                    qualified=True,
+                    scored_at=scored_at,
+                ),
+                LeadScore(
+                    lead_id=lead.id,
+                    scoring_config_version_id=1,
+                    total_score=70,
+                    band="high",
+                    qualified=True,
+                    scored_at=scored_at,
+                ),
+            ]
+        )
+        db.commit()
+
+        response = LeadsService().list_leads(
+            db,
+            workspace_id=workspace.id,
+            page=1,
+            page_size=20,
+            status=None,
+            search_job_id=None,
+            has_website=None,
+            sort=LeadSortOption.SCORE_DESC,
+        )
+
+        assert response.pagination.total == 1
+        assert len(response.items) == 1
+        assert response.items[0].company_name == "Si3 Digital Marketing Agency Dubai"
+        assert response.items[0].latest_score == 70
+        assert response.items[0].latest_band == "high"

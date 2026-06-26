@@ -38,7 +38,9 @@ def run_google_jobs(client: SerpApiClient, *, params: dict[str, Any]) -> Provide
     return client.search(params)
 
 
-def extract_jobs_items(result: ProviderCallResult, *, max_items: int = _MAX_JOBS_RESULTS) -> list[dict[str, Any]]:
+def extract_jobs_items(
+    result: ProviderCallResult, *, max_items: int = _MAX_JOBS_RESULTS
+) -> list[dict[str, Any]]:
     """
     Extract a flat list of job postings from a Google Jobs SerpAPI result.
     Each item: { title, company_name, location, via, description }

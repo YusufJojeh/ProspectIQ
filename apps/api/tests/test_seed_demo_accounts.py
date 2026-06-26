@@ -7,11 +7,15 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import clear_settings_cache
 from app.core.database import Base
+from app.modules.ai_analysis.models import AIAnalysisEvidence
 from app.modules.auth.permissions import get_role_permissions
 from app.modules.auth.schemas import LoginRequest
 from app.modules.auth.service import AuthService
 from app.modules.leads.models import Lead
+from app.modules.scoring.models import ScoringConfigVersion
+from app.modules.scoring.schemas import ScoringWeights
 from app.modules.search_jobs.models import SearchJob
+from app.modules.signals.models import LeadSignal
 from app.modules.users.models import User
 from scripts.seed import _seed_demo_workspace
 
@@ -63,15 +67,15 @@ def test_demo_seed_creates_deterministic_accounts_with_expected_roles_and_auth()
 
         admin_token = AuthService().authenticate(
             db,
-            payload=LoginRequest(email="admin@example.test", password="password"),
+            payload=LoginRequest(email="admin@example.test", password="AdminPass123!"),
         )
         manager_token = AuthService().authenticate(
             db,
-            payload=LoginRequest(email="manager@example.test", password="password"),
+            payload=LoginRequest(email="manager@example.test", password="ManagerPass123!"),
         )
         user1_token = AuthService().authenticate(
             db,
-            payload=LoginRequest(email="user1@example.test", password="password"),
+            payload=LoginRequest(email="user1@example.test", password="UserPass123!"),
         )
 
         assert admin_token.user.role == "account_owner"
@@ -80,6 +84,13 @@ def test_demo_seed_creates_deterministic_accounts_with_expected_roles_and_auth()
         assert "billing:manage" in admin_token.user.permissions
         assert "leads:manage" in manager_token.user.permissions
         assert get_role_permissions("member") == list(user1_token.user.permissions)
+
+        scoring_versions = db.scalars(select(ScoringConfigVersion)).all()
+        assert scoring_versions
+        for version in scoring_versions:
+            ScoringWeights.model_validate(version.weights_json)
+        assert int(db.scalar(select(func.count(LeadSignal.id))) or 0) > 0
+        assert int(db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0) > 0
 
 
 def test_demo_seed_is_idempotent_for_accounts_and_dataset() -> None:
@@ -103,6 +114,10 @@ def test_demo_seed_is_idempotent_for_accounts_and_dataset() -> None:
         )
         first_job_count = int(db.scalar(select(func.count(SearchJob.id))) or 0)
         first_lead_count = int(db.scalar(select(func.count(Lead.id))) or 0)
+        first_signal_count = int(db.scalar(select(func.count(LeadSignal.id))) or 0)
+        first_evidence_count = int(
+            db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0
+        )
 
         _seed_demo_workspace(db)
 
@@ -122,10 +137,16 @@ def test_demo_seed_is_idempotent_for_accounts_and_dataset() -> None:
         )
         second_job_count = int(db.scalar(select(func.count(SearchJob.id))) or 0)
         second_lead_count = int(db.scalar(select(func.count(Lead.id))) or 0)
+        second_signal_count = int(db.scalar(select(func.count(LeadSignal.id))) or 0)
+        second_evidence_count = int(
+            db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0
+        )
 
         assert first_user_count == second_user_count == 3
         assert first_job_count == second_job_count
         assert first_lead_count == second_lead_count
+        assert first_signal_count == second_signal_count > 0
+        assert first_evidence_count == second_evidence_count > 0
 
 
 def test_demo_seed_is_blocked_in_production() -> None:

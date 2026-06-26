@@ -54,7 +54,7 @@ class YelpEnricher(BaseLeadEnricher):
 
         data: dict[str, Any] = {}
         rating = match.get("rating")
-        if isinstance(rating, (int, float)):
+        if isinstance(rating, int | float):
             data["yelp_rating"] = float(rating)
         review_count = match.get("review_count")
         if isinstance(review_count, int):

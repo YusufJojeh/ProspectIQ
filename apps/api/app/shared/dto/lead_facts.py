@@ -19,6 +19,7 @@ class NormalizedLeadFacts(BaseModel):
     visibility_confidence: float | None = None
     visibility_source: str | None = None
     phone_present: bool = False
+    email_present: bool = False
     address_present: bool = False
     hours_present: bool = False
     maps_search_present: bool = False

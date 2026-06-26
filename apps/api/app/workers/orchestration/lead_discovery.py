@@ -14,8 +14,11 @@ from app.core.errors import ServiceUnavailableError
 from app.enrichers.base import BaseLeadEnricher
 from app.enrichers.google_maps_reviews import GoogleMapsReviewsEnricher
 from app.enrichers.google_news import GoogleNewsEnricher
+from app.enrichers.linkedin import LinkedInEnricher
 from app.enrichers.yelp import YelpEnricher
+from app.modules.icp.service import LeadIcpMatcherService
 from app.modules.leads.models import Lead
+from app.modules.provider_openai.web_search_discovery import OpenAIWebSearchDiscovery
 from app.modules.provider_serpapi.demo_service import DemoSerpApiService
 from app.modules.provider_serpapi.models import (
     ProviderFetch,
@@ -37,7 +40,9 @@ from app.modules.scoring.schemas import ScoringThresholds, ScoringWeights
 from app.modules.scoring.service import ScoringConfigService, ScoringEngine, persist_lead_score
 from app.modules.search_jobs.models import SearchJob
 from app.modules.search_jobs.repository import SearchJobRepository
+from app.modules.signals.service import LeadSignalDetectorService
 from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus, WebsitePreference
+from app.shared.utils.branding import derive_logo_url
 from app.workers.orchestration.discovery_pipeline import (
     CandidateRanker,
     CircuitState,
@@ -107,10 +112,14 @@ class LeadDiscoveryOrchestrator:
         scoring_engine: ScoringEngine | None = None,
         scoring_config_service: ScoringConfigService | None = None,
         fact_builder: EvidenceFactBuilder | None = None,
+        signal_detector: LeadSignalDetectorService | None = None,
+        icp_matcher: LeadIcpMatcherService | None = None,
         emit_fn: ProgressEmitFn | None = None,
+        openai_discovery: OpenAIWebSearchDiscovery | None = None,
     ) -> None:
         self.session_factory = session_factory or get_session_factory()
         self.provider_service = provider_service
+        self.openai_discovery = openai_discovery or OpenAIWebSearchDiscovery()
         self.search_job_repository = search_job_repository or SearchJobRepository()
         self.evidence_repository = evidence_repository or ProviderEvidenceRepository()
         self.maps_local_normalizer = maps_local_normalizer or MapsLocalNormalizer()
@@ -119,6 +128,8 @@ class LeadDiscoveryOrchestrator:
         self.scoring_engine = scoring_engine or ScoringEngine()
         self.scoring_config_service = scoring_config_service or ScoringConfigService()
         self.fact_builder = fact_builder or EvidenceFactBuilder()
+        self.signal_detector = signal_detector or LeadSignalDetectorService()
+        self.icp_matcher = icp_matcher or LeadIcpMatcherService()
         self._emit_fn = emit_fn
 
     def _emit(self, job_public_id: str, stage: str, progress: int, message: str) -> None:
@@ -127,6 +138,7 @@ class LeadDiscoveryOrchestrator:
                 self._emit_fn(stage, progress, message)
             else:
                 from app.core.progress_bus import emit as bus_emit
+
                 bus_emit(job_public_id, stage, progress, message)
         except Exception:
             pass  # never let progress emission crash the pipeline
@@ -151,14 +163,25 @@ class LeadDiscoveryOrchestrator:
                     lead_ids = self._discover_leads_single_path(db, job)
                 else:
                     lead_ids = self._discover_leads(db, job, deadline=deadline)
+
+                used_openai_fallback = False
+                if not lead_ids:
+                    fallback_ids = self._discover_via_openai_fallback(db, job)
+                    if fallback_ids:
+                        lead_ids = fallback_ids
+                        used_openai_fallback = True
+
                 self._emit(job_public_id, "fetching", 40, f"Found {len(lead_ids)} candidates")
                 if lead_ids:
-                    self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
-                    self._emit(job_public_id, "normalizing", 65, "Enrichment complete")
-                    self._validate_web_presence(db, job, lead_ids, deadline=deadline)
-                    self._emit(job_public_id, "normalizing", 80, "Web presence validated")
-                    self._run_enrichment(db, lead_ids)
-                    self._emit(job_public_id, "enriching", 88, "External enrichment complete")
+                    # SerpAPI-backed enrichment is pointless (and just burns retries)
+                    # when discovery already fell back because SerpAPI was unavailable.
+                    if not used_openai_fallback:
+                        self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
+                        self._emit(job_public_id, "normalizing", 65, "Enrichment complete")
+                        self._validate_web_presence(db, job, lead_ids, deadline=deadline)
+                        self._emit(job_public_id, "normalizing", 80, "Web presence validated")
+                        self._run_enrichment(db, lead_ids)
+                        self._emit(job_public_id, "enriching", 88, "External enrichment complete")
                     self._score_leads(db, job, lead_ids)
                     self._emit(job_public_id, "scoring", 95, "Scoring complete")
                 self._finalize_status(db, job)
@@ -173,6 +196,93 @@ class LeadDiscoveryOrchestrator:
         if settings.effective_discovery_mode == "single_path":
             return self._discover_leads_single_path(db, job)
         return self._discover_leads_pipeline(db, job, deadline=deadline)
+
+    def _discover_via_openai_fallback(self, db: Session, job: SearchJob) -> list[int]:
+        """Discover candidates via OpenAI web search when the primary provider failed.
+
+        Triggered when SerpAPI returned no candidates (typically a 429 quota
+        exhaustion). The OpenAI candidates flow through the same upsert/score
+        path as SerpAPI results.
+        """
+        if not self.openai_discovery.is_available():
+            return []
+
+        self._emit(
+            job.public_id,
+            "fetching",
+            30,
+            "Search provider unavailable — falling back to OpenAI web search",
+        )
+        candidates = self.openai_discovery.discover(
+            business_type=job.business_type,
+            city=job.city,
+            region=job.region,
+            max_results=job.max_results,
+            min_rating=job.min_rating,
+            max_rating=job.max_rating,
+            min_reviews=job.min_reviews,
+            max_reviews=job.max_reviews,
+        )
+        if not candidates:
+            logger.warning("discovery.openai_fallback.empty search_job_id=%s", job.id)
+            return []
+
+        fetch = self._create_openai_fetch(db, job, candidate_count=len(candidates))
+        lead_ids: set[int] = set()
+        for candidate in candidates:
+            lead = self._upsert_candidate(
+                db,
+                job=job,
+                candidate=candidate,
+                source_type="openai_web_search",
+                provider_fetch_id=fetch.id,
+                priority=25,
+                allow_source_promotion=True,
+            )
+            lead_ids.add(lead.id)
+
+        job.candidates_found = max(job.candidates_found, len(candidates))
+        job.leads_upserted = len(lead_ids)
+        self.search_job_repository.save(db, job)
+        logger.info(
+            "discovery.openai_fallback.upserted search_job_id=%s candidates=%s leads=%s",
+            job.id,
+            len(candidates),
+            len(lead_ids),
+        )
+        return list(lead_ids)
+
+    def _create_openai_fetch(
+        self, db: Session, job: SearchJob, *, candidate_count: int
+    ) -> ProviderFetch:
+        from app.modules.provider_serpapi.client import fingerprint_params
+
+        params = {
+            "engine": "openai",
+            "mode": "web_search_discovery",
+            "business_type": job.business_type,
+            "city": job.city,
+            "region": job.region,
+        }
+        now = datetime.now(tz=UTC)
+        fetch = ProviderFetch(
+            workspace_id=job.workspace_id,
+            provider="openai",
+            engine="openai",
+            mode="web_search_discovery",
+            search_job_id=job.id,
+            request_fingerprint=fingerprint_params(params),
+            request_params_json=params,
+            status=ProviderFetchStatus.OK.value,
+            http_status=200,
+            started_at=now,
+            finished_at=now,
+            attempt=1,
+        )
+        db.add(fetch)
+        db.commit()
+        db.refresh(fetch)
+        return fetch
 
     def _discover_leads_single_path(self, db: Session, job: SearchJob) -> list[int]:
         provider_service = self._get_provider_service()
@@ -209,7 +319,9 @@ class LeadDiscoveryOrchestrator:
         self.search_job_repository.save(db, job)
         return list(lead_ids)
 
-    def _discover_leads_pipeline(self, db: Session, job: SearchJob, *, deadline: datetime) -> list[int]:
+    def _discover_leads_pipeline(
+        self, db: Session, job: SearchJob, *, deadline: datetime
+    ) -> list[int]:
         settings = get_settings()
         provider_service = self._get_provider_service()
         provider_settings = provider_service.get_settings(db, job.workspace_id)
@@ -273,11 +385,15 @@ class LeadDiscoveryOrchestrator:
             except Exception:
                 circuit.mark_failure(task.adapter_name)
                 opened = circuit.open_if_threshold(
-                    task.adapter_name, threshold=settings.discovery_circuit_breaker_failure_threshold
+                    task.adapter_name,
+                    threshold=settings.discovery_circuit_breaker_failure_threshold,
                 )
                 if opened:
                     logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
-                if task.adapter_name == "google_maps_search" and task.adapter_name not in failed_adapters:
+                if (
+                    task.adapter_name == "google_maps_search"
+                    and task.adapter_name not in failed_adapters
+                ):
                     failed_adapters.add(task.adapter_name)
                     job.provider_error_count += 1
                 self.search_job_repository.save(db, job)
@@ -287,11 +403,15 @@ class LeadDiscoveryOrchestrator:
             if fetch.status != ProviderFetchStatus.OK.value:
                 circuit.mark_failure(task.adapter_name)
                 opened = circuit.open_if_threshold(
-                    task.adapter_name, threshold=settings.discovery_circuit_breaker_failure_threshold
+                    task.adapter_name,
+                    threshold=settings.discovery_circuit_breaker_failure_threshold,
                 )
                 if opened:
                     logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
-                if task.adapter_name == "google_maps_search" and task.adapter_name not in failed_adapters:
+                if (
+                    task.adapter_name == "google_maps_search"
+                    and task.adapter_name not in failed_adapters
+                ):
                     failed_adapters.add(task.adapter_name)
                     job.provider_error_count += 1
                 self.search_job_repository.save(db, job)
@@ -333,7 +453,8 @@ class LeadDiscoveryOrchestrator:
                 job=job,
                 candidate=candidate,
                 source_type="maps_search",
-                provider_fetch_id=int(candidate.facts.get("provider_fetch_id", 0)) or self._provider_fetch_id_from_candidate(db, job.workspace_id, candidate),
+                provider_fetch_id=int(candidate.facts.get("provider_fetch_id", 0))
+                or self._provider_fetch_id_from_candidate(db, job.workspace_id, candidate),
                 priority=20,
                 allow_source_promotion=True,
             )
@@ -498,12 +619,27 @@ class LeadDiscoveryOrchestrator:
 
         for lead in self._list_leads(db, lead_ids):
             evidence = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
+            signals = self.signal_detector.recompute_for_lead(
+                db,
+                workspace_id=job.workspace_id,
+                lead=lead,
+                facts=evidence,
+            )
+            matches = self.icp_matcher.recompute_for_lead(
+                db,
+                workspace_id=job.workspace_id,
+                lead=lead,
+                signals=signals,
+            )
+            best_match = max(matches, key=lambda match: match.fit_score, default=None)
             facts = self.fact_builder.build(lead, evidence)
             result = self.scoring_engine.evaluate(
                 facts,
                 weights=weights,
                 thresholds=thresholds,
                 is_qualified_candidate=self._qualifies(job, lead),
+                icp_match=best_match,
+                lead_signals=signals,
             )
             persist_lead_score(
                 db,
@@ -525,6 +661,7 @@ class LeadDiscoveryOrchestrator:
             ),
             "yelp": YelpEnricher(client),
             "google_news": GoogleNewsEnricher(client),
+            "linkedin": LinkedInEnricher(client),
         }
         return [registry[name] for name in settings.enrichers if name in registry]
 
@@ -545,8 +682,33 @@ class LeadDiscoveryOrchestrator:
                 if payload.data:
                     aggregated[payload.source] = payload.data
             lead.enrichments = aggregated or None
+            self._promote_enrichment_fields(lead, aggregated)
             lead.updated_at = datetime.now(tz=UTC)
             self.evidence_repository.save_lead(db, lead)
+
+    @staticmethod
+    def _promote_enrichment_fields(lead: Lead, aggregated: dict[str, Any]) -> None:
+        """Copy provider-derived contact fields onto typed Lead columns.
+
+        Only fields a provider actually returned are promoted; absent sources
+        (e.g. email/employee_count without a contact provider) leave columns
+        untouched/null. Existing non-null values are not overwritten.
+        """
+        for source in aggregated.values():
+            if not isinstance(source, dict):
+                continue
+            linkedin_url = source.get("linkedin_url")
+            if not lead.linkedin_url and isinstance(linkedin_url, str) and linkedin_url:
+                lead.linkedin_url = linkedin_url[:512]
+            email = source.get("email")
+            if not lead.email and isinstance(email, str) and email:
+                lead.email = email[:320]
+                confidence = source.get("email_confidence")
+                if isinstance(confidence, int | float):
+                    lead.email_confidence = float(confidence)
+            employee_count = source.get("employee_count")
+            if lead.employee_count is None and isinstance(employee_count, int):
+                lead.employee_count = employee_count
 
     def _upsert_candidate(
         self,
@@ -583,6 +745,8 @@ class LeadDiscoveryOrchestrator:
                 data_completeness=candidate.completeness,
                 data_confidence=candidate.confidence,
                 has_website=bool(candidate.website_url or candidate.website_domain),
+                industry=candidate.category,
+                logo_url=derive_logo_url(candidate.website_domain, candidate.website_url),
             )
             lead = self.evidence_repository.save_lead(db, lead)
         else:
@@ -728,6 +892,8 @@ class LeadDiscoveryOrchestrator:
         lead.data_completeness = max(lead.data_completeness, candidate.completeness)
         lead.data_confidence = max(lead.data_confidence, candidate.confidence)
         lead.has_website = bool(lead.website_domain or lead.website_url)
+        lead.industry = self._prefer(candidate.category, lead.industry, should_promote)
+        lead.logo_url = lead.logo_url or derive_logo_url(lead.website_domain, lead.website_url)
         lead.updated_at = datetime.now(tz=UTC)
 
     def _select_enrichment_targets(
@@ -821,18 +987,21 @@ class LeadDiscoveryOrchestrator:
         self.search_job_repository.save(db, job)
 
     def _get_provider_service(self) -> ProviderServiceProtocol:
-        if self.provider_service is None:
-            settings = get_settings()
-            runtime = settings.discovery_runtime
-            if runtime in {"demo", "stub"}:
-                self.provider_service = DemoSerpApiService()
-            elif runtime == "blocked" or not settings.has_serpapi_configured:
-                raise ServiceUnavailableError(
-                    detail="Lead discovery is unavailable because SerpAPI is not configured."
-                )
-            else:
-                self.provider_service = SerpApiService()
-        return self.provider_service
+        if self.provider_service is not None:
+            return self.provider_service
+        settings = get_settings()
+        runtime = settings.discovery_runtime
+        service: ProviderServiceProtocol
+        if runtime in {"demo", "stub"}:
+            service = DemoSerpApiService()
+        elif runtime == "blocked" or not settings.has_serpapi_configured:
+            raise ServiceUnavailableError(
+                detail="Lead discovery is unavailable because SerpAPI is not configured."
+            )
+        else:
+            service = SerpApiService()
+        self.provider_service = service
+        return service
 
     def _prefer(
         self,

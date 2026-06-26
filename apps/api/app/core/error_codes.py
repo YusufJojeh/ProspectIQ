@@ -26,6 +26,7 @@ class ErrorCodes:
     # Workspace & Users
     WORKSPACE_NOT_FOUND = "workspace.not_found"
     WORKSPACE_CONFLICT = "workspace.conflict"
+    WORKSPACE_INACTIVE = "workspace.inactive"
     USER_NOT_FOUND = "user.not_found"
     USER_ALREADY_EXISTS = "user.already_exists"
     USER_INACTIVE = "user.inactive"

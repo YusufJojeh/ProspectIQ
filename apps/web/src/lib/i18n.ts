@@ -6,20 +6,23 @@ import ar from "@/locales/ar.json";
 
 const RTL_LANGUAGES = ["ar"];
 
-i18n.use(LanguageDetector).use(initReactI18next).init({
-  resources: {
-    en: { translation: en },
-    ar: { translation: ar },
-  },
-  fallbackLng: "en",
-  supportedLngs: ["en", "ar"],
-  interpolation: { escapeValue: false },
-  detection: {
-    order: ["localStorage", "navigator"],
-    lookupLocalStorage: "prospectiq-lang",
-    caches: ["localStorage"],
-  },
-});
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: { translation: en },
+      ar: { translation: ar },
+    },
+    fallbackLng: "en",
+    supportedLngs: ["en", "ar"],
+    interpolation: { escapeValue: false },
+    detection: {
+      order: ["localStorage", "navigator"],
+      lookupLocalStorage: "prospectiq-lang",
+      caches: ["localStorage"],
+    },
+  });
 
 function applyLanguageDirection(lng: string) {
   const dir = RTL_LANGUAGES.includes(lng) ? "rtl" : "ltr";

@@ -10,8 +10,12 @@ export const test = base.extend({
       if (message.type() === "error") {
         const text = message.text();
         if (
-          !/Failed to load resource: the server responded with a status of 404/i.test(text) &&
-          !/Failed to load resource: the server responded with a status of 403 \(Forbidden\)/i.test(text) &&
+          !/Failed to load resource: the server responded with a status of 404/i.test(
+            text,
+          ) &&
+          !/Failed to load resource: the server responded with a status of 403 \(Forbidden\)/i.test(
+            text,
+          ) &&
           !/`DialogContent` requires a `DialogTitle`/i.test(text)
         ) {
           consoleErrors.push(text);
@@ -21,7 +25,9 @@ export const test = base.extend({
 
     page.on("response", (response) => {
       if (response.status() >= 500) {
-        responseErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`);
+        responseErrors.push(
+          `${response.status()} ${response.request().method()} ${response.url()}`,
+        );
       }
     });
 

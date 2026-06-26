@@ -29,8 +29,12 @@ export function KpiCard({
     <div className="group relative overflow-hidden rounded-2xl border border-border bg-card/95 p-5 shadow-[0_20px_60px_-44px_rgba(15,23,42,0.85)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-          <p className="mt-3 font-mono text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {label}
+          </p>
+          <p className="mt-3 font-mono text-3xl font-semibold tracking-tight tabular-nums">
+            {value}
+          </p>
         </div>
         {Icon ? (
           <div className={cn("rounded-xl border p-3", toneClass)}>
@@ -40,10 +44,21 @@ export function KpiCard({
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="max-w-[18rem] text-sm leading-6 text-muted-foreground">{helper}</p>
+        <p className="max-w-[18rem] text-sm leading-6 text-muted-foreground">
+          {helper}
+        </p>
         {delta ? (
-          <div className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium", toneClass)}>
-            {tone === "risk" ? <ArrowDownRight className="size-3" /> : <ArrowUpRight className="size-3" />}
+          <div
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium",
+              toneClass,
+            )}
+          >
+            {tone === "risk" ? (
+              <ArrowDownRight className="size-3" />
+            ) : (
+              <ArrowUpRight className="size-3" />
+            )}
             {delta}
           </div>
         ) : null}

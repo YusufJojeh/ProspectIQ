@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -26,12 +26,15 @@ from app.modules.provider_serpapi.models import (
 )
 from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
 from app.modules.scoring.models import LeadScore, ScoreBreakdown
+from app.modules.scoring.repository import ScoringRepository
 from app.modules.search_jobs.models import SearchJob  # noqa: F401
 from app.modules.users.models import Workspace
 from scripts.db_maintenance import main as maintenance_main
 
 
-def _build_session_factory(database_url: str = "sqlite+pysqlite:///:memory:") -> sessionmaker[Session]:
+def _build_session_factory(
+    database_url: str = "sqlite+pysqlite:///:memory:",
+) -> sessionmaker[Session]:
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
     engine_kwargs: dict[str, object] = {
         "future": True,
@@ -58,7 +61,9 @@ def _seed_workspace(db: Session) -> Workspace:
     return workspace
 
 
-def _seed_lead_with_facts(db: Session) -> tuple[Lead, ProviderNormalizedFact, ProviderNormalizedFact]:
+def _seed_lead_with_facts(
+    db: Session,
+) -> tuple[Lead, ProviderNormalizedFact, ProviderNormalizedFact]:
     workspace = _seed_workspace(db)
     lead = Lead(
         workspace_id=workspace.id,
@@ -167,9 +172,7 @@ def test_lead_source_repository_promotes_only_one_current_record() -> None:
             is_current=True,
         )
 
-        records = list(
-            db.scalars(select(LeadSourceRecord).order_by(LeadSourceRecord.id.asc()))
-        )
+        records = list(db.scalars(select(LeadSourceRecord).order_by(LeadSourceRecord.id.asc())))
 
         assert len(records) == 2
         assert records[0].is_current is False
@@ -190,6 +193,73 @@ def test_lead_source_repository_promotes_only_one_current_record() -> None:
             db.commit()
 
 
+def test_scoring_repository_returns_latest_unique_evidence_items() -> None:
+    session_factory = _build_session_factory()
+
+    with session_factory() as db:
+        lead, _fact_one, _fact_two = _seed_lead_with_facts(db)
+
+        later_fetch = ProviderFetch(
+            workspace_id=lead.workspace_id,
+            engine="google_maps",
+            mode="maps_search",
+            request_fingerprint="fetch-fingerprint-later",
+            request_params_json={"query": "acme dental later"},
+            status="ok",
+        )
+        db.add(later_fetch)
+        db.commit()
+        db.refresh(later_fetch)
+
+        db.add_all(
+            [
+                ProviderNormalizedFact(
+                    workspace_id=lead.workspace_id,
+                    lead_id=lead.id,
+                    provider_fetch_id=later_fetch.id,
+                    source_type="maps_search",
+                    place_id="place_123",
+                    data_cid="cid_123",
+                    company_name=lead.company_name,
+                    website_domain="acme.example",
+                    phone="+971555000111",
+                    review_count=12,
+                    confidence=0.95,
+                    completeness=1.0,
+                    facts_json={"source": "maps_search", "version": "latest"},
+                    created_at=datetime.now(tz=UTC),
+                ),
+                ProviderNormalizedFact(
+                    workspace_id=lead.workspace_id,
+                    lead_id=lead.id,
+                    provider_fetch_id=later_fetch.id,
+                    source_type="maps_search",
+                    place_id="place_123",
+                    data_cid="cid_123",
+                    company_name=lead.company_name,
+                    website_domain="acme.example",
+                    phone="+971555000111",
+                    review_count=12,
+                    confidence=0.7,
+                    completeness=0.8,
+                    facts_json={"source": "maps_search", "version": "duplicate"},
+                    created_at=datetime.now(tz=UTC) - timedelta(minutes=5),
+                ),
+            ]
+        )
+        db.commit()
+
+        items = ScoringRepository().list_evidence_items(db, lead.id)
+
+        latest_matches = [
+            item
+            for item in items
+            if item.source_type == "maps_search" and item.place_id == "place_123"
+        ]
+        assert len(latest_matches) == 1
+        assert latest_matches[0].confidence == 0.95
+
+
 def test_model_alignment_exposes_expected_indexes_and_constraints() -> None:
     assert "ix_provider_fetches_workspace_engine_mode" in {
         index.name for index in ProviderFetch.__table__.indexes
@@ -199,12 +269,8 @@ def test_model_alignment_exposes_expected_indexes_and_constraints() -> None:
         for constraint in LeadIdentity.__table__.constraints
         if constraint.name is not None
     }
-    assert "ix_lead_identities_lookup" in {
-        index.name for index in LeadIdentity.__table__.indexes
-    }
-    assert "ix_lead_scores_lead_scored_at" in {
-        index.name for index in LeadScore.__table__.indexes
-    }
+    assert "ix_lead_identities_lookup" in {index.name for index in LeadIdentity.__table__.indexes}
+    assert "ix_lead_scores_lead_scored_at" in {index.name for index in LeadScore.__table__.indexes}
     assert "ix_score_breakdowns_lead_score_key" in {
         index.name for index in ScoreBreakdown.__table__.indexes
     }
@@ -248,9 +314,7 @@ def test_db_maintenance_dry_run_and_repair(tmp_path, capsys: pytest.CaptureFixtu
         )
         db.commit()
 
-    result = maintenance_main(
-        ["--database-url", database_url, "--large-table-threshold", "1"]
-    )
+    result = maintenance_main(["--database-url", database_url, "--large-table-threshold", "1"])
     output = capsys.readouterr().out
 
     assert result == 0

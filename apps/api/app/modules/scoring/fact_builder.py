@@ -35,6 +35,7 @@ class EvidenceFactBuilder:
         latest_web = by_source.get("web_search", [None])[0]
 
         phone_present = bool(lead.phone or any(item.phone for item in fact_list))
+        email_present = bool(lead.email)
         address_present = bool(lead.address or any(item.address for item in fact_list))
         hours_present = any(
             self._has_hours(item.facts_json) for item in by_source.get("maps_place", [])
@@ -108,6 +109,7 @@ class EvidenceFactBuilder:
             visibility_confidence=official_site_discoverability,
             visibility_source=official_website_source,
             phone_present=phone_present,
+            email_present=email_present,
             address_present=address_present,
             hours_present=hours_present,
             maps_search_present=bool(by_source.get("maps_search")),
@@ -142,7 +144,7 @@ class EvidenceFactBuilder:
 
         rating: float | None = None
         for value in (maps_reviews.get("rating"), yelp.get("yelp_rating")):
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 rating = float(value)
                 break
 
@@ -235,7 +237,7 @@ class EvidenceFactBuilder:
         if latest_web is None:
             return 0.45 if official_website_found else None
         raw_confidence = latest_web.facts_json.get("visibility_confidence")
-        confidence = float(raw_confidence) if isinstance(raw_confidence, (int, float)) else None
+        confidence = float(raw_confidence) if isinstance(raw_confidence, int | float) else None
         if confidence is not None:
             return max(0.0, min(1.0, confidence))
         if knowledge_graph_present:

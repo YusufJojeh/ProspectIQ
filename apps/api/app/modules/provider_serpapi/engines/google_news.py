@@ -34,7 +34,9 @@ def run_google_news(client: SerpApiClient, *, params: dict[str, Any]) -> Provide
     return client.search(params)
 
 
-def extract_news_items(result: ProviderCallResult, *, max_items: int = _MAX_NEWS_RESULTS) -> list[dict[str, Any]]:
+def extract_news_items(
+    result: ProviderCallResult, *, max_items: int = _MAX_NEWS_RESULTS
+) -> list[dict[str, Any]]:
     """
     Extract a flat list of news items from a Google News SerpAPI result.
     Each item: { title, link, source, date, snippet }
@@ -51,11 +53,7 @@ def extract_news_items(result: ProviderCallResult, *, max_items: int = _MAX_NEWS
         if not isinstance(raw, dict):
             continue
         source_info = raw.get("source") or {}
-        source_name = (
-            source_info.get("name")
-            if isinstance(source_info, dict)
-            else str(source_info)
-        )
+        source_name = source_info.get("name") if isinstance(source_info, dict) else str(source_info)
         items.append(
             {
                 "title": raw.get("title", ""),
