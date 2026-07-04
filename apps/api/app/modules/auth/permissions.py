@@ -20,9 +20,28 @@ WorkspacePermission = Literal[
     "ai_analysis:run",
     "outreach:manage",
     "exports:run",
+    "platform:admin",
 ]
 
 ROLE_PERMISSIONS: dict[str, tuple[WorkspacePermission, ...]] = {
+    "platform_admin": (
+        "workspace:view",
+        "workspace:manage",
+        "team:view",
+        "team:manage",
+        "billing:view",
+        "billing:manage",
+        "admin:view",
+        "admin:manage",
+        "audit_logs:view",
+        "searches:run",
+        "leads:view",
+        "leads:manage",
+        "ai_analysis:run",
+        "outreach:manage",
+        "exports:run",
+        "platform:admin",
+    ),
     "account_owner": (
         "workspace:view",
         "workspace:manage",
@@ -86,6 +105,8 @@ def has_workspace_permission(role: str, permission: WorkspacePermission) -> bool
     return permission in ROLE_PERMISSIONS.get(role, ())
 
 
-def assert_workspace_permission(role: str, permission: WorkspacePermission, *, message: str) -> None:
+def assert_workspace_permission(
+    role: str, permission: WorkspacePermission, *, message: str
+) -> None:
     if not has_workspace_permission(role, permission):
         raise ForbiddenError(message)

@@ -1,12 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { listInvoices, markInvoicePaid, simulateInvoiceFailure } from "@/features/billing/api";
+import {
+  listInvoices,
+  markInvoicePaid,
+  simulateInvoiceFailure,
+} from "@/features/billing/api";
 import { useAuthSession } from "@/features/auth/session";
 import { env } from "@/lib/env";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { billingStatusLabel } from "@/lib/i18n-labels";
 import { formatDate } from "@/lib/presenters";
@@ -16,8 +26,12 @@ export function InvoicesPage() {
   useDocumentTitle(t("billing.invoicesTitle"));
   const queryClient = useQueryClient();
   const { user } = useAuthSession();
-  const invoicesQuery = useQuery({ queryKey: ["billing-invoices"], queryFn: listInvoices });
-  const canManageBilling = user?.permissions?.includes("billing:manage") ?? false;
+  const invoicesQuery = useQuery({
+    queryKey: ["billing-invoices"],
+    queryFn: listInvoices,
+  });
+  const canManageBilling =
+    user?.permissions?.includes("billing:manage") ?? false;
 
   const refreshInvoices = () => {
     queryClient.invalidateQueries({ queryKey: ["billing-invoices"] });
@@ -25,20 +39,34 @@ export function InvoicesPage() {
   };
 
   const markPaidMutation = useMutation({
-    mutationFn: (invoicePublicId: string) => markInvoicePaid({ invoice_public_id: invoicePublicId }),
+    mutationFn: (invoicePublicId: string) =>
+      markInvoicePaid({ invoice_public_id: invoicePublicId }),
     onSuccess: refreshInvoices,
   });
   const failureMutation = useMutation({
-    mutationFn: (invoicePublicId: string) => simulateInvoiceFailure({ invoice_public_id: invoicePublicId }),
+    mutationFn: (invoicePublicId: string) =>
+      simulateInvoiceFailure({ invoice_public_id: invoicePublicId }),
     onSuccess: refreshInvoices,
   });
 
   if (invoicesQuery.isPending) {
-    return <QueryStateNotice tone="loading" title={t("billing.loadingInvoicesTitle")} description={t("billing.loadingInvoicesDescription")} />;
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title={t("billing.loadingInvoicesTitle")}
+        description={t("billing.loadingInvoicesDescription")}
+      />
+    );
   }
 
   if (invoicesQuery.isError) {
-    return <QueryStateNotice tone="error" title={t("billing.invoicesUnavailable")} error={invoicesQuery.error} />;
+    return (
+      <QueryStateNotice
+        tone="error"
+        title={t("billing.invoicesUnavailable")}
+        error={invoicesQuery.error}
+      />
+    );
   }
 
   return (
@@ -52,26 +80,51 @@ export function InvoicesPage() {
         </CardHeader>
         <CardContent className="grid gap-4">
           {invoicesQuery.data.items.map((invoice) => (
-            <div key={invoice.public_id} className="rounded-xl border border-border bg-card/50 p-4">
+            <div
+              key={invoice.public_id}
+              className="rounded-xl border border-border bg-card/50 p-4"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-medium">{invoice.public_id}</p>
-                    <Badge tone={invoice.status === "paid" ? "success" : invoice.status === "past_due" ? "warning" : "neutral"}>
+                    <Badge
+                      tone={
+                        invoice.status === "paid"
+                          ? "success"
+                          : invoice.status === "past_due"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
                       {billingStatusLabel(t, invoice.status)}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    ${invoice.amount} {invoice.currency} | {t("billing.issued")} {formatDate(invoice.issued_at)}
+                    ${invoice.amount} {invoice.currency} | {t("billing.issued")}{" "}
+                    {formatDate(invoice.issued_at)}
                   </p>
-                  <p className="text-sm text-muted-foreground">{t("billing.due")} {formatDate(invoice.due_at)} | {t("billing.paid")} {formatDate(invoice.paid_at)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("billing.due")} {formatDate(invoice.due_at)} |{" "}
+                    {t("billing.paid")} {formatDate(invoice.paid_at)}
+                  </p>
                 </div>
                 {canManageBilling && env.VITE_ENABLE_BILLING_SIMULATION ? (
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" disabled={invoice.status === "paid" || markPaidMutation.isPending} onClick={() => markPaidMutation.mutate(invoice.public_id)}>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        invoice.status === "paid" || markPaidMutation.isPending
+                      }
+                      onClick={() => markPaidMutation.mutate(invoice.public_id)}
+                    >
                       {t("billing.markSuccess")}
                     </Button>
-                    <Button variant="outline" disabled={failureMutation.isPending} onClick={() => failureMutation.mutate(invoice.public_id)}>
+                    <Button
+                      variant="outline"
+                      disabled={failureMutation.isPending}
+                      onClick={() => failureMutation.mutate(invoice.public_id)}
+                    >
                       {t("billing.markFailure")}
                     </Button>
                   </div>
@@ -80,25 +133,39 @@ export function InvoicesPage() {
 
               <div className="mt-3 grid gap-2">
                 {invoice.items.map((item, index) => (
-                  <div key={`${invoice.public_id}-${index}`} className="text-sm text-muted-foreground">
+                  <div
+                    key={`${invoice.public_id}-${index}`}
+                    className="text-sm text-muted-foreground"
+                  >
                     {item.description} | {item.quantity} x ${item.amount}
                   </div>
                 ))}
               </div>
 
               <div className="mt-4 grid gap-2 rounded-xl border border-border bg-background/70 p-3">
-                <p className="text-sm font-medium">{t("billing.paymentAttempts")}</p>
+                <p className="text-sm font-medium">
+                  {t("billing.paymentAttempts")}
+                </p>
                 {invoice.payment_attempts.length ? (
                   invoice.payment_attempts.map((attempt) => (
-                    <div key={attempt.public_id} className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <div
+                      key={attempt.public_id}
+                      className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
+                    >
                       <span>
-                        {attempt.public_id} | {billingStatusLabel(t, attempt.status)} | {attempt.simulated_result}
+                        {attempt.public_id} |{" "}
+                        {billingStatusLabel(t, attempt.status)} |{" "}
+                        {attempt.simulated_result}
                       </span>
-                      <span>{attempt.error_message ?? attempt.attempted_at}</span>
+                      <span>
+                        {attempt.error_message ?? attempt.attempted_at}
+                      </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t("billing.noPaymentAttempts")}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("billing.noPaymentAttempts")}
+                  </p>
                 )}
               </div>
             </div>

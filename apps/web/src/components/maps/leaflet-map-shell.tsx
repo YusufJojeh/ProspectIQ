@@ -1,5 +1,10 @@
 import type { PropsWithChildren } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
+import {
+  AttributionControl,
+  MapContainer,
+  TileLayer,
+  ZoomControl,
+} from "react-leaflet";
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_TILE_ATTRIBUTION,
@@ -31,8 +36,23 @@ export function LeafletMapShell({
         className,
       )}
     >
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom={scrollWheelZoom} className="h-full w-full">
-        <TileLayer attribution={DEFAULT_MAP_TILE_ATTRIBUTION} url={DEFAULT_MAP_TILE_URL} />
+      <MapContainer
+        attributionControl={false}
+        center={center}
+        className="h-full w-full"
+        preferCanvas
+        scrollWheelZoom={scrollWheelZoom}
+        zoom={zoom}
+        zoomControl={false}
+      >
+        <TileLayer
+          attribution={DEFAULT_MAP_TILE_ATTRIBUTION}
+          detectRetina
+          maxZoom={19}
+          url={DEFAULT_MAP_TILE_URL}
+        />
+        <ZoomControl position="topright" />
+        <AttributionControl position="bottomright" prefix={false} />
         {children}
       </MapContainer>
     </div>

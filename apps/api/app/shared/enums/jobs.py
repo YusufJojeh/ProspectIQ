@@ -31,6 +31,11 @@ class LeadScoreBand(StrEnum):
     MEDIUM = "medium"
     LOW = "low"
     NOT_QUALIFIED = "not_qualified"
+    HOT_LEAD = "hot_lead"
+    WARM_LEAD = "warm_lead"
+    RESEARCH_MORE = "research_more"
+    LOW_PRIORITY = "low_priority"
+    DO_NOT_CONTACT = "do_not_contact"
 
 
 class ProviderFetchStatus(StrEnum):

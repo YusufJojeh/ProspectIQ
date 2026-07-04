@@ -70,9 +70,12 @@ class ChatSessionRepository:
         """
         from sqlalchemy import func
 
-        count = db.scalar(
-            select(func.count(ChatMessage.id)).where(ChatMessage.session_id == session_id)
-        ) or 0
+        count = (
+            db.scalar(
+                select(func.count(ChatMessage.id)).where(ChatMessage.session_id == session_id)
+            )
+            or 0
+        )
         last = db.scalar(
             select(ChatMessage)
             .where(ChatMessage.session_id == session_id)

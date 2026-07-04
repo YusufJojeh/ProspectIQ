@@ -10,13 +10,15 @@ export function useSearchJobsQuery() {
   return useQuery({
     queryKey: ["search-jobs"],
     queryFn: listSearchJobs,
-    staleTime: 10_000,
+    staleTime: 1_000,
     refetchInterval: (query) => {
       const items = query.state.data?.items;
       if (!items?.length) {
         return false;
       }
-      return items.some((job) => ACTIVE_STATUSES.has(job.status)) ? 4_000 : false;
+      return items.some((job) => ACTIVE_STATUSES.has(job.status))
+        ? 1_500
+        : false;
     },
   });
 }

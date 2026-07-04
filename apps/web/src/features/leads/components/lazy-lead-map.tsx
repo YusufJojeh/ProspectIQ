@@ -10,7 +10,9 @@ type LeadMapProps = ComponentProps<typeof LeadMap>;
 
 export function LazyLeadMap(props: LeadMapProps) {
   return (
-    <Suspense fallback={<Skeleton className="h-full min-h-[220px] rounded-[inherit]" />}>
+    <Suspense
+      fallback={<Skeleton className="h-full min-h-[220px] rounded-[inherit]" />}
+    >
       <LeadMap {...props} />
     </Suspense>
   );

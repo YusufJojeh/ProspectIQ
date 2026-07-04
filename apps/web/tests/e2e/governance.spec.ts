@@ -66,26 +66,40 @@ const governanceRoutes = [
 ] as const;
 
 for (const route of governanceRoutes) {
-  test(`governance route ${route.path} loads and stays structurally stable`, async ({ page }, testInfo) => {
+  test(`governance route ${route.path} loads and stays structurally stable`, async ({
+    page,
+  }, testInfo) => {
     await gotoPath(page, route.path);
 
     const headingLocator =
-      route.headingSelector === "role" ? page.getByRole("heading", { name: route.heading }) : page.getByText(route.heading).first();
+      route.headingSelector === "role"
+        ? page.getByRole("heading", { name: route.heading })
+        : page.getByText(route.heading).first();
     await expect(headingLocator).toBeVisible({ timeout: 15_000 });
     if (route.path === routes.aiAnalysis) {
       await expect(page.getByText(/leads analyzed/i)).toBeVisible();
     } else if (route.path === routes.outreach) {
       await expect(page.getByText(/leads available/i)).toBeVisible();
     } else if (route.path === routes.admin) {
-      await expect(page.getByText(/all systems operational|degraded service/i)).toBeVisible();
+      await expect(
+        page.getByText(/all systems operational|degraded service/i),
+      ).toBeVisible();
     } else if (route.path === routes.team) {
-      await expect(page.getByText(/manage users inside the current workspace only/i)).toBeVisible();
+      await expect(
+        page.getByText(/manage users inside the current workspace only/i),
+      ).toBeVisible();
     } else if (route.path === routes.billing) {
-      await expect(page.getByText(/simulated saas billing only/i)).toBeVisible();
+      await expect(
+        page.getByText(/simulated saas billing only/i),
+      ).toBeVisible();
     } else if (route.path === routes.invoices) {
-      await expect(page.getByText(/internal invoice and payment-attempt records/i)).toBeVisible();
+      await expect(
+        page.getByText(/internal invoice and payment-attempt records/i),
+      ).toBeVisible();
     } else if (route.path === routes.usage) {
-      await expect(page.getByText(/usage is scoped to the current workspace/i)).toBeVisible();
+      await expect(
+        page.getByText(/usage is scoped to the current workspace/i),
+      ).toBeVisible();
     } else if (route.path === routes.auditLogs) {
       await expect(page.getByText(/\d+ \/ \d+ events/i)).toBeVisible();
     } else if (route.path === routes.exports) {
@@ -95,8 +109,14 @@ for (const route of governanceRoutes) {
     }
     await expectNoHorizontalOverflow(page);
 
-    if (isMobileProject(testInfo.project.name) && route.path === routes.settings) {
-      await expectStableScreenshot(page.locator("main"), "mobile-settings-route.png");
+    if (
+      isMobileProject(testInfo.project.name) &&
+      route.path === routes.settings
+    ) {
+      await expectStableScreenshot(
+        page.locator("main"),
+        "mobile-settings-route.png",
+      );
     }
   });
 }

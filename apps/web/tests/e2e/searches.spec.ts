@@ -1,6 +1,11 @@
 import { test, expect } from "./fixtures";
 import { authStatePath } from "./helpers/auth";
-import { expectNoHorizontalOverflow, expectStableScreenshot, gotoPath, isDesktopWideProject } from "./helpers/page";
+import {
+  expectNoHorizontalOverflow,
+  expectStableScreenshot,
+  gotoPath,
+  isDesktopWideProject,
+} from "./helpers/page";
 import { routes } from "./helpers/routes";
 
 test.use({ storageState: authStatePath });
@@ -11,11 +16,15 @@ test("searches page shows AI prompt input as the primary entry point with struct
   await gotoPath(page, routes.searches);
 
   // Part 2: NLP textarea should be visible at the top of the create-job card
-  const promptTextarea = page.getByPlaceholder(/Describe what you're looking for/i);
+  const promptTextarea = page.getByPlaceholder(
+    /Describe what you're looking for/i,
+  );
   await expect(promptTextarea).toBeVisible();
 
   // Primary CTA is "Search with AI"
-  await expect(page.getByRole("button", { name: /Search with AI/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Search with AI/i }),
+  ).toBeVisible();
 
   // Structured form is hidden behind the "Advanced options" collapsible — its
   // required field (business type input) should NOT be visible by default.
@@ -27,7 +36,9 @@ test("searches page shows AI prompt input as the primary entry point with struct
   await expect(page.getByTestId("search-form-city")).toBeVisible();
 });
 
-test("Part 6: search-job cards do not render raw i18n placeholders", async ({ page }) => {
+test("Part 6: search-job cards do not render raw i18n placeholders", async ({
+  page,
+}) => {
   await gotoPath(page, routes.searches);
   await expect(page.getByText(/run history/i)).toBeVisible();
 
@@ -38,10 +49,14 @@ test("Part 6: search-job cards do not render raw i18n placeholders", async ({ pa
   await expect(mainBody).not.toContainText("}}");
 });
 
-test("searches page supports job inspection, clone, rerun, and lead navigation", async ({ page }, testInfo) => {
+test("searches page supports job inspection, clone, rerun, and lead navigation", async ({
+  page,
+}, testInfo) => {
   await gotoPath(page, routes.searches);
 
-  await expect(page.getByRole("heading", { name: /scoped discovery workspace/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /scoped discovery workspace/i }),
+  ).toBeVisible();
   await expect(page.getByText(/run history/i)).toBeVisible();
   await expect(page.getByText(/dentist \/ istanbul/i)).toBeVisible();
 
@@ -53,18 +68,30 @@ test("searches page supports job inspection, clone, rerun, and lead navigation",
   await drawer.getByRole("button", { name: /rerun job/i }).click();
   await expect(drawer).toContainText(/queued/i);
 
-  await expect(page.getByTestId("search-form-business-type")).toHaveValue("Dentist");
+  await expect(page.getByTestId("search-form-business-type")).toHaveValue(
+    "Dentist",
+  );
   await expect(page.getByTestId("search-form-city")).toHaveValue("Istanbul");
-  const leadsHref = await drawer.getByRole("link", { name: /view leads/i }).getAttribute("href");
+  const leadsHref = await drawer
+    .getByRole("link", { name: /view leads/i })
+    .getAttribute("href");
   expect(leadsHref).toMatch(/search_job_id=/);
   await drawer.getByRole("link", { name: /view leads/i }).click();
-  await expect(page).toHaveURL(new RegExp((leadsHref ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  await expect(page.getByRole("heading", { name: /evidence-first qualification workspace/i })).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp((leadsHref ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
+  await expect(
+    page.getByRole("heading", {
+      name: /evidence-first qualification workspace/i,
+    }),
+  ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   if (isDesktopWideProject(testInfo.project.name)) {
     await gotoPath(page, routes.searches);
-    await expect(page.getByRole("heading", { name: /scoped discovery workspace/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /scoped discovery workspace/i }),
+    ).toBeVisible();
     await expectStableScreenshot(page.locator("main"), "searches-route.png");
   }
 });

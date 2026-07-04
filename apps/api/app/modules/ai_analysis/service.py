@@ -10,13 +10,24 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.adapters import LLMClient, OllamaLLMAdapter, OpenAILLMAdapter
-from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
+from app.modules.ai_analysis.evidence_builder import EvidenceBuilder
+from app.modules.ai_analysis.models import (
+    AIAnalysisEvidence,
+    AIAnalysisSnapshot,
+    AIFeedback,
+    PromptTemplate,
+    ServiceRecommendation,
+)
 from app.modules.ai_analysis.prompt_builder import PromptBuilder
 from app.modules.ai_analysis.repository import AIAnalysisRepository
 from app.modules.ai_analysis.schemas import (
+    AIEvidenceItem,
+    AIFeedbackRequest,
+    AIFeedbackResponse,
     BatchAnalysisResponse,
     BatchAnalysisResult,
     LatestLeadAnalysisResponse,
+    LeadAiEvidenceResponse,
     LeadAnalysisHistoryResponse,
     LeadAnalysisInput,
     LeadAnalysisResult,
@@ -24,14 +35,15 @@ from app.modules.ai_analysis.schemas import (
     LeadScoreContext,
     ServiceRecommendationResponse,
 )
-from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
+from app.modules.ai_analysis.service_catalog import get_default_service_catalog
 from app.modules.ai_analysis.validator import LLMOutputValidator
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
-from app.modules.users.models import User
+from app.modules.users.models import User, Workspace
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.services.lead_intelligence import LeadIntelligenceService
+from app.shared.utils.workspace_profile import get_workspace_profession
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +65,7 @@ class AIAnalysisService:
         self.repository = AIAnalysisRepository()
         self.prompt_builder = PromptBuilder()
         self.validator = LLMOutputValidator()
+        self.evidence_builder = EvidenceBuilder()
         self.leads_repository = LeadsRepository()
         self.lead_intelligence = LeadIntelligenceService()
         self.audit_logs = AuditLogService()
@@ -68,6 +81,7 @@ class AIAnalysisService:
         facts: NormalizedLeadFacts,
         created_by_user_id: int,
         score_context: LeadScoreContext | None = None,
+        force_refresh: bool = False,
     ) -> tuple[AIAnalysisSnapshot, LeadAnalysisResult]:
         runtime_candidates = self._resolve_runtime_candidates()
         template = self._get_or_create_active_prompt_template(
@@ -96,13 +110,17 @@ class AIAnalysisService:
             prompt_template_id=template.id,
             input_hash=input_hash,
         )
-        if existing is not None:
+        if existing is not None and not force_refresh:
             return existing, LeadAnalysisResult.model_validate(existing.output_json)
 
         result, provider_name, model_name = self._run_analysis(
             candidates=runtime_candidates,
             input_payload=input_payload,
         )
+        # Set before add_snapshot so its commit flushes this dirty lead, regardless of
+        # whether service recommendations exist (that path may skip its own commit).
+        if result.summary:
+            lead.ai_opener = result.summary
         snapshot = self.repository.add_snapshot(
             db,
             AIAnalysisSnapshot(
@@ -130,7 +148,108 @@ class AIAnalysisService:
                 for index, service_name in enumerate(result.recommended_services, start=1)
             ],
         )
+        self._persist_evidence(db, workspace_id=workspace_id, lead=lead, snapshot=snapshot)
         return snapshot, result
+
+    def _persist_evidence(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead: Lead,
+        snapshot: AIAnalysisSnapshot,
+    ) -> None:
+        records = self.evidence_builder.build(db, workspace_id=workspace_id, lead=lead)
+        if not records:
+            return
+        self.repository.add_evidence(
+            db,
+            [
+                AIAnalysisEvidence(
+                    workspace_id=workspace_id,
+                    ai_analysis_snapshot_id=snapshot.id,
+                    source_type=record.source_type,
+                    source_url=record.source_url,
+                    evidence_text=record.evidence_text,
+                    confidence=record.confidence,
+                )
+                for record in records
+            ],
+        )
+
+    def get_evidence_for_lead(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead_public_id: str,
+    ) -> LeadAiEvidenceResponse:
+        lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
+        snapshot = self.repository.get_latest_snapshot_for_lead(db, lead_id=lead.id)
+        if snapshot is None:
+            return LeadAiEvidenceResponse(lead_id=lead.public_id, snapshot_public_id=None, items=[])
+        evidence = self.repository.list_evidence_for_snapshot(db, snapshot_id=snapshot.id)
+        return LeadAiEvidenceResponse(
+            lead_id=lead.public_id,
+            snapshot_public_id=snapshot.public_id,
+            items=[
+                AIEvidenceItem(
+                    public_id=item.public_id,
+                    source_type=item.source_type,
+                    source_url=item.source_url,
+                    evidence_text=item.evidence_text,
+                    confidence=item.confidence,
+                    created_at=item.created_at,
+                )
+                for item in evidence
+            ],
+        )
+
+    def submit_feedback(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        snapshot_public_id: str,
+        payload: AIFeedbackRequest,
+        current_user: User,
+    ) -> AIFeedbackResponse:
+        snapshot = self.repository.get_snapshot_by_public_id(db, snapshot_public_id)
+        if snapshot is None:
+            raise NotFoundError("Analysis snapshot was not found.")
+        # Enforce tenant isolation: the snapshot's lead must belong to the caller's workspace.
+        lead = self.leads_repository.get_by_id_for_workspace(
+            db, workspace_id=workspace_id, lead_id=snapshot.lead_id
+        )
+        if lead is None:
+            raise NotFoundError("Analysis snapshot was not found.")
+        feedback = self.repository.add_feedback(
+            db,
+            AIFeedback(
+                workspace_id=workspace_id,
+                ai_analysis_snapshot_id=snapshot.id,
+                user_id=current_user.id,
+                rating=payload.rating,
+                correction_text=payload.correction_text,
+            ),
+        )
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=current_user.id,
+            event_name="ai_analysis.feedback_submitted",
+            details=(
+                f"Recorded '{payload.rating}' feedback on analysis {snapshot.public_id} "
+                f"for lead {lead.public_id}."
+            ),
+        )
+        return AIFeedbackResponse(
+            public_id=feedback.public_id,
+            snapshot_public_id=snapshot.public_id,
+            rating=feedback.rating,
+            correction_text=feedback.correction_text,
+            created_at=feedback.created_at,
+        )
 
     def get_latest_for_lead(
         self,
@@ -167,6 +286,7 @@ class AIAnalysisService:
             workspace_id=workspace_id,
             lead_public_id=lead_public_id,
             created_by_user_id=current_user.id,
+            force_refresh=True,
         )
         self.audit_logs.record(
             db,
@@ -189,6 +309,7 @@ class AIAnalysisService:
         workspace_id: int,
         lead_public_id: str,
         created_by_user_id: int,
+        force_refresh: bool = False,
     ) -> tuple[Lead, AIAnalysisSnapshot, LeadAnalysisResult]:
         lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
         context = self.lead_intelligence.build(db, lead=lead)
@@ -199,6 +320,7 @@ class AIAnalysisService:
             facts=context.facts,
             created_by_user_id=created_by_user_id,
             score_context=context.score_context,
+            force_refresh=force_refresh,
         )
         return lead, snapshot, result
 
@@ -303,7 +425,9 @@ class AIAnalysisService:
         active_items = [item.service_name for item in items if item.is_active]
         if active_items:
             return active_items
-        return list(ALLOWED_SERVICE_CATALOG)
+        workspace = db.get(Workspace, workspace_id)
+        profession = get_workspace_profession(workspace)
+        return list(get_default_service_catalog(profession))
 
     def _resolve_runtime_candidates(self) -> list[RuntimeCandidate]:
         if self.llm_client is not None:
@@ -467,7 +591,8 @@ class AIAnalysisService:
             name="Default evidence-first prompt",
             template_text=(
                 "Use only the stored evidence and deterministic score context. "
-                "Do not invent unsupported facts. Keep recommendations tied to the allowed service catalog."
+                "Do not invent unsupported facts. Keep recommendations tied to the allowed service catalog. "
+                "Return every user-facing generated text in both Arabic and English."
             ),
             is_active=True,
             created_by_user_id=created_by_user_id,

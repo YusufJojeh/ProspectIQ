@@ -2,7 +2,11 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.modules.ai_analysis.schemas import LeadAiEvidenceResponse
+from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
+from app.modules.crm.schemas import CreateDealsFromSourceRequest, DealResponse
+from app.modules.crm.service import CrmService
 from app.modules.leads.schemas import (
     LeadActivityResponse,
     LeadAnalysisResponse,
@@ -19,6 +23,8 @@ from app.modules.leads.schemas import (
 )
 from app.modules.leads.service import LeadsService
 from app.modules.outreach.schemas import OutreachGenerateRequest
+from app.modules.signals.schemas import LeadSignalsResponse
+from app.modules.signals.service import LeadSignalDetectorService
 from app.modules.users.models import User
 from app.shared.enums.jobs import LeadScoreBand, LeadStatus
 from app.workers.orchestration.lead_refresh import LeadRefreshOrchestrator
@@ -90,6 +96,23 @@ def get_lead(
     return LeadsService().get_lead(db, workspace_id, lead_id)
 
 
+@router.post("/{lead_id}/create-deal", response_model=DealResponse, status_code=status.HTTP_201_CREATED)
+def create_lead_deal(
+    lead_id: str,
+    payload: CreateDealsFromSourceRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> DealResponse:
+    return CrmService().create_deal_from_lead(
+        db,
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        current_user=current_user,
+        allow_duplicate_open=payload.allow_duplicate_open if payload is not None else False,
+    )
+
+
 @router.post(
     "/{lead_id}/refresh",
     response_model=LeadResponse,
@@ -102,9 +125,7 @@ def refresh_lead(
     current_user: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> LeadResponse:
-    body = LeadsService().queue_refresh(
-        db, workspace_id, lead_id, current_user=current_user
-    )
+    body = LeadsService().queue_refresh(db, workspace_id, lead_id, current_user=current_user)
     background_tasks.add_task(
         _run_lead_refresh_background,
         workspace_id,
@@ -204,3 +225,39 @@ def lead_score_breakdown(
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> LeadScoreBreakdownResponse:
     return LeadsService().score_breakdown(db, workspace_id, lead_id)
+
+
+@router.get("/{lead_id}/ai-evidence", response_model=LeadAiEvidenceResponse)
+def lead_ai_evidence(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> LeadAiEvidenceResponse:
+    return AIAnalysisService().get_evidence_for_lead(
+        db, workspace_id=workspace_id, lead_public_id=lead_id
+    )
+
+
+@router.get("/{lead_id}/signals", response_model=LeadSignalsResponse)
+def lead_signals(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> LeadSignalsResponse:
+    return LeadSignalDetectorService().get_for_lead(
+        db, workspace_id=workspace_id, lead_public_id=lead_id
+    )
+
+
+@router.post("/{lead_id}/signals/recompute", response_model=LeadSignalsResponse)
+def recompute_lead_signals(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> LeadSignalsResponse:
+    return LeadSignalDetectorService().recompute_for_lead_public_id(
+        db, workspace_id=workspace_id, lead_public_id=lead_id
+    )

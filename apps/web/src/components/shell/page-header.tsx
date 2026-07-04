@@ -26,12 +26,20 @@ export function PageHeader({
             {eyebrow}
           </div>
         )}
-        <h1 className="text-pretty text-xl font-semibold tracking-tight sm:text-2xl lg:text-[26px]">{title}</h1>
+        <h1 className="text-pretty text-xl font-semibold tracking-tight sm:text-2xl lg:text-[26px]">
+          {title}
+        </h1>
         {description && (
-          <p className="mt-1 text-pretty text-sm leading-relaxed text-muted-foreground lg:max-w-2xl">{description}</p>
+          <p className="mt-1 text-pretty text-sm leading-relaxed text-muted-foreground lg:max-w-2xl">
+            {description}
+          </p>
         )}
       </div>
-      {actions && <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">{actions}</div>}
+      {actions && (
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

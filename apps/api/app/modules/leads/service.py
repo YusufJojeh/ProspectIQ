@@ -30,6 +30,7 @@ from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.outreach.service import OutreachGenerationService
 from app.modules.scoring.models import LeadScore
 from app.modules.scoring.repository import ScoringRepository
+from app.modules.signals.repository import LeadSignalRepository, LeadSignalSummary
 from app.modules.users.models import User
 from app.shared.enums.jobs import LeadScoreBand, LeadStatus
 from app.shared.pagination.schemas import PaginationMeta
@@ -45,6 +46,7 @@ class LeadsService:
         self.audit_logs = AuditLogService()
         self.billing = BillingService()
         self.scoring_repository = ScoringRepository()
+        self.signal_repository = LeadSignalRepository()
         self.lead_intelligence = LeadIntelligenceService()
 
     def list_leads(
@@ -91,6 +93,9 @@ class LeadsService:
         latest_scores = self.repository.get_latest_scores(db, lead_ids)
         assignees = self._get_assignee_public_ids(db, items)
         outreach_statuses = self.outreach_repository.get_latest_outreach_statuses(db, lead_ids)
+        signal_summaries = self.signal_repository.summaries_for_leads(
+            db, workspace_id=workspace_id, lead_ids=lead_ids
+        )
         return LeadListResponse(
             items=[
                 self._to_response(
@@ -98,6 +103,7 @@ class LeadsService:
                     latest_scores.get(item.id),
                     self._lookup_cached_assignee_public_id(item, assignees),
                     outreach_statuses.get(item.id),
+                    signal_summaries.get(item.id),
                 )
                 for item in items
             ],
@@ -108,8 +114,16 @@ class LeadsService:
         lead = self._get_or_raise(db, workspace_id, lead_id)
         latest = self.repository.get_latest_scores(db, [lead.id]).get(lead.id)
         assignee_public_id = self._lookup_assignee_public_id(db, lead)
-        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [lead.id]).get(lead.id)
-        return self._to_response(lead, latest, assignee_public_id, outreach_status)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [lead.id]).get(
+            lead.id
+        )
+        return self._to_response(
+            lead,
+            latest,
+            assignee_public_id,
+            outreach_status,
+            self._signal_summary(db, workspace_id, lead),
+        )
 
     def list_activity(self, db: Session, workspace_id: int, lead_id: str) -> LeadActivityResponse:
         lead = self._get_or_raise(db, workspace_id, lead_id)
@@ -162,8 +176,16 @@ class LeadsService:
         )
         latest = self.repository.get_latest_scores(db, [lead.id]).get(lead.id)
         assignee_public_id = self._lookup_assignee_public_id(db, lead)
-        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [lead.id]).get(lead.id)
-        return self._to_response(lead, latest, assignee_public_id, outreach_status)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [lead.id]).get(
+            lead.id
+        )
+        return self._to_response(
+            lead,
+            latest,
+            assignee_public_id,
+            outreach_status,
+            self._signal_summary(db, workspace_id, lead),
+        )
 
     def analyze_lead(
         self,
@@ -196,7 +218,9 @@ class LeadsService:
             event_name="lead.analyzed",
             details=f"Generated an assistive analysis for lead {lead.public_id}.",
         )
-        self.billing.record_usage(db, workspace_id=workspace_id, metric_key="ai_scoring_runs_per_month")
+        self.billing.record_usage(
+            db, workspace_id=workspace_id, metric_key="ai_scoring_runs_per_month"
+        )
         return LeadAnalysisResponse(lead_id=lead.public_id, analysis=result)
 
     def create_note(
@@ -309,8 +333,16 @@ class LeadsService:
         )
         latest = self.repository.get_latest_scores(db, [saved.id]).get(saved.id)
         assignee_public_id = self._lookup_assignee_public_id(db, saved)
-        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [saved.id]).get(saved.id)
-        return self._to_response(saved, latest, assignee_public_id, outreach_status)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [saved.id]).get(
+            saved.id
+        )
+        return self._to_response(
+            saved,
+            latest,
+            assignee_public_id,
+            outreach_status,
+            self._signal_summary(db, workspace_id, saved),
+        )
 
     def assign(
         self,
@@ -347,8 +379,16 @@ class LeadsService:
         )
         latest = self.repository.get_latest_scores(db, [saved.id]).get(saved.id)
         assignee_public_id = self._lookup_assignee_public_id(db, saved)
-        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [saved.id]).get(saved.id)
-        return self._to_response(saved, latest, assignee_public_id, outreach_status)
+        outreach_status = self.outreach_repository.get_latest_outreach_statuses(db, [saved.id]).get(
+            saved.id
+        )
+        return self._to_response(
+            saved,
+            latest,
+            assignee_public_id,
+            outreach_status,
+            self._signal_summary(db, workspace_id, saved),
+        )
 
     def evidence(self, db: Session, workspace_id: int, lead_id: str) -> LeadEvidenceResponse:
         lead = self._get_or_raise(db, workspace_id, lead_id)
@@ -377,6 +417,7 @@ class LeadsService:
         latest_score: LeadScore | None,
         assignee_public_id: str | None,
         latest_outreach_status: str | None = None,
+        signal_summary: LeadSignalSummary | None = None,
     ) -> LeadResponse:
         return LeadResponse(
             public_id=lead.public_id,
@@ -394,15 +435,46 @@ class LeadsService:
             data_completeness=lead.data_completeness,
             data_confidence=lead.data_confidence,
             has_website=lead.has_website,
+            email=lead.email,
+            email_confidence=lead.email_confidence,
+            linkedin_url=lead.linkedin_url,
+            industry=lead.industry,
+            employee_count=lead.employee_count,
+            ai_opener=lead.ai_opener,
+            logo_url=lead.logo_url,
             status=LeadStatus(lead.status),
             assigned_to_user_public_id=assignee_public_id,
             latest_score=float(latest_score.total_score) if latest_score else None,
+            latest_fit_score=float(latest_score.fit_score) if latest_score and latest_score.fit_score is not None else None,
+            latest_need_score=float(latest_score.need_score) if latest_score and latest_score.need_score is not None else None,
+            latest_urgency_score=float(latest_score.urgency_score) if latest_score and latest_score.urgency_score is not None else None,
+            latest_reachability_score=(
+                float(latest_score.reachability_score)
+                if latest_score and latest_score.reachability_score is not None
+                else None
+            ),
+            latest_final_priority_score=(
+                float(latest_score.final_priority_score)
+                if latest_score and latest_score.final_priority_score is not None
+                else None
+            ),
             latest_band=LeadScoreBand(latest_score.band) if latest_score else None,
             latest_qualified=bool(latest_score.qualified) if latest_score else None,
             latest_outreach_status=latest_outreach_status,
+            top_signal_type=signal_summary.top_signal_type if signal_summary else None,
+            top_signal_strength=signal_summary.top_signal_strength if signal_summary else None,
+            top_signal_evidence=signal_summary.top_signal_evidence if signal_summary else None,
+            signals_count=signal_summary.signals_count if signal_summary else 0,
             created_at=lead.created_at,
             updated_at=lead.updated_at,
         )
+
+    def _signal_summary(
+        self, db: Session, workspace_id: int, lead: Lead
+    ) -> LeadSignalSummary | None:
+        return self.signal_repository.summaries_for_leads(
+            db, workspace_id=workspace_id, lead_ids=[lead.id]
+        ).get(lead.id)
 
     def _get_assignee_public_ids(self, db: Session, leads: list[Lead]) -> dict[int, str]:
         return self.repository.get_assignee_public_ids(db, leads)

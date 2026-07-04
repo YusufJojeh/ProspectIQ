@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ListFilter, Radar, RefreshCw, Rows3, ShieldAlert, TimerReset } from "lucide-react";
+import {
+  ArrowLeft,
+  ListFilter,
+  Radar,
+  RefreshCw,
+  Rows3,
+  ShieldAlert,
+  TimerReset,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { appPaths } from "@/app/paths";
@@ -9,11 +17,21 @@ import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getSearchJob } from "@/features/searches/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useJobStream } from "@/hooks/use-job-stream";
-import { discoveryRuntimeLabel, searchJobStatusLabel, websitePreferenceLabel } from "@/lib/i18n-labels";
+import {
+  discoveryRuntimeLabel,
+  searchJobStatusLabel,
+  websitePreferenceLabel,
+} from "@/lib/i18n-labels";
 import { formatDate, searchJobTone } from "@/lib/presenters";
 import { Progress } from "@/components/ui/progress";
 
@@ -23,7 +41,8 @@ export function SearchJobDetailPage() {
   const { t } = useTranslation();
   const { jobId = "" } = useParams();
   useDocumentTitle(t("searches.detailTitle"));
-  const isActive = (status: string) => status === "queued" || status === "running";
+  const isActive = (status: string) =>
+    status === "queued" || status === "running";
 
   const jobQuery = useQuery({
     queryKey: ["search-jobs", "detail", jobId],
@@ -38,7 +57,8 @@ export function SearchJobDetailPage() {
     },
   });
 
-  const streamJobId = jobId && jobQuery.data && isActive(jobQuery.data.status) ? jobId : null;
+  const streamJobId =
+    jobId && jobQuery.data && isActive(jobQuery.data.status) ? jobId : null;
   const stream = useJobStream(streamJobId);
 
   if (!jobId) {
@@ -83,7 +103,10 @@ export function SearchJobDetailPage() {
     <div className="space-y-6 p-3 sm:p-4 lg:p-6">
       <PageHeader
         eyebrow={t("searches.jobDetails")}
-        title={t("searches.jobTitlePattern", { businessType: job.business_type, city: job.city })}
+        title={t("searches.jobTitlePattern", {
+          businessType: job.business_type,
+          city: job.city,
+        })}
         description={t("searches.detailDescription")}
         actions={
           <>
@@ -94,7 +117,9 @@ export function SearchJobDetailPage() {
               </Link>
             </Button>
             <Button asChild>
-              <Link to={`${appPaths.leads}?search_job_id=${encodeURIComponent(job.public_id)}`}>
+              <Link
+                to={`${appPaths.leads}?search_job_id=${encodeURIComponent(job.public_id)}`}
+              >
                 <ListFilter className="size-3.5" />
                 {t("searches.leadsFromRun")}
               </Link>
@@ -104,8 +129,12 @@ export function SearchJobDetailPage() {
       />
 
       <div className="flex flex-wrap gap-2">
-        <Badge tone={searchJobTone(job.status)}>{searchJobStatusLabel(t, job.status)}</Badge>
-        <Badge tone="neutral">{t("searches.jobId", { id: job.public_id })}</Badge>
+        <Badge tone={searchJobTone(job.status)}>
+          {searchJobStatusLabel(t, job.status)}
+        </Badge>
+        <Badge tone="neutral">
+          {t("searches.jobId", { id: job.public_id })}
+        </Badge>
         <Badge tone="neutral">{runtimeLabel}</Badge>
       </div>
 
@@ -114,10 +143,14 @@ export function SearchJobDetailPage() {
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium">
               {stream.stage
-                ? t(`searches.stage_${stream.stage}`, { defaultValue: stream.stage })
+                ? t(`searches.stage_${stream.stage}`, {
+                    defaultValue: stream.stage,
+                  })
                 : t("searches.runInProgressTitle")}
             </p>
-            <span className="text-xs text-muted-foreground">{stream.progress}%</span>
+            <span className="text-xs text-muted-foreground">
+              {stream.progress}%
+            </span>
           </div>
           <Progress value={stream.progress} className="h-2" />
           {stream.message ? (
@@ -142,7 +175,11 @@ export function SearchJobDetailPage() {
       ) : (
         <QueryStateNotice
           tone={job.status === "partially_completed" ? "info" : "success"}
-          title={job.status === "partially_completed" ? t("searches.runCompletedWarningsTitle") : t("searches.runCompletedTitle")}
+          title={
+            job.status === "partially_completed"
+              ? t("searches.runCompletedWarningsTitle")
+              : t("searches.runCompletedTitle")
+          }
           description={
             job.status === "partially_completed"
               ? t("searches.runCompletedWarningsDescription")
@@ -152,10 +189,33 @@ export function SearchJobDetailPage() {
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={t("searches.candidatesFound")} value={String(job.candidates_found)} helper={t("searches.rawProviderCandidates")} icon={Rows3} />
-        <KpiCard label={t("searches.leadsUpserted")} value={String(job.leads_upserted)} helper={t("searches.persistedLeadRecords")} tone="evidence" icon={Radar} />
-        <KpiCard label={t("searches.providerErrors")} value={String(job.provider_error_count)} helper={t("searches.fetchFailures")} tone={job.provider_error_count ? "risk" : "signal"} icon={ShieldAlert} />
-        <KpiCard label={t("searches.enriched")} value={String(job.enriched_count)} helper={t("searches.expandedCandidates")} tone="caution" icon={TimerReset} />
+        <KpiCard
+          label={t("searches.candidatesFound")}
+          value={String(job.candidates_found)}
+          helper={t("searches.rawProviderCandidates")}
+          icon={Rows3}
+        />
+        <KpiCard
+          label={t("searches.leadsUpserted")}
+          value={String(job.leads_upserted)}
+          helper={t("searches.persistedLeadRecords")}
+          tone="evidence"
+          icon={Radar}
+        />
+        <KpiCard
+          label={t("searches.providerErrors")}
+          value={String(job.provider_error_count)}
+          helper={t("searches.fetchFailures")}
+          tone={job.provider_error_count ? "risk" : "signal"}
+          icon={ShieldAlert}
+        />
+        <KpiCard
+          label={t("searches.enriched")}
+          value={String(job.enriched_count)}
+          helper={t("searches.expandedCandidates")}
+          tone="caution"
+          icon={TimerReset}
+        />
       </section>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -165,28 +225,51 @@ export function SearchJobDetailPage() {
             <CardDescription>{t("searches.scopeDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <DetailRow label={t("searches.businessType")} value={job.business_type} />
+            <DetailRow
+              label={t("searches.businessType")}
+              value={job.business_type}
+            />
             <DetailRow label={t("searches.city")} value={job.city} />
             <DetailRow label={t("searches.region")} value={job.region ?? "-"} />
-            <DetailRow label={t("searches.radiusKm")} value={job.radius_km != null ? `${job.radius_km} km` : "-"} />
-            <DetailRow label={t("searches.maxResults")} value={String(job.max_results)} />
+            <DetailRow
+              label={t("searches.radiusKm")}
+              value={job.radius_km != null ? `${job.radius_km} km` : "-"}
+            />
+            <DetailRow
+              label={t("searches.maxResults")}
+              value={String(job.max_results)}
+            />
             <DetailRow
               label={t("searches.websitePreference")}
               value={websitePreferenceLabel(t, job.website_preference)}
             />
-            <DetailRow label={t("searches.keywordFilter")} value={job.keyword_filter ?? "-"} />
+            <DetailRow
+              label={t("searches.keywordFilter")}
+              value={job.keyword_filter ?? "-"}
+            />
           </CardContent>
         </Card>
 
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
             <CardTitle>{t("searches.filtersThresholds")}</CardTitle>
-            <CardDescription>{t("searches.filtersThresholdsDescription")}</CardDescription>
+            <CardDescription>
+              {t("searches.filtersThresholdsDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <DetailRow label={t("searches.ratingRange")} value={`${job.min_rating ?? t("common.all")} - ${job.max_rating ?? t("common.all")}`} />
-            <DetailRow label={t("searches.reviewRange")} value={`${job.min_reviews ?? t("common.all")} - ${job.max_reviews ?? t("common.all")}`} />
-            <DetailRow label={t("searches.discoveryRuntime")} value={runtimeLabel} />
+            <DetailRow
+              label={t("searches.ratingRange")}
+              value={`${job.min_rating ?? t("common.all")} - ${job.max_rating ?? t("common.all")}`}
+            />
+            <DetailRow
+              label={t("searches.reviewRange")}
+              value={`${job.min_reviews ?? t("common.all")} - ${job.max_reviews ?? t("common.all")}`}
+            />
+            <DetailRow
+              label={t("searches.discoveryRuntime")}
+              value={runtimeLabel}
+            />
           </CardContent>
         </Card>
       </div>
@@ -194,19 +277,32 @@ export function SearchJobDetailPage() {
       <Card className="rounded-[1.5rem] border-border bg-card/95">
         <CardHeader>
           <CardTitle>{t("searches.executionTimeline")}</CardTitle>
-          <CardDescription>{t("searches.executionTimelineDescription")}</CardDescription>
+          <CardDescription>
+            {t("searches.executionTimelineDescription")}
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <DetailRow label={t("searches.queued")} value={formatDate(job.queued_at)} />
-          <DetailRow label={t("searches.started")} value={job.started_at ? formatDate(job.started_at) : "-"} />
-          <DetailRow label={t("searches.finished")} value={job.finished_at ? formatDate(job.finished_at) : "-"} />
+          <DetailRow
+            label={t("searches.queued")}
+            value={formatDate(job.queued_at)}
+          />
+          <DetailRow
+            label={t("searches.started")}
+            value={job.started_at ? formatDate(job.started_at) : "-"}
+          />
+          <DetailRow
+            label={t("searches.finished")}
+            value={job.finished_at ? formatDate(job.finished_at) : "-"}
+          />
         </CardContent>
       </Card>
 
       <Card className="rounded-[1.5rem] border-border bg-card/95">
         <CardHeader>
           <CardTitle>{t("searches.operationalInterpretation")}</CardTitle>
-          <CardDescription>{t("searches.operationalInterpretationDescription")}</CardDescription>
+          <CardDescription>
+            {t("searches.operationalInterpretationDescription")}
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 lg:grid-cols-3">
           <DetailRow
@@ -223,11 +319,19 @@ export function SearchJobDetailPage() {
           />
           <DetailRow
             label={t("searches.leadYield")}
-            value={job.leads_upserted > 0 ? t("searches.recordsPersisted", { count: job.leads_upserted }) : t("searches.noLeadRecordsYet")}
+            value={
+              job.leads_upserted > 0
+                ? t("searches.recordsPersisted", { count: job.leads_upserted })
+                : t("searches.noLeadRecordsYet")
+            }
           />
           <DetailRow
             label={t("searches.nextAction")}
-            value={job.leads_upserted > 0 ? t("searches.openFilteredLeads") : t("searches.monitorRunProgress")}
+            value={
+              job.leads_upserted > 0
+                ? t("searches.openFilteredLeads")
+                : t("searches.monitorRunProgress")
+            }
           />
         </CardContent>
       </Card>
@@ -238,7 +342,9 @@ export function SearchJobDetailPage() {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border bg-muted/20 px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>
   );

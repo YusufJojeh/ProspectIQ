@@ -3,7 +3,16 @@
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 
-const LOGOS = ["Northbeam", "Fathom", "Sequoia Labs", "Brightwave", "Parallax", "Meridian", "Helix Group", "Apex Signals"];
+const LOGOS = [
+  "Northbeam",
+  "Fathom",
+  "Sequoia Labs",
+  "Brightwave",
+  "Parallax",
+  "Meridian",
+  "Helix Group",
+  "Apex Signals",
+];
 
 export function LogoCloud() {
   const { t } = useTranslation();
@@ -31,7 +40,9 @@ export function LogoCloud() {
               transition={{ delay: i * 0.05, duration: 0.5 }}
               className="flex items-center justify-center text-center"
             >
-              <span className="font-mono text-[13px] font-medium tracking-tight text-muted-foreground">{name}</span>
+              <span className="font-mono text-[13px] font-medium tracking-tight text-muted-foreground">
+                {name}
+              </span>
             </motion.div>
           ))}
         </div>

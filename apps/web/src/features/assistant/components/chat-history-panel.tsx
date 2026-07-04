@@ -38,7 +38,9 @@ export function ChatHistoryPanel({
 }: ChatHistoryPanelProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [pendingDelete, setPendingDelete] = useState<ChatSessionSummary | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ChatSessionSummary | null>(
+    null,
+  );
 
   const queryKey = ["chat-sessions", leadId ?? "workspace"] as const;
   const sessionsQuery = useQuery({
@@ -59,7 +61,9 @@ export function ChatHistoryPanel({
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{t("assistant.conversationHistory")}</h2>
+        <h2 className="text-sm font-semibold">
+          {t("assistant.conversationHistory")}
+        </h2>
         <Button
           type="button"
           variant="outline"
@@ -112,7 +116,9 @@ export function ChatHistoryPanel({
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate text-sm font-medium">{session.title}</span>
+                        <span className="truncate text-sm font-medium">
+                          {session.title}
+                        </span>
                       </div>
                       {session.last_message_preview ? (
                         <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -123,7 +129,9 @@ export function ChatHistoryPanel({
                         <span>{formatDate(session.updated_at)}</span>
                         <span aria-hidden>·</span>
                         <span>
-                          {t("assistant.messageCount", { count: session.message_count })}
+                          {t("assistant.messageCount", {
+                            count: session.message_count,
+                          })}
                         </span>
                       </div>
                     </button>

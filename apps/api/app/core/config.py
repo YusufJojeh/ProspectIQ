@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     serpapi_api_key: str = ""
     serpapi_base_url: str = "https://serpapi.com/search.json"
 
+    # Tavily is an optional secondary discovery/validation engine (LLM-grade web
+    # search). Unlike SerpAPI it is never production-required: if unconfigured,
+    # it is simply excluded from the enabled engine list.
+    tavily_api_key: str = ""
+    tavily_base_url: str = "https://api.tavily.com/search"
+    tavily_runtime_mode_override: DiscoveryRuntime | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TAVILY_RUNTIME_MODE"),
+    )
+
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
     openai_base_url: str = "https://api.openai.com/v1"
@@ -94,7 +104,15 @@ class Settings(BaseSettings):
     discovery_max_candidates_after_merge: int = Field(default=100, ge=1, le=2000)
     discovery_max_enrichments_per_job: int = Field(default=20, ge=0, le=500)
     discovery_global_job_deadline_seconds: int = Field(default=300, ge=1, le=3600)
+    discovery_stale_job_seconds: int = Field(default=480, ge=60, le=7200)
     discovery_bilingual_expansion_enabled: bool = True
+    # When the primary provider (SerpAPI) yields no candidates — e.g. it is rate
+    # limited (HTTP 429) or quota-exhausted — fall back to OpenAI's hosted
+    # web-search tool for discovery (requires OPENAI_API_KEY).
+    discovery_openai_fallback_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("DISCOVERY_OPENAI_FALLBACK_ENABLED"),
+    )
     discovery_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=20)
     discovery_circuit_breaker_cooldown_seconds: int = Field(default=60, ge=1, le=3600)
 
@@ -112,8 +130,10 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_url(cls, value: str) -> str:
         normalized = value.lower()
-        if not normalized.startswith(("mysql://", "mysql+", "mariadb://", "mariadb+")):
-            raise ValueError("DATABASE_URL must use a MySQL or MariaDB SQLAlchemy dialect.")
+        if not normalized.startswith(("mysql://", "mysql+", "mariadb://", "mariadb+", "sqlite://")):
+            raise ValueError(
+                "DATABASE_URL must use a MySQL, MariaDB, or SQLite SQLAlchemy dialect."
+            )
         return value
 
     @field_validator("web_origin")
@@ -168,9 +188,7 @@ class Settings(BaseSettings):
             )
 
         if not self.web_origins:
-            raise ValueError(
-                "APP_ENV=production requires WEB_ORIGINS to be explicitly configured."
-            )
+            raise ValueError("APP_ENV=production requires WEB_ORIGINS to be explicitly configured.")
 
         if not self.has_serpapi_configured:
             raise ValueError(
@@ -183,18 +201,12 @@ class Settings(BaseSettings):
             )
 
         if self.discovery_runtime == "demo":
-            raise ValueError(
-                "APP_ENV=production must not run with SERPAPI_RUNTIME_MODE=demo."
-            )
+            raise ValueError("APP_ENV=production must not run with SERPAPI_RUNTIME_MODE=demo.")
 
         if self.discovery_runtime == "stub":
-            raise ValueError(
-                "APP_ENV=production must not run with SERPAPI_RUNTIME_MODE=stub."
-            )
+            raise ValueError("APP_ENV=production must not run with SERPAPI_RUNTIME_MODE=stub.")
         if self.ai_provider == "stub":
-            raise ValueError(
-                "APP_ENV=production must not run with AI_PROVIDER=stub."
-            )
+            raise ValueError("APP_ENV=production must not run with AI_PROVIDER=stub.")
 
         return self
 
@@ -217,6 +229,23 @@ class Settings(BaseSettings):
     @property
     def has_serpapi_configured(self) -> bool:
         return bool(self.serpapi_api_key.strip())
+
+    @property
+    def has_tavily_configured(self) -> bool:
+        return bool(self.tavily_api_key.strip())
+
+    @property
+    def tavily_runtime(self) -> DiscoveryRuntime:
+        if self.tavily_runtime_mode_override:
+            return self.tavily_runtime_mode_override
+
+        if self.is_testing:
+            return "stub"
+
+        if self.has_tavily_configured:
+            return "live"
+
+        return "blocked"
 
     @property
     def has_openai_configured(self) -> bool:
@@ -251,7 +280,9 @@ class Settings(BaseSettings):
                 "Discovery runtime is blocked because no live SerpAPI key is configured."
             )
         if self.discovery_kill_switch:
-            warnings.append("Discovery kill switch is enabled; discovery always runs in single_path mode.")
+            warnings.append(
+                "Discovery kill switch is enabled; discovery always runs in single_path mode."
+            )
         if (
             self.discovery_mode == "multi_engine_multi_query"
             and not self.discovery_multi_engine_enabled
@@ -265,7 +296,10 @@ class Settings(BaseSettings):
                 "JWT_SECRET is set to a placeholder value. Rotate it before sharing this environment."
             )
 
-        if self.discovery_runtime in {"live", "blocked"} and self.serpapi_api_key in {"<replace-me>", ""}:
+        if self.discovery_runtime in {"live", "blocked"} and self.serpapi_api_key in {
+            "<replace-me>",
+            "",
+        }:
             warnings.append(
                 "SERPAPI_API_KEY is not configured or is a placeholder. Live discovery will not work."
             )
@@ -288,6 +322,12 @@ class Settings(BaseSettings):
                 "Ollama is the primary AI runtime and no OpenAI fallback key is configured."
             )
 
+        if "tavily_web" in self.enabled_discovery_engines and self.tavily_runtime == "blocked":
+            warnings.append(
+                "DISCOVERY_ENGINE_LIST includes tavily_web but TAVILY_API_KEY is not configured; "
+                "it will be skipped."
+            )
+
         return warnings
 
     @property
@@ -298,7 +338,10 @@ class Settings(BaseSettings):
     def effective_discovery_mode(self) -> DiscoveryMode:
         if self.discovery_kill_switch:
             return "single_path"
-        if self.discovery_mode == "multi_engine_multi_query" and not self.discovery_multi_engine_enabled:
+        if (
+            self.discovery_mode == "multi_engine_multi_query"
+            and not self.discovery_multi_engine_enabled
+        ):
             return "multi_query_single_engine"
         return self.discovery_mode
 
@@ -371,6 +414,13 @@ class Settings(BaseSettings):
             return deduped
 
         return origins
+
+    @property
+    def allowed_web_origin_regex(self) -> str | None:
+        if not self.is_development:
+            return None
+
+        return r"^https?://([a-zA-Z0-9.-]+|\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?$"
 
     @property
     def enabled_discovery_engines(self) -> list[str]:

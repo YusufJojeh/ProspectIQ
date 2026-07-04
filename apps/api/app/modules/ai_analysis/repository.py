@@ -3,7 +3,13 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
+from app.modules.ai_analysis.models import (
+    AIAnalysisEvidence,
+    AIAnalysisSnapshot,
+    AIFeedback,
+    PromptTemplate,
+    ServiceRecommendation,
+)
 
 
 class AIAnalysisRepository:
@@ -85,6 +91,40 @@ class AIAnalysisRepository:
 
     def get_snapshot_by_id(self, db: Session, snapshot_id: int) -> AIAnalysisSnapshot | None:
         return db.scalar(select(AIAnalysisSnapshot).where(AIAnalysisSnapshot.id == snapshot_id))
+
+    def get_snapshot_by_public_id(
+        self, db: Session, public_id: str
+    ) -> AIAnalysisSnapshot | None:
+        return db.scalar(
+            select(AIAnalysisSnapshot).where(AIAnalysisSnapshot.public_id == public_id)
+        )
+
+    def add_evidence(
+        self, db: Session, items: list[AIAnalysisEvidence]
+    ) -> list[AIAnalysisEvidence]:
+        if not items:
+            return []
+        db.add_all(items)
+        db.commit()
+        for item in items:
+            db.refresh(item)
+        return items
+
+    def list_evidence_for_snapshot(
+        self, db: Session, *, snapshot_id: int
+    ) -> list[AIAnalysisEvidence]:
+        statement = (
+            select(AIAnalysisEvidence)
+            .where(AIAnalysisEvidence.ai_analysis_snapshot_id == snapshot_id)
+            .order_by(AIAnalysisEvidence.confidence.desc(), AIAnalysisEvidence.id.asc())
+        )
+        return list(db.scalars(statement))
+
+    def add_feedback(self, db: Session, feedback: AIFeedback) -> AIFeedback:
+        db.add(feedback)
+        db.commit()
+        db.refresh(feedback)
+        return feedback
 
     def add_snapshot(self, db: Session, snapshot: AIAnalysisSnapshot) -> AIAnalysisSnapshot:
         db.add(snapshot)

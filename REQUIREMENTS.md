@@ -26,26 +26,26 @@ Flash copy is fine; treat the stick as **untrusted storage** if it ever held a r
 
 ## Prerequisites
 
-| Tool | Version | Notes |
-|------|---------|--------|
-| Python | **3.12.x** | Required for `apps/api` (`pyproject.toml`: `requires-python = ">=3.12"`). |
-| Node.js | **22.x** | Used by CI and `apps/web` (`@types/node` tracks 22.x). LTS-aligned installs are fine. |
-| npm | Bundled with Node | Run installs from `apps/web`. |
-| MariaDB or MySQL (local install) | Current | Optional alternative to Docker: server listening on `127.0.0.1:3306`. Matches `DATABASE_URL` in `apps/api/.env.example`. |
-| Docker Desktop (or Docker Engine) | Current | Optional: run MariaDB via `infra/docker-compose.yml` if you prefer not to install a database server on the host. |
-| Git | Any recent | Clone from your remote; do not rely on copying `node_modules` or `.venv`. |
+| Tool                              | Version           | Notes                                                                                                                         |
+| --------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Python                            | **3.12.x**  | Required for`apps/api` (`pyproject.toml`: `requires-python = ">=3.12"`).                                                |
+| Node.js                           | **22.x**    | Used by CI and`apps/web` (`@types/node` tracks 22.x). LTS-aligned installs are fine.                                      |
+| npm                               | Bundled with Node | Run installs from`apps/web`.                                                                                                |
+| MariaDB or MySQL (local install)  | Current           | Optional alternative to Docker: server listening on`127.0.0.1:3306`. Matches `DATABASE_URL` in `apps/api/.env.example`. |
+| Docker Desktop (or Docker Engine) | Current           | Optional: run MariaDB via`infra/docker-compose.yml` if you prefer not to install a database server on the host.             |
+| Git                               | Any recent        | Clone from your remote; do not rely on copying`node_modules` or `.venv`.                                                  |
 
 **Windows:** PowerShell is assumed in repo scripts and examples. On macOS/Linux, use the same steps with `python3.12`, `source .venv/bin/activate`, and `cp` instead of `Copy-Item`.
 
 ## What travels in Git vs what you recreate locally
 
-| In Git (clone/pull) | Not in Git — create on each machine |
-|---------------------|--------------------------------------|
-| Application source, `infra/`, `docs/`, workflows | `apps/api/.env` (copy from `apps/api/.env.example`) |
+| In Git (clone/pull)                                  | Not in Git — create on each machine                    |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| Application source,`infra/`, `docs/`, workflows  | `apps/api/.env` (copy from `apps/api/.env.example`) |
 | `apps/api/.env.example`, `apps/web/.env.example` | `apps/web/.env` (copy from `apps/web/.env.example`) |
-| Lockfiles (`package-lock.json`, etc.) | `apps/api/.venv/` Python virtual environment |
-| | `apps/web/node_modules/` |
-| | Local DB volume data (Docker named volumes) |
+| Lockfiles (`package-lock.json`, etc.)              | `apps/api/.venv/` Python virtual environment          |
+|                                                      | `apps/web/node_modules/`                              |
+|                                                      | Local DB volume data (Docker named volumes)             |
 
 Never commit real secrets. `.env` files are listed in `.gitignore`. After copying a laptop backup, **delete or rotate** secrets if the folder ever touched a thumb drive or cloud sync used for non-repo files.
 
@@ -62,11 +62,9 @@ Use this when you have **MariaDB or MySQL installed on the machine** (no Docker)
 
 Open a client as a privileged user (examples):
 
-- **Windows (typical MariaDB path):**  
-  `"C:\Program Files\MariaDB 11.4\bin\mysql.exe" -u root -p`  
-  (adjust folder if your version/path differs.)
-- **macOS/Linux:**  
-  `sudo mysql -u root`  
+- **Windows (typical MariaDB path):**`"C:\Program Files\MariaDB 11.4\bin\mysql.exe" -u root -p`(adjust folder if your version/path differs.)
+- **macOS/Linux:**
+  `sudo mysql -u root`
   or `mysql -u root -p`
 
 Then run:

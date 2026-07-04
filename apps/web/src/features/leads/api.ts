@@ -6,6 +6,7 @@ import type {
   LeadListResponse,
   LeadResponse,
   LeadScoreBreakdownResponse,
+  LeadSignalsResponse,
   LeadScoreBand,
   LeadSortOption,
   LeadStatus,
@@ -36,17 +37,21 @@ function buildLeadQuery(filters: LeadListFilters = {}) {
   if (filters.q) params.set("q", filters.q);
   if (filters.city) params.set("city", filters.city);
   if (filters.category) params.set("category", filters.category);
-  if (filters.status && filters.status !== "all") params.set("status", filters.status);
+  if (filters.status && filters.status !== "all")
+    params.set("status", filters.status);
   if (filters.band && filters.band !== "all") params.set("band", filters.band);
-  if (filters.min_score !== undefined) params.set("min_score", String(filters.min_score));
-  if (filters.max_score !== undefined) params.set("max_score", String(filters.max_score));
+  if (filters.min_score !== undefined)
+    params.set("min_score", String(filters.min_score));
+  if (filters.max_score !== undefined)
+    params.set("max_score", String(filters.max_score));
   if (filters.qualified !== undefined && filters.qualified !== "all") {
     params.set("qualified", String(filters.qualified));
   }
   if (filters.owner_user_id !== undefined && filters.owner_user_id !== "all") {
     params.set("owner_user_id", filters.owner_user_id);
   }
-  if (filters.search_job_id && filters.search_job_id !== "all") params.set("search_job_id", filters.search_job_id);
+  if (filters.search_job_id && filters.search_job_id !== "all")
+    params.set("search_job_id", filters.search_job_id);
   if (filters.has_website !== undefined && filters.has_website !== "all") {
     params.set("has_website", String(filters.has_website));
   }
@@ -67,7 +72,9 @@ export function getLead(leadId: string) {
 }
 
 export function refreshLead(leadId: string) {
-  return request<LeadResponse>(`/api/v1/leads/${leadId}/refresh`, { method: "POST" });
+  return request<LeadResponse>(`/api/v1/leads/${leadId}/refresh`, {
+    method: "POST",
+  });
 }
 
 export function getLeadEvidence(leadId: string) {
@@ -75,7 +82,20 @@ export function getLeadEvidence(leadId: string) {
 }
 
 export function getLeadScoreBreakdown(leadId: string) {
-  return request<LeadScoreBreakdownResponse>(`/api/v1/leads/${leadId}/score-breakdown`);
+  return request<LeadScoreBreakdownResponse>(
+    `/api/v1/leads/${leadId}/score-breakdown`,
+  );
+}
+
+export function getLeadSignals(leadId: string) {
+  return request<LeadSignalsResponse>(`/api/v1/leads/${leadId}/signals`);
+}
+
+export function recomputeLeadSignals(leadId: string) {
+  return request<LeadSignalsResponse>(
+    `/api/v1/leads/${leadId}/signals/recompute`,
+    { method: "POST" },
+  );
 }
 
 export function listLeadActivity(leadId: string) {
@@ -83,23 +103,55 @@ export function listLeadActivity(leadId: string) {
 }
 
 export function addLeadNote(leadId: string, note: string) {
-  return request<LeadNoteResponse>(`/api/v1/leads/${leadId}/notes`, { method: "POST" }, { note });
+  return request<LeadNoteResponse>(
+    `/api/v1/leads/${leadId}/notes`,
+    { method: "POST" },
+    { note },
+  );
 }
 
-export function updateLeadStatus(leadId: string, status: LeadStatus, note?: string) {
-  return request<LeadResponse>(`/api/v1/leads/${leadId}/status`, { method: "PATCH" }, { status, note });
+export function updateLeadStatus(
+  leadId: string,
+  status: LeadStatus,
+  note?: string,
+) {
+  return request<LeadResponse>(
+    `/api/v1/leads/${leadId}/status`,
+    { method: "PATCH" },
+    { status, note },
+  );
 }
 
-export function assignLead(leadId: string, assignee_user_public_id: string | null) {
-  return request<LeadResponse>(`/api/v1/leads/${leadId}/assign`, { method: "PATCH" }, { assignee_user_public_id });
+export function assignLead(
+  leadId: string,
+  assignee_user_public_id: string | null,
+) {
+  return request<LeadResponse>(
+    `/api/v1/leads/${leadId}/assign`,
+    { method: "PATCH" },
+    { assignee_user_public_id },
+  );
 }
 
 export async function downloadLeadsExport(filters: LeadListFilters = {}) {
-  const blob = await requestBlob(`/api/v1/exports/leads.csv${buildLeadQuery(filters)}`);
+  const blob = await requestBlob(
+    `/api/v1/exports/leads.csv${buildLeadQuery(filters)}`,
+  );
+  triggerDownload(blob, "prospectiq-leads.csv");
+}
+
+export async function downloadLeadsExportJson(filters: LeadListFilters = {}) {
+  const blob = await requestBlob(
+    `/api/v1/exports/leads.json${buildLeadQuery(filters)}`,
+  );
+  triggerDownload(blob, "prospectiq-leads.json");
+}
+
+function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "prospectiq-leads.csv";
+  anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
 }

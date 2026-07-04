@@ -13,6 +13,7 @@ from test_workspace_e2e import (
 
 from app.core.security import hash_password
 from app.modules.assistant.models import ChatMessage
+from app.modules.assistant.schemas import AssistantMessageInput, AssistantMessagePartInput
 from app.modules.assistant.service import AssistantService
 from app.modules.leads.models import Lead
 from app.modules.users.models import User, Workspace
@@ -24,9 +25,7 @@ def _fake_tokens(self, db, *, workspace_id, messages, lead):
 
 
 def _chat(client, token, *, lead_id=None, session_id=None, text="Hello"):
-    body = {
-        "messages": [{"id": "m1", "role": "user", "parts": [{"type": "text", "text": text}]}]
-    }
+    body = {"messages": [{"id": "m1", "role": "user", "parts": [{"type": "text", "text": text}]}]}
     if lead_id:
         body["lead_id"] = lead_id
     if session_id:
@@ -242,7 +241,9 @@ def test_chat_persists_user_and_assistant_messages(monkeypatch) -> None:
 
     with _override_client(session_factory) as client:
         token = _login(client, seed)
-        response = _chat(client, token, lead_id=seed.lead_public_id, text="What are the opportunities?")
+        response = _chat(
+            client, token, lead_id=seed.lead_public_id, text="What are the opportunities?"
+        )
         assert response.status_code == 200
 
     with session_factory() as db:
@@ -505,6 +506,96 @@ def test_chat_crm_only_prompt_does_not_trigger_search(monkeypatch) -> None:
         "sources": [],
     }
     assert _event_data(response, "source-url") == []
+
+
+def test_unscored_lead_prompt_explicitly_blocks_score_inference() -> None:
+    service = AssistantService()
+    lead = Lead(
+        company_name="Unscored Agency",
+        category="Marketing agency",
+        city="Dubai",
+        website_domain="unscored.example",
+        review_count=28,
+        rating=4.8,
+    )
+    messages = [
+        AssistantMessageInput(
+            role="user",
+            parts=[
+                AssistantMessagePartInput(
+                    type="text",
+                    text="اشرح الأسباب الرئيسية وراء درجة هذا العميل الحالية.",
+                )
+            ],
+        )
+    ]
+
+    llm_messages = service._build_llm_messages(
+        lead=lead,
+        messages=messages,
+        facts={},
+        score_context=None,
+        latest_analysis=None,
+        search_context=service._get_active_search_context(),
+    )
+
+    system_prompt = llm_messages[0]["content"]
+    grounding_context = llm_messages[1]["content"]
+    assert "score_context is null" in system_prompt
+    assert "Never infer a score" in system_prompt
+    assert '"score_state": "unscored"' in grounding_context
+    assert "No stored deterministic score exists" in grounding_context
+
+
+def test_unscored_score_question_returns_deterministic_guard_without_llm() -> None:
+    session_factory = _build_session_factory()
+    seed = _seed_workspace(session_factory)
+    service = AssistantService()
+
+    with session_factory() as db:
+        workspace = db.scalar(select(Workspace).where(Workspace.public_id == seed.workspace_public_id))
+        assert workspace is not None
+        lead = Lead(
+            workspace_id=workspace.id,
+            company_name="Amplify Marketing Agency Dubai",
+            category="Marketing agency",
+            city="Dubai",
+            website_domain="amplifydubai.com",
+            review_count=28,
+            rating=4.8,
+            data_completeness=1.0,
+            data_confidence=0.95,
+            has_website=True,
+        )
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+
+        messages = [
+            AssistantMessageInput(
+                role="user",
+                parts=[
+                    AssistantMessagePartInput(
+                        type="text",
+                        text="اشرح الأسباب الرئيسية وراء درجة هذا العميل الحالية.",
+                    )
+                ],
+            )
+        ]
+        response = "".join(
+            service._generate_tokens(
+                db,
+                workspace_id=workspace.id,
+                messages=messages,
+                lead=lead,
+            )
+        )
+
+    assert "غير مقيّم حاليًا" in response
+    assert "لا أستطيع شرح أسباب درجة غير موجودة" in response
+    assert "هذه ثقة في البيانات وليست درجة العميل" in response
+    assert "28 مراجعة" in response
+    assert "4.8" in response
 
 
 def test_chat_arabic_search_intent_uses_search_and_keeps_arabic_answer(monkeypatch) -> None:

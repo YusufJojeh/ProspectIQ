@@ -4,17 +4,15 @@ import { ShieldCheck, TriangleAlert, Zap, CircleDot } from "lucide-react";
 export type ScoreBand = "A" | "B" | "C" | "D" | "E";
 
 export function bandColor(band: ScoreBand): string {
-  return (
-    band === "A"
-      ? "text-[oklch(var(--score-a))] border-[oklch(var(--score-a)/0.35)] bg-[oklch(var(--score-a)/0.1)]"
-      : band === "B"
-        ? "text-[oklch(var(--score-b))] border-[oklch(var(--score-b)/0.35)] bg-[oklch(var(--score-b)/0.1)]"
-        : band === "C"
-          ? "text-[oklch(var(--score-c))] border-[oklch(var(--score-c)/0.35)] bg-[oklch(var(--score-c)/0.1)]"
-          : band === "D"
-            ? "text-[oklch(var(--score-d))] border-[oklch(var(--score-d)/0.35)] bg-[oklch(var(--score-d)/0.1)]"
-            : "text-[oklch(var(--score-e))] border-[oklch(var(--score-e)/0.35)] bg-[oklch(var(--score-e)/0.1)]"
-  );
+  return band === "A"
+    ? "text-[oklch(var(--score-a))] border-[oklch(var(--score-a)/0.35)] bg-[oklch(var(--score-a)/0.1)]"
+    : band === "B"
+      ? "text-[oklch(var(--score-b))] border-[oklch(var(--score-b)/0.35)] bg-[oklch(var(--score-b)/0.1)]"
+      : band === "C"
+        ? "text-[oklch(var(--score-c))] border-[oklch(var(--score-c)/0.35)] bg-[oklch(var(--score-c)/0.1)]"
+        : band === "D"
+          ? "text-[oklch(var(--score-d))] border-[oklch(var(--score-d)/0.35)] bg-[oklch(var(--score-d)/0.1)]"
+          : "text-[oklch(var(--score-e))] border-[oklch(var(--score-e)/0.35)] bg-[oklch(var(--score-e)/0.1)]";
 }
 
 export function bandFromScore(score: number): ScoreBand {
@@ -25,7 +23,13 @@ export function bandFromScore(score: number): ScoreBand {
   return "E";
 }
 
-export function BandBadge({ band, className }: { band: ScoreBand; className?: string }) {
+export function BandBadge({
+  band,
+  className,
+}: {
+  band: ScoreBand;
+  className?: string;
+}) {
   return (
     <span
       className={cn(
@@ -40,7 +44,13 @@ export function BandBadge({ band, className }: { band: ScoreBand; className?: st
   );
 }
 
-export function ConfidenceBadge({ value, className }: { value: number; className?: string }) {
+export function ConfidenceBadge({
+  value,
+  className,
+}: {
+  value: number;
+  className?: string;
+}) {
   const pct = Math.round(value * 100);
   const tone =
     pct >= 85
@@ -76,9 +86,12 @@ export function EvidenceChip({
 }) {
   const toneCls = {
     default: "text-muted-foreground border-border bg-muted/40",
-    evidence: "text-[oklch(var(--evidence))] border-[oklch(var(--evidence)/0.3)] bg-[oklch(var(--evidence)/0.08)]",
-    signal: "text-[oklch(var(--signal))] border-[oklch(var(--signal)/0.3)] bg-[oklch(var(--signal)/0.08)]",
-    caution: "text-[oklch(var(--caution))] border-[oklch(var(--caution)/0.3)] bg-[oklch(var(--caution)/0.08)]",
+    evidence:
+      "text-[oklch(var(--evidence))] border-[oklch(var(--evidence)/0.3)] bg-[oklch(var(--evidence)/0.08)]",
+    signal:
+      "text-[oklch(var(--signal))] border-[oklch(var(--signal)/0.3)] bg-[oklch(var(--signal)/0.08)]",
+    caution:
+      "text-[oklch(var(--caution))] border-[oklch(var(--caution)/0.3)] bg-[oklch(var(--caution)/0.08)]",
     risk: "text-[oklch(var(--risk))] border-[oklch(var(--risk)/0.3)] bg-[oklch(var(--risk)/0.08)]",
   }[tone];
   return (
@@ -94,9 +107,16 @@ export function EvidenceChip({
   );
 }
 
-export function StatusDot({ status, className }: { status: string; className?: string }) {
+export function StatusDot({
+  status,
+  className,
+}: {
+  status: string;
+  className?: string;
+}) {
   const map: Record<string, string> = {
-    running: "bg-[oklch(var(--signal))] shadow-[0_0_0_3px_oklch(var(--signal)/0.2)]",
+    running:
+      "bg-[oklch(var(--signal))] shadow-[0_0_0_3px_oklch(var(--signal)/0.2)]",
     queued: "bg-muted-foreground",
     completed: "bg-[oklch(var(--evidence))]",
     partial: "bg-[oklch(var(--caution))]",
@@ -121,10 +141,24 @@ export function StatusDot({ status, className }: { status: string; className?: s
     low: "bg-[oklch(var(--score-e))]",
     not_qualified: "bg-muted-foreground",
   };
-  return <span className={cn("inline-block size-2 rounded-full", map[status] ?? "bg-muted-foreground", className)} />;
+  return (
+    <span
+      className={cn(
+        "inline-block size-2 rounded-full",
+        map[status] ?? "bg-muted-foreground",
+        className,
+      )}
+    />
+  );
 }
 
-export function AiPill({ className, children }: { className?: string; children?: React.ReactNode }) {
+export function AiPill({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <span
       className={cn(
@@ -138,7 +172,13 @@ export function AiPill({ className, children }: { className?: string; children?:
   );
 }
 
-export function AttentionPill({ className, children }: { className?: string; children?: React.ReactNode }) {
+export function AttentionPill({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <span
       className={cn(

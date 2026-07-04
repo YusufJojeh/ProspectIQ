@@ -253,7 +253,9 @@ def test_repository_ensure_identities_deduplicates_input_batch() -> None:
             identities=[
                 LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233"),
                 LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233"),
-                LeadIdentityCandidate(identity_type="website_domain", identity_value="acme.example"),
+                LeadIdentityCandidate(
+                    identity_type="website_domain", identity_value="acme.example"
+                ),
             ],
         )
 
@@ -302,18 +304,24 @@ def test_repository_ensure_identities_skips_workspace_wide_duplicates() -> None:
             db,
             workspace_id=workspace.id,
             lead_id=lead_a.id,
-            identities=[LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233")],
+            identities=[
+                LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233")
+            ],
         )
         repository.ensure_identities(
             db,
             workspace_id=workspace.id,
             lead_id=lead_b.id,
-            identities=[LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233")],
+            identities=[
+                LeadIdentityCandidate(identity_type="phone", identity_value="+905551112233")
+            ],
         )
 
         rows = list(
             db.query(LeadIdentity)
-            .filter(LeadIdentity.workspace_id == workspace.id, LeadIdentity.identity_type == "phone")
+            .filter(
+                LeadIdentity.workspace_id == workspace.id, LeadIdentity.identity_type == "phone"
+            )
             .all()
         )
         assert len(rows) == 1
@@ -393,6 +401,29 @@ def test_maps_search_params_normalize_whitespace_and_limit_query_length() -> Non
     assert params["q"].startswith("cosmetic dentist in Istanbul Kadikoy within 25 km implants")
     assert "  " not in params["q"]
     assert len(params["q"]) <= 220
+
+
+def test_maps_search_params_use_arabic_connector_and_avoid_duplicate_city() -> None:
+    params = build_maps_search_params(
+        business_type=(
+            "\u0635\u0627\u0644\u0648\u0646\u0627\u062a "
+            "\u062a\u062c\u0645\u064a\u0644 \u062c\u062f\u0629"
+        ),
+        city="\u062c\u062f\u0629",
+        region=None,
+        radius_km=20,
+        keyword_filter=None,
+        hl="ar",
+        gl="sa",
+        google_domain="google.com",
+    )
+
+    assert params["q"] == (
+        "\u0635\u0627\u0644\u0648\u0646\u0627\u062a "
+        "\u062a\u062c\u0645\u064a\u0644 \u062c\u062f\u0629 "
+        "\u0636\u0645\u0646 20 \u0643\u0645"
+    )
+    assert " in " not in params["q"]
 
 
 def test_web_search_params_validate_query_and_support_location_pagination() -> None:

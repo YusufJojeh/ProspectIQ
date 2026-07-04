@@ -69,7 +69,9 @@ def test_fallback_builder_returns_friendly_for_medium_band_low_reviews() -> None
 
 def test_fallback_builder_returns_short_pitch_when_no_website() -> None:
     builder = FallbackAnalysisBuilder()
-    facts = _make_facts(has_website=False, website_url=None, official_website_found=False, review_count=5)
+    facts = _make_facts(
+        has_website=False, website_url=None, official_website_found=False, review_count=5
+    )
 
     from app.modules.ai_analysis.prompt_builder import PromptBuilder
 
@@ -122,4 +124,10 @@ def test_analysis_snapshot_response_includes_recommended_tone(monkeypatch) -> No
     assert response.status_code == 200
     analysis = response.json().get("analysis", {})
     assert "recommended_tone" in analysis
-    assert analysis["recommended_tone"] in (None, "formal", "friendly", "consultative", "short_pitch")
+    assert analysis["recommended_tone"] in (
+        None,
+        "formal",
+        "friendly",
+        "consultative",
+        "short_pitch",
+    )

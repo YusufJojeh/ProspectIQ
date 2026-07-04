@@ -33,12 +33,28 @@ class LeadResponse(BaseModel):
     data_completeness: float
     data_confidence: float
     has_website: bool
+    email: str | None = None
+    email_confidence: float | None = None
+    linkedin_url: str | None = None
+    industry: str | None = None
+    employee_count: int | None = None
+    ai_opener: str | None = None
+    logo_url: str | None = None
     status: LeadStatus
     assigned_to_user_public_id: str | None
     latest_score: float | None
+    latest_fit_score: float | None = None
+    latest_need_score: float | None = None
+    latest_urgency_score: float | None = None
+    latest_reachability_score: float | None = None
+    latest_final_priority_score: float | None = None
     latest_band: LeadScoreBand | None
     latest_qualified: bool | None
     latest_outreach_status: str | None
+    top_signal_type: str | None = None
+    top_signal_strength: float | None = None
+    top_signal_evidence: str | None = None
+    signals_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -138,6 +154,11 @@ class LeadScoreBreakdownResponse(BaseModel):
     lead_id: str
     scoring_version_id: str
     total_score: float
+    fit_score: float | None = None
+    need_score: float | None = None
+    urgency_score: float | None = None
+    reachability_score: float | None = None
+    final_priority_score: float | None = None
     band: LeadScoreBand
     qualified: bool
     breakdown: list[ScoreBreakdownItem]

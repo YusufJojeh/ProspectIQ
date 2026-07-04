@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo } from "react";
+import { divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { CircleMarker, Popup, useMap } from "react-leaflet";
+import { Marker, Popup, useMap } from "react-leaflet";
 import { useTranslation } from "react-i18next";
 import { LeafletMapShell } from "@/components/maps/leaflet-map-shell";
 import {
@@ -41,20 +42,6 @@ type MappableLeadMapPoint = LeadMapPoint & {
   lng: number;
 };
 
-const SELECTED_MARKER_STYLE = {
-  color: "var(--accent-ink)",
-  fillColor: "var(--warning)",
-  fillOpacity: 0.85,
-  weight: 3,
-} as const;
-
-const DEFAULT_MARKER_STYLE = {
-  color: "var(--accent)",
-  fillColor: "var(--accent)",
-  fillOpacity: 0.85,
-  weight: 2,
-} as const;
-
 const MapViewport = memo(function MapViewport({
   leads,
   selectedLeadId,
@@ -81,10 +68,13 @@ const MapViewport = memo(function MapViewport({
       return;
     }
 
-    map.fitBounds(leads.map((lead) => toLatLngTuple(lead)), {
-      padding: DEFAULT_MAP_FIT_PADDING,
-      maxZoom: DEFAULT_MAP_SELECTED_POINT_ZOOM,
-    });
+    map.fitBounds(
+      leads.map((lead) => toLatLngTuple(lead)),
+      {
+        padding: DEFAULT_MAP_FIT_PADDING,
+        maxZoom: DEFAULT_MAP_SELECTED_POINT_ZOOM,
+      },
+    );
   }, [leads, map, selectedLeadId]);
 
   return null;
@@ -100,55 +90,107 @@ const LeadMarker = memo(function LeadMarker({
   onSelect?: (leadId: string) => void;
 }) {
   const { t } = useTranslation();
-  const markerStyle = isSelected ? SELECTED_MARKER_STYLE : DEFAULT_MARKER_STYLE;
+  const markerIcon = useMemo(
+    () => createLeadMarkerIcon(isSelected),
+    [isSelected],
+  );
   const eventHandlers = useMemo(
     () => (onSelect ? { click: () => onSelect(lead.public_id) } : undefined),
     [lead.public_id, onSelect],
   );
 
   return (
-    <CircleMarker
-      center={toLatLngTuple(lead)}
-      pathOptions={markerStyle}
-      radius={isSelected ? 10 : 7}
+    <Marker
       eventHandlers={eventHandlers}
+      icon={markerIcon}
+      position={toLatLngTuple(lead)}
+      zIndexOffset={isSelected ? 1000 : 0}
     >
-      <Popup>
-        <div className="space-y-2 p-3">
-          <div>
-            <p className="font-semibold">{lead.company_name}</p>
-            <p className="text-xs text-[color:var(--muted)]">{lead.city ?? t("dashboard.unknownCity")}</p>
-          </div>
-          <div className="grid gap-1 text-xs text-[color:var(--muted)]">
-            <p>
-              <span className="font-semibold text-[color:var(--text)]">{t("leads.score")}:</span>{" "}
-              {formatScore(lead.latest_score)}
+      <Popup closeButton={false}>
+        <div className="min-w-[220px] overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg">
+          <div className="border-b border-border bg-muted/30 px-3 py-2">
+            <p className="line-clamp-2 text-sm font-semibold leading-5">
+              {lead.company_name}
             </p>
-            <p>
-              <span className="font-semibold text-[color:var(--text)]">{t("leads.band")}:</span>{" "}
-              {scoreBandLabel(t, lead.latest_band)}
-            </p>
-            <p>
-              <span className="font-semibold text-[color:var(--text)]">{t("leads.status")}:</span>{" "}
-              {lead.status ? leadStatusLabel(t, lead.status) : t("common.unknown")}
-            </p>
-            <p>
-              <span className="font-semibold text-[color:var(--text)]">{t("leads.website")}:</span>{" "}
-              {lead.website_domain ?? t("leads.missing")}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {lead.city ?? t("dashboard.unknownCity")}
             </p>
           </div>
+          <div className="grid gap-2 p-3 text-xs text-muted-foreground">
+            <PopupFact
+              label={t("leads.score")}
+              value={formatScore(lead.latest_score)}
+            />
+            <PopupFact
+              label={t("leads.band")}
+              value={scoreBandLabel(t, lead.latest_band)}
+            />
+            <PopupFact
+              label={t("leads.status")}
+              value={
+                lead.status
+                  ? leadStatusLabel(t, lead.status)
+                  : t("common.unknown")
+              }
+            />
+            <PopupFact
+              label={t("leads.website")}
+              value={lead.website_domain ?? t("leads.missing")}
+            />
+          </div>
+          <a
+            className="block border-t border-border px-3 py-2 text-xs font-medium text-[oklch(var(--signal))] hover:bg-muted/30"
+            href={`https://www.google.com/maps/search/?api=1&query=${lead.lat},${lead.lng}`}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {t("leads.openInGoogleMaps", {
+              defaultValue: "Open in Google Maps",
+            })}
+          </a>
         </div>
       </Popup>
-    </CircleMarker>
+    </Marker>
   );
 });
 
-export function LeadMap({ leads, selectedLeadId, onSelect, className }: LeadMapProps) {
+function PopupFact({ label, value }: { label: string; value: string }) {
+  return (
+    <p className="flex items-center justify-between gap-3">
+      <span className="font-medium text-foreground">{label}</span>
+      <span className="max-w-[130px] truncate text-right">{value}</span>
+    </p>
+  );
+}
+
+function createLeadMarkerIcon(isSelected: boolean) {
+  return divIcon({
+    className: `lead-map-marker${isSelected ? " is-selected" : ""}`,
+    html: '<span class="lead-map-marker__pulse"></span><span class="lead-map-marker__pin"></span>',
+    iconAnchor: [16, 32],
+    iconSize: [32, 32],
+    popupAnchor: [0, -30],
+  });
+}
+
+export function LeadMap({
+  leads,
+  selectedLeadId,
+  onSelect,
+  className,
+}: LeadMapProps) {
   const { t } = useTranslation();
-  const mappable = useMemo(() => leads.filter(hasCoordinates) as MappableLeadMapPoint[], [leads]);
+  const mappable = useMemo(
+    () => leads.filter(hasCoordinates) as MappableLeadMapPoint[],
+    [leads],
+  );
 
   return (
-    <div className={cn("h-full", className)} role="region" aria-label={t("leads.mapLabel")}>
+    <div
+      className={cn("h-full", className)}
+      role="region"
+      aria-label={t("leads.mapLabel")}
+    >
       <LeafletMapShell scrollWheelZoom={false}>
         <MapViewport leads={mappable} selectedLeadId={selectedLeadId} />
         {mappable.map((lead) => {

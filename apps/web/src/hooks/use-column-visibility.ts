@@ -5,6 +5,8 @@ export interface ColumnVisibility {
   coverage: boolean;
   phone: boolean;
   website: boolean;
+  industry: boolean;
+  signal: boolean;
 }
 
 const STORAGE_KEY = "piq:leads_col_vis";
@@ -14,6 +16,8 @@ const DEFAULT: ColumnVisibility = {
   coverage: true,
   phone: false,
   website: true,
+  industry: false,
+  signal: true,
 };
 
 function readFromStorage(): ColumnVisibility {
@@ -27,8 +31,12 @@ function readFromStorage(): ColumnVisibility {
   }
 }
 
-export function useColumnVisibility(): [ColumnVisibility, (key: keyof ColumnVisibility, value: boolean) => void] {
-  const [visibility, setVisibility] = useState<ColumnVisibility>(readFromStorage);
+export function useColumnVisibility(): [
+  ColumnVisibility,
+  (key: keyof ColumnVisibility, value: boolean) => void,
+] {
+  const [visibility, setVisibility] =
+    useState<ColumnVisibility>(readFromStorage);
 
   const toggle = useCallback((key: keyof ColumnVisibility, value: boolean) => {
     setVisibility((prev) => {

@@ -14,7 +14,6 @@ type ApiErrorPayload = {
     code?: string;
     detail?: string;
   };
-  
 } | null;
 
 export interface AuthSession {
@@ -92,7 +91,11 @@ export function buildRequestUrl(path: string): string {
   return env.VITE_API_BASE_URL ? `${env.VITE_API_BASE_URL}${path}` : path;
 }
 
-export async function request<T>(path: string, init: RequestInit = {}, body?: JsonBody): Promise<T> {
+export async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  body?: JsonBody,
+): Promise<T> {
   const session = getActiveSession();
   const response = await fetch(buildRequestUrl(path), {
     ...init,
@@ -119,7 +122,10 @@ export async function request<T>(path: string, init: RequestInit = {}, body?: Js
   return (await response.json()) as T;
 }
 
-export async function requestBlob(path: string, init: RequestInit = {}): Promise<Blob> {
+export async function requestBlob(
+  path: string,
+  init: RequestInit = {},
+): Promise<Blob> {
   const session = getActiveSession();
   const response = await fetch(buildRequestUrl(path), {
     ...init,

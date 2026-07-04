@@ -92,6 +92,57 @@ class ServiceRecommendation(Base):
     )
 
 
+class AIAnalysisEvidence(Base):
+    __tablename__ = "ai_analysis_evidence"
+    __table_args__ = (
+        Index(
+            "ix_ai_analysis_evidence_snapshot",
+            "ai_analysis_snapshot_id",
+        ),
+        Index(
+            "ix_ai_analysis_evidence_workspace_snapshot",
+            "workspace_id",
+            "ai_analysis_snapshot_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("aev")
+    )
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    ai_analysis_snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_analysis_snapshots.id"), index=True
+    )
+    source_type: Mapped[str] = mapped_column(String(64))
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    evidence_text: Mapped[str] = mapped_column(Text())
+    confidence: Mapped[float] = mapped_column(Float, default=0.7)
+    created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
+
+
+class AIFeedback(Base):
+    __tablename__ = "ai_feedback"
+    __table_args__ = (
+        Index("ix_ai_feedback_snapshot", "ai_analysis_snapshot_id"),
+        Index("ix_ai_feedback_user", "user_id"),
+        Index("ix_ai_feedback_workspace_snapshot", "workspace_id", "ai_analysis_snapshot_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("afb")
+    )
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    ai_analysis_snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_analysis_snapshots.id"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    rating: Mapped[str] = mapped_column(String(16))
+    correction_text: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
+
+
 class WorkspaceServiceCatalogItem(Base):
     __tablename__ = "workspace_service_catalog_items"
     __table_args__ = (

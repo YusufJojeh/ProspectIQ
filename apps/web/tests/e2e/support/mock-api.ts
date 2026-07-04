@@ -15,7 +15,12 @@ export const MOCK_IDS = {
 
 type UserRole = "account_owner" | "admin" | "manager" | "member";
 type UserStatus = "active" | "inactive" | "pending";
-type SearchJobStatus = "queued" | "running" | "completed" | "partially_completed" | "failed";
+type SearchJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "partially_completed"
+  | "failed";
 type LeadStatus =
   | "new"
   | "reviewed"
@@ -25,9 +30,30 @@ type LeadStatus =
   | "won"
   | "lost"
   | "archived";
-type LeadScoreBand = "high" | "medium" | "low" | "not_qualified";
+type LeadScoreBand =
+  | "high"
+  | "medium"
+  | "low"
+  | "not_qualified"
+  | "hot_lead"
+  | "warm_lead"
+  | "research_more"
+  | "low_priority"
+  | "do_not_contact";
 type WebsitePreference = "any" | "must_have" | "must_be_missing";
 type OutreachTone = "formal" | "friendly" | "consultative" | "short_pitch";
+type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";
+type CampaignLeadStatus = "added" | "drafted" | "ready" | "skipped" | "removed";
+type SequenceChannel = "email" | "linkedin" | "whatsapp_note";
+type DealStatus = "open" | "won" | "lost" | "archived";
+type StageType = "open" | "won" | "lost";
+type ActivityType =
+  | "note"
+  | "call"
+  | "meeting"
+  | "email"
+  | "follow_up"
+  | "status_change";
 
 type AuthenticatedUser = {
   public_id: string;
@@ -84,6 +110,11 @@ type LeadRecord = {
   status: LeadStatus;
   assigned_to_user_public_id: string | null;
   latest_score: number | null;
+  latest_fit_score: number | null;
+  latest_need_score: number | null;
+  latest_urgency_score: number | null;
+  latest_reachability_score: number | null;
+  latest_final_priority_score: number | null;
   latest_band: LeadScoreBand | null;
   latest_qualified: boolean | null;
   created_at: string;
@@ -170,10 +201,107 @@ type OutreachDraft = {
   subject: string;
   message: string;
   tone: OutreachTone;
+  language: string;
   version_number: number;
   generated_subject: string;
   generated_message: string;
   has_manual_edits: boolean;
+  outreach_status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type CampaignRecord = {
+  public_id: string;
+  name: string;
+  description: string | null;
+  icp_profile_id: string | null;
+  status: CampaignStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+type CampaignLeadRecord = {
+  campaign_id: string;
+  lead_id: string;
+  status: CampaignLeadStatus;
+  added_at: string;
+};
+
+type SequenceStepRecord = {
+  public_id: string;
+  campaign_id: string;
+  step_order: number;
+  channel: SequenceChannel;
+  delay_days: number;
+  tone: string;
+  language: string;
+  template_text: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type OutreachEventRecord = {
+  public_id: string;
+  campaign_id: string | null;
+  lead_id: string | null;
+  outreach_message_id: string | null;
+  event_type: string;
+  occurred_at: string;
+  metadata: Record<string, unknown> | null;
+};
+
+type CrmPipelineRecord = {
+  public_id: string;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type CrmStageRecord = {
+  public_id: string;
+  pipeline_id: string;
+  name: string;
+  position: number;
+  probability: number;
+  color: string;
+  stage_type: StageType;
+  created_at: string;
+  updated_at: string;
+};
+
+type CrmDealRecord = {
+  public_id: string;
+  pipeline_id: string;
+  stage_id: string;
+  lead_id: string;
+  campaign_id: string | null;
+  owner_user_id: string | null;
+  title: string;
+  value_amount: number | null;
+  currency: string;
+  probability: number;
+  status: DealStatus;
+  lost_reason: string | null;
+  expected_close_date: string | null;
+  next_follow_up_at: string | null;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CrmActivityRecord = {
+  public_id: string;
+  deal_id: string;
+  activity_type: ActivityType;
+  title: string;
+  note: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  actor_user_id: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -195,6 +323,9 @@ type ScoringConfigVersion = {
     search_visibility: number;
     opportunity: number;
     data_confidence: number;
+    review_score?: number;
+    news_presence?: number;
+    web_search_confidence?: number;
   };
   thresholds: {
     high_min: number;
@@ -217,6 +348,7 @@ type AuditLogEntry = {
 
 export type MockState = {
   sessionUser: AuthenticatedUser;
+  workspaceSettings: Record<string, unknown>;
   users: Array<{
     public_id: string;
     email: string;
@@ -229,13 +361,29 @@ export type MockState = {
   }>;
   searchJobs: SearchJobResponse[];
   leads: LeadRecord[];
-  evidenceByLeadId: Record<string, { lead_id: string; items: LeadEvidenceItem[] }>;
+  campaigns: CampaignRecord[];
+  campaignLeads: CampaignLeadRecord[];
+  sequenceSteps: SequenceStepRecord[];
+  outreachEvents: OutreachEventRecord[];
+  crmPipelines: CrmPipelineRecord[];
+  crmStages: CrmStageRecord[];
+  crmDeals: CrmDealRecord[];
+  crmActivities: CrmActivityRecord[];
+  evidenceByLeadId: Record<
+    string,
+    { lead_id: string; items: LeadEvidenceItem[] }
+  >;
   scoreBreakdownsByLeadId: Record<
     string,
     {
       lead_id: string;
       scoring_version_id: string;
       total_score: number;
+      fit_score: number | null;
+      need_score: number | null;
+      urgency_score: number | null;
+      reachability_score: number | null;
+      final_priority_score: number | null;
       band: LeadScoreBand;
       qualified: boolean;
       breakdown: ScoreBreakdownItem[];
@@ -288,6 +436,11 @@ export type MockState = {
     analyses: number;
     recommendations: number;
     outreach: number;
+    campaigns: number;
+    sequenceSteps: number;
+    outreachEvents: number;
+    crmDeals: number;
+    crmActivities: number;
     promptTemplates: number;
     scoringVersions: number;
     audit: number;
@@ -361,7 +514,12 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   });
 }
 
-async function fulfillText(route: Route, body: string, contentType: string, status = 200) {
+async function fulfillText(
+  route: Route,
+  body: string,
+  contentType: string,
+  status = 200,
+) {
   await route.fulfill({
     status,
     headers: CORS_HEADERS,
@@ -391,6 +549,9 @@ function createState(): MockState {
       search_visibility: 0.2,
       opportunity: 0.2,
       data_confidence: 0.1,
+      review_score: 0,
+      news_presence: 0,
+      web_search_confidence: 0,
     },
     thresholds: {
       high_min: 75,
@@ -459,6 +620,11 @@ function createState(): MockState {
       status: "new",
       assigned_to_user_public_id: null,
       latest_score: 82.5,
+      latest_fit_score: 90,
+      latest_need_score: 72,
+      latest_urgency_score: 82,
+      latest_reachability_score: 88,
+      latest_final_priority_score: 82.5,
       latest_band: "high",
       latest_qualified: true,
       created_at: iso(4),
@@ -484,6 +650,11 @@ function createState(): MockState {
       status: "reviewed",
       assigned_to_user_public_id: "usr_manager_1",
       latest_score: 61.5,
+      latest_fit_score: 66,
+      latest_need_score: 82,
+      latest_urgency_score: 58,
+      latest_reachability_score: 60,
+      latest_final_priority_score: 61.5,
       latest_band: "medium",
       latest_qualified: true,
       created_at: iso(5),
@@ -492,8 +663,103 @@ function createState(): MockState {
     },
   ];
 
+  const campaigns: CampaignRecord[] = [
+    {
+      public_id: "cmp_seed_active",
+      name: "Seeded priority outreach",
+      description: "Mock campaign for the campaign demo flow.",
+      icp_profile_id: null,
+      status: "active",
+      created_at: iso(8),
+      updated_at: iso(8),
+    },
+  ];
+
+  const crmPipelines: CrmPipelineRecord[] = [
+    {
+      public_id: "pipe_seed_default",
+      name: "Default Sales Pipeline",
+      description: "Mock CRM pipeline for the CRM demo flow.",
+      is_default: true,
+      created_at: iso(8),
+      updated_at: iso(8),
+    },
+  ];
+
+  const crmStages: CrmStageRecord[] = [
+    ["stage_seed_new", "New Opportunity", 1, 10, "slate", "open"],
+    ["stage_seed_contacted", "Contacted", 2, 20, "blue", "open"],
+    ["stage_seed_interested", "Interested", 3, 40, "cyan", "open"],
+    ["stage_seed_proposal", "Proposal / Offer", 4, 60, "amber", "open"],
+    ["stage_seed_negotiation", "Negotiation", 5, 80, "orange", "open"],
+    ["stage_seed_won", "Won", 6, 100, "emerald", "won"],
+    ["stage_seed_lost", "Lost", 7, 0, "rose", "lost"],
+  ].map(([publicId, name, position, probability, color, stageType]) => ({
+    public_id: String(publicId),
+    pipeline_id: "pipe_seed_default",
+    name: String(name),
+    position: Number(position),
+    probability: Number(probability),
+    color: String(color),
+    stage_type: stageType as StageType,
+    created_at: iso(8),
+    updated_at: iso(8),
+  }));
+
+  const crmDeals: CrmDealRecord[] = [
+    {
+      public_id: "deal_seed_acme",
+      pipeline_id: "pipe_seed_default",
+      stage_id: "stage_seed_proposal",
+      lead_id: "lead_acme_1",
+      campaign_id: "cmp_seed_active",
+      owner_user_id: sessionUser.public_id,
+      title: "Acme Dental local visibility package",
+      value_amount: 12000,
+      currency: "USD",
+      probability: 60,
+      status: "open",
+      lost_reason: null,
+      expected_close_date: null,
+      next_follow_up_at: iso(240),
+      last_activity_at: iso(12),
+      created_at: iso(9),
+      updated_at: iso(12),
+    },
+  ];
+
+  const crmActivities: CrmActivityRecord[] = [
+    {
+      public_id: "act_seed_acme_note",
+      deal_id: "deal_seed_acme",
+      activity_type: "note",
+      title: "Qualified from campaign evidence",
+      note: "Mock activity for the CRM demo timeline.",
+      due_at: null,
+      completed_at: iso(12),
+      actor_user_id: sessionUser.public_id,
+      metadata: { demo: true },
+      created_at: iso(10),
+      updated_at: iso(12),
+    },
+    {
+      public_id: "act_seed_acme_followup",
+      deal_id: "deal_seed_acme",
+      activity_type: "follow_up",
+      title: "Send proposal follow-up",
+      note: "Offline follow-up only. No email is sent by the mock.",
+      due_at: iso(240),
+      completed_at: null,
+      actor_user_id: sessionUser.public_id,
+      metadata: { demo: true },
+      created_at: iso(11),
+      updated_at: iso(11),
+    },
+  ];
+
   return {
     sessionUser,
+    workspaceSettings: { locale: "en-US", theme: "dark", profession: "general" },
     users: [
       {
         public_id: sessionUser.public_id,
@@ -522,6 +788,31 @@ function createState(): MockState {
     ],
     searchJobs,
     leads,
+    campaigns,
+    crmPipelines,
+    crmStages,
+    crmDeals,
+    crmActivities,
+    campaignLeads: [
+      {
+        campaign_id: "cmp_seed_active",
+        lead_id: "lead_acme_1",
+        status: "added",
+        added_at: iso(8),
+      },
+    ],
+    sequenceSteps: [],
+    outreachEvents: [
+      {
+        public_id: "oev_seed_campaign_created",
+        campaign_id: "cmp_seed_active",
+        lead_id: null,
+        outreach_message_id: null,
+        event_type: "campaign.created",
+        occurred_at: iso(8),
+        metadata: { name: "Seeded priority outreach" },
+      },
+    ],
     evidenceByLeadId: {
       lead_acme_1: {
         lead_id: "lead_acme_1",
@@ -594,6 +885,11 @@ function createState(): MockState {
         lead_id: "lead_acme_1",
         scoring_version_id: scoringVersion.public_id,
         total_score: 82.5,
+        fit_score: 90,
+        need_score: 72,
+        urgency_score: 82,
+        reachability_score: 88,
+        final_priority_score: 82.5,
         band: "high",
         qualified: true,
         breakdown: [
@@ -617,6 +913,11 @@ function createState(): MockState {
         lead_id: "lead_north_1",
         scoring_version_id: scoringVersion.public_id,
         total_score: 61.5,
+        fit_score: 66,
+        need_score: 82,
+        urgency_score: 58,
+        reachability_score: 60,
+        final_priority_score: 61.5,
         band: "medium",
         qualified: true,
         breakdown: [
@@ -736,6 +1037,11 @@ function createState(): MockState {
       analyses: 0,
       recommendations: 0,
       outreach: 0,
+      campaigns: 1,
+      sequenceSteps: 0,
+      outreachEvents: 1,
+      crmDeals: 1,
+      crmActivities: 2,
       promptTemplates: 1,
       scoringVersions: 1,
       audit: 1,
@@ -815,7 +1121,11 @@ function ensureAnalysis(state: MockState, leadId: string) {
   };
 
   state.analysisByLeadId[leadId] = analysis;
-  addAudit(state, "lead.analyzed", `Generated an assistive analysis for lead ${leadId}.`);
+  addAudit(
+    state,
+    "lead.analyzed",
+    `Generated an assistive analysis for lead ${leadId}.`,
+  );
   return analysis;
 }
 
@@ -860,7 +1170,10 @@ function ensureOutreach(
 
   const analysis = ensureAnalysis(state, leadId);
   const lead = getLeadOrThrow(state, leadId);
-  const { subject, message } = buildOutreachCopy(lead.company_name, requestedTone);
+  const { subject, message } = buildOutreachCopy(
+    lead.company_name,
+    requestedTone,
+  );
   state.counters.outreach += 1;
   const createdAt = nextTimestamp(state);
   const draft: OutreachDraft = {
@@ -870,17 +1183,284 @@ function ensureOutreach(
     subject,
     message,
     tone: requestedTone,
+    language: "en",
     version_number: (existing?.version_number ?? 0) + 1,
     generated_subject: subject,
     generated_message: message,
     has_manual_edits: false,
+    outreach_status: "draft",
     created_at: createdAt,
     updated_at: createdAt,
   };
 
   state.outreachByLeadId[leadId] = draft;
-  addAudit(state, "lead.outreach_generated", `Generated an outreach draft for lead ${leadId}.`);
+  addAudit(
+    state,
+    "lead.outreach_generated",
+    `Generated an outreach draft for lead ${leadId}.`,
+  );
   return draft;
+}
+
+function campaignCounts(state: MockState, campaignId: string) {
+  return {
+    lead_count: state.campaignLeads.filter((item) => item.campaign_id === campaignId).length,
+    sequence_steps_count: state.sequenceSteps.filter(
+      (item) => item.campaign_id === campaignId,
+    ).length,
+  };
+}
+
+function serializeCampaign(state: MockState, campaign: CampaignRecord) {
+  return {
+    ...campaign,
+    ...campaignCounts(state, campaign.public_id),
+  };
+}
+
+function getCampaignOrThrow(state: MockState, campaignId: string) {
+  const campaign = state.campaigns.find((item) => item.public_id === campaignId);
+  if (!campaign) {
+    throw new Error(`Campaign ${campaignId} not found`);
+  }
+  return campaign;
+}
+
+function addCampaignEvent(
+  state: MockState,
+  payload: Omit<OutreachEventRecord, "public_id" | "occurred_at">,
+) {
+  state.counters.outreachEvents += 1;
+  const event: OutreachEventRecord = {
+    public_id: `oev_mock_${state.counters.outreachEvents}`,
+    occurred_at: nextTimestamp(state),
+    ...payload,
+  };
+  state.outreachEvents.unshift(event);
+  return event;
+}
+
+function campaignDetail(state: MockState, campaign: CampaignRecord) {
+  const campaignLeadRows = state.campaignLeads.filter(
+    (item) => item.campaign_id === campaign.public_id,
+  );
+  const leadIds = new Set(campaignLeadRows.map((item) => item.lead_id));
+  const drafts = Object.values(state.outreachByLeadId).filter(
+    (item): item is OutreachDraft => Boolean(item && leadIds.has(item.lead_id)),
+  );
+  return {
+    ...serializeCampaign(state, campaign),
+    leads: campaignLeadRows.map((item) => ({
+      lead: serializeLead(getLeadOrThrow(state, item.lead_id)),
+      status: item.status,
+      added_at: item.added_at,
+    })),
+    sequence_steps: state.sequenceSteps
+      .filter((item) => item.campaign_id === campaign.public_id)
+      .sort((a, b) => a.step_order - b.step_order),
+    drafts,
+    events: state.outreachEvents.filter((item) => item.campaign_id === campaign.public_id),
+  };
+}
+
+function generateSequenceSteps(state: MockState, campaignId: string) {
+  state.sequenceSteps = state.sequenceSteps.filter((item) => item.campaign_id !== campaignId);
+  const specs: Array<{
+    channel: SequenceChannel;
+    delay_days: number;
+    tone: OutreachTone;
+    template_text: string;
+  }> = [
+    {
+      channel: "email",
+      delay_days: 0,
+      tone: "consultative",
+      template_text:
+        "Reference the strongest stored evidence and ask permission to share a concise audit.",
+    },
+    {
+      channel: "linkedin",
+      delay_days: 3,
+      tone: "friendly",
+      template_text:
+        "Send a short LinkedIn follow-up that restates the evidence-backed opportunity.",
+    },
+    {
+      channel: "whatsapp_note",
+      delay_days: 7,
+      tone: "short_pitch",
+      template_text:
+        "Close the loop with a brief WhatsApp-ready note and no pressure to respond.",
+    },
+  ];
+  return specs.map((spec, index) => {
+    state.counters.sequenceSteps += 1;
+    const timestamp = nextTimestamp(state);
+    const step: SequenceStepRecord = {
+      public_id: `seq_mock_${state.counters.sequenceSteps}`,
+      campaign_id: campaignId,
+      step_order: index + 1,
+      channel: spec.channel,
+      delay_days: spec.delay_days,
+      tone: spec.tone,
+      language: "en",
+      template_text: spec.template_text,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    state.sequenceSteps.push(step);
+    return step;
+  });
+}
+
+function stageCounts(state: MockState, stageId: string) {
+  const deals = state.crmDeals.filter(
+    (deal) => deal.stage_id === stageId && deal.status === "open",
+  );
+  return {
+    deal_count: deals.length,
+    total_value: deals.reduce((sum, deal) => sum + (deal.value_amount ?? 0), 0),
+  };
+}
+
+function serializeCrmStage(state: MockState, stage: CrmStageRecord) {
+  return {
+    public_id: stage.public_id,
+    name: stage.name,
+    position: stage.position,
+    probability: stage.probability,
+    color: stage.color,
+    stage_type: stage.stage_type,
+    ...stageCounts(state, stage.public_id),
+    created_at: stage.created_at,
+    updated_at: stage.updated_at,
+  };
+}
+
+function serializeCrmPipeline(state: MockState, pipeline: CrmPipelineRecord) {
+  return {
+    ...pipeline,
+    stages: state.crmStages
+      .filter((stage) => stage.pipeline_id === pipeline.public_id)
+      .sort((left, right) => left.position - right.position)
+      .map((stage) => serializeCrmStage(state, stage)),
+  };
+}
+
+function getCrmPipelineOrThrow(state: MockState, pipelineId: string) {
+  const pipeline =
+    pipelineId === "default"
+      ? state.crmPipelines.find((item) => item.is_default)
+      : state.crmPipelines.find((item) => item.public_id === pipelineId);
+  if (!pipeline) {
+    throw new Error(`Unknown mocked CRM pipeline '${pipelineId}'.`);
+  }
+  return pipeline;
+}
+
+function getCrmDealOrThrow(state: MockState, dealId: string) {
+  const deal = state.crmDeals.find((item) => item.public_id === dealId);
+  if (!deal) {
+    throw new Error(`Unknown mocked CRM deal '${dealId}'.`);
+  }
+  return deal;
+}
+
+function serializeCrmActivity(state: MockState, activity: CrmActivityRecord) {
+  const actor = state.users.find((user) => user.public_id === activity.actor_user_id);
+  return {
+    ...activity,
+    actor_full_name: actor?.full_name ?? null,
+  };
+}
+
+function serializeCrmDeal(state: MockState, deal: CrmDealRecord) {
+  const pipeline = getCrmPipelineOrThrow(state, deal.pipeline_id);
+  const stage = state.crmStages.find((item) => item.public_id === deal.stage_id);
+  const lead = getLeadOrThrow(state, deal.lead_id);
+  const campaign = state.campaigns.find((item) => item.public_id === deal.campaign_id);
+  const owner = state.users.find((item) => item.public_id === deal.owner_user_id);
+  const incompleteActivities = state.crmActivities
+    .filter((item) => item.deal_id === deal.public_id && item.completed_at === null)
+    .sort((left, right) => Date.parse(left.due_at ?? left.created_at) - Date.parse(right.due_at ?? right.created_at));
+  const now = Date.now();
+  return {
+    ...deal,
+    pipeline_name: pipeline.name,
+    stage_name: stage?.name ?? "Unknown",
+    stage_probability: stage?.probability ?? deal.probability,
+    lead: serializeLead(lead),
+    campaign_name: campaign?.name ?? null,
+    owner_full_name: owner?.full_name ?? null,
+    next_activity: incompleteActivities[0]
+      ? serializeCrmActivity(state, incompleteActivities[0])
+      : null,
+    overdue_activity_count: incompleteActivities.filter(
+      (activity) => activity.due_at !== null && Date.parse(activity.due_at) < now,
+    ).length,
+  };
+}
+
+function createMockCrmDeal(
+  state: MockState,
+  payload: Record<string, unknown>,
+  defaults: { campaignId?: string | null } = {},
+) {
+  const leadId = String(payload.lead_id ?? "");
+  getLeadOrThrow(state, leadId);
+  const hasOpenDeal = state.crmDeals.some(
+    (deal) => deal.lead_id === leadId && deal.status === "open",
+  );
+  if (hasOpenDeal && payload.allow_duplicate_open !== true) {
+    return null;
+  }
+  const pipelineId = String(payload.pipeline_id ?? state.crmPipelines[0].public_id);
+  const stageId = String(
+    payload.stage_id ??
+      state.crmStages.find((stage) => stage.pipeline_id === pipelineId && stage.stage_type === "open")
+        ?.public_id,
+  );
+  const stage = state.crmStages.find((item) => item.public_id === stageId);
+  state.counters.crmDeals += 1;
+  const timestamp = nextTimestamp(state);
+  const deal: CrmDealRecord = {
+    public_id: `deal_mock_${state.counters.crmDeals}`,
+    pipeline_id: pipelineId,
+    stage_id: stageId,
+    lead_id: leadId,
+    campaign_id: (payload.campaign_id as string | null | undefined) ?? defaults.campaignId ?? null,
+    owner_user_id: state.sessionUser.public_id,
+    title: String(payload.title ?? `${getLeadOrThrow(state, leadId).company_name} opportunity`),
+    value_amount:
+      typeof payload.value_amount === "number" ? payload.value_amount : 8500,
+    currency: String(payload.currency ?? "USD"),
+    probability:
+      typeof payload.probability === "number" ? payload.probability : stage?.probability ?? 10,
+    status: "open",
+    lost_reason: null,
+    expected_close_date: null,
+    next_follow_up_at: iso(240),
+    last_activity_at: timestamp,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+  state.crmDeals.unshift(deal);
+  state.counters.crmActivities += 1;
+  state.crmActivities.unshift({
+    public_id: `act_mock_${state.counters.crmActivities}`,
+    deal_id: deal.public_id,
+    activity_type: "note",
+    title: "Deal created",
+    note: "Created from the offline CRM mock.",
+    due_at: null,
+    completed_at: timestamp,
+    actor_user_id: state.sessionUser.public_id,
+    metadata: { demo: true },
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  addAudit(state, "crm.deal_created", `Created CRM deal ${deal.public_id}.`);
+  return deal;
 }
 
 function filterLeads(state: MockState, url: URL) {
@@ -904,7 +1484,12 @@ function filterLeads(state: MockState, url: URL) {
         return false;
       }
       if (q) {
-        const haystack = [lead.company_name, lead.city ?? "", lead.website_domain ?? "", lead.address ?? ""]
+        const haystack = [
+          lead.company_name,
+          lead.city ?? "",
+          lead.website_domain ?? "",
+          lead.address ?? "",
+        ]
           .join(" ")
           .toLowerCase();
         if (!haystack.includes(q)) {
@@ -935,10 +1520,18 @@ function filterLeads(state: MockState, url: URL) {
       if (qualified === "false" && lead.latest_qualified !== false) {
         return false;
       }
-      if (ownerUserId && ownerUserId !== "all" && lead.assigned_to_user_public_id !== ownerUserId) {
+      if (
+        ownerUserId &&
+        ownerUserId !== "all" &&
+        lead.assigned_to_user_public_id !== ownerUserId
+      ) {
         return false;
       }
-      if (searchJobId && searchJobId !== "all" && lead.search_job_public_id !== searchJobId) {
+      if (
+        searchJobId &&
+        searchJobId !== "all" &&
+        lead.search_job_public_id !== searchJobId
+      ) {
         return false;
       }
       if (hasWebsite === "true" && !lead.has_website) {
@@ -980,7 +1573,9 @@ async function handleApiRoute(route: Route, state: MockState) {
 
   if (path === "/api/v1/auth/login" && method === "POST") {
     const payload = readJsonBody(route);
-    const email = String(payload.email ?? "").trim().toLowerCase();
+    const email = String(payload.email ?? "")
+      .trim()
+      .toLowerCase();
     const password = String(payload.password ?? "");
     const credentialMap: Record<
       string,
@@ -1016,7 +1611,16 @@ async function handleApiRoute(route: Route, state: MockState) {
     };
     const record = credentialMap[email];
     if (!record || record.password !== password) {
-      await fulfillJson(route, { error: { code: "invalid_credentials", detail: "Invalid email or password." } }, 401);
+      await fulfillJson(
+        route,
+        {
+          error: {
+            code: "invalid_credentials",
+            detail: "Invalid email or password.",
+          },
+        },
+        401,
+      );
       return;
     }
     if (record.status !== "active") {
@@ -1025,7 +1629,8 @@ async function handleApiRoute(route: Route, state: MockState) {
         {
           error: {
             code: "inactive_user",
-            detail: "Your account is inactive. Contact your workspace administrator.",
+            detail:
+              "Your account is inactive. Contact your workspace administrator.",
           },
         },
         403,
@@ -1058,7 +1663,9 @@ async function handleApiRoute(route: Route, state: MockState) {
       full_name: String(payload.full_name ?? "New Owner"),
       email: String(payload.email ?? "owner@prospectiq.dev"),
       workspace_name: String(payload.workspace_name ?? "New Workspace"),
-      workspace_slug: String(payload.workspace_name ?? "new-workspace").toLowerCase().replace(/\s+/g, "-"),
+      workspace_slug: String(payload.workspace_name ?? "new-workspace")
+        .toLowerCase()
+        .replace(/\s+/g, "-"),
       role: "account_owner",
       status: "active",
       permissions: permissionsForRole("account_owner"),
@@ -1072,7 +1679,10 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  if ((path === "/api/v1/me" || path === "/api/v1/auth/me") && method === "GET") {
+  if (
+    (path === "/api/v1/me" || path === "/api/v1/auth/me") &&
+    method === "GET"
+  ) {
     await fulfillJson(route, state.sessionUser);
     return;
   }
@@ -1093,11 +1703,17 @@ async function handleApiRoute(route: Route, state: MockState) {
       created_at: nextTimestamp(state),
     };
     state.users.push(newUser);
-    const teamUsage = state.billing.usage.find((item) => item.metric_key === "max_team_users");
+    const teamUsage = state.billing.usage.find(
+      (item) => item.metric_key === "max_team_users",
+    );
     if (teamUsage) {
       teamUsage.current_value = state.users.length;
     }
-    addAudit(state, "user.created", `Created user ${newUser.public_id} (${newUser.role}).`);
+    addAudit(
+      state,
+      "user.created",
+      `Created user ${newUser.public_id} (${newUser.role}).`,
+    );
     await fulfillJson(route, newUser, 201);
     return;
   }
@@ -1126,7 +1742,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const resetPasswordMatch = path.match(/^\/api\/v1\/users\/([^/]+)\/reset-password$/);
+  const resetPasswordMatch = path.match(
+    /^\/api\/v1\/users\/([^/]+)\/reset-password$/,
+  );
   if (resetPasswordMatch && method === "POST") {
     const userId = resetPasswordMatch[1];
     const target = state.users.find((item) => item.public_id === userId);
@@ -1148,7 +1766,11 @@ async function handleApiRoute(route: Route, state: MockState) {
     const jobId = searchJobByIdMatch[1];
     const job = state.searchJobs.find((item) => item.public_id === jobId);
     if (!job) {
-      await fulfillJson(route, { error: { code: "not_found", detail: "Search job was not found." } }, 404);
+      await fulfillJson(
+        route,
+        { error: { code: "not_found", detail: "Search job was not found." } },
+        404,
+      );
       return;
     }
     await fulfillJson(route, job);
@@ -1170,13 +1792,19 @@ async function handleApiRoute(route: Route, state: MockState) {
       business_type: String(payload.business_type ?? "Unknown"),
       city: String(payload.city ?? "Unknown"),
       region: (payload.region as string | undefined) ?? null,
-      radius_km: typeof payload.radius_km === "number" ? payload.radius_km : null,
+      radius_km:
+        typeof payload.radius_km === "number" ? payload.radius_km : null,
       max_results: Number(payload.max_results ?? 25),
-      min_rating: typeof payload.min_rating === "number" ? payload.min_rating : null,
-      max_rating: typeof payload.max_rating === "number" ? payload.max_rating : null,
-      min_reviews: typeof payload.min_reviews === "number" ? payload.min_reviews : null,
-      max_reviews: typeof payload.max_reviews === "number" ? payload.max_reviews : null,
-      website_preference: (payload.website_preference as WebsitePreference | undefined) ?? "any",
+      min_rating:
+        typeof payload.min_rating === "number" ? payload.min_rating : null,
+      max_rating:
+        typeof payload.max_rating === "number" ? payload.max_rating : null,
+      min_reviews:
+        typeof payload.min_reviews === "number" ? payload.min_reviews : null,
+      max_reviews:
+        typeof payload.max_reviews === "number" ? payload.max_reviews : null,
+      website_preference:
+        (payload.website_preference as WebsitePreference | undefined) ?? "any",
       keyword_filter: (payload.keyword_filter as string | undefined) ?? null,
       status: "queued",
       queued_at: now,
@@ -1194,6 +1822,323 @@ async function handleApiRoute(route: Route, state: MockState) {
       `Queued a discovery job for ${job.business_type} in ${job.city}.`,
     );
     await fulfillJson(route, job, 202);
+    return;
+  }
+
+  if (path === "/api/v1/crm/pipelines" && method === "GET") {
+    await fulfillJson(route, {
+      items: state.crmPipelines.map((pipeline) => serializeCrmPipeline(state, pipeline)),
+    });
+    return;
+  }
+
+  const crmPipelineMatch = path.match(/^\/api\/v1\/crm\/pipelines\/([^/]+)$/);
+  if (crmPipelineMatch && method === "GET") {
+    await fulfillJson(
+      route,
+      serializeCrmPipeline(state, getCrmPipelineOrThrow(state, crmPipelineMatch[1])),
+    );
+    return;
+  }
+
+  if (path === "/api/v1/crm/deals" && method === "GET") {
+    const pipelineId = url.searchParams.get("pipeline_id");
+    const stageId = url.searchParams.get("stage_id");
+    const leadId = url.searchParams.get("lead_id");
+    const campaignId = url.searchParams.get("campaign_id");
+    const status = url.searchParams.get("status") as DealStatus | null;
+    const items = state.crmDeals
+      .filter((deal) => !pipelineId || deal.pipeline_id === pipelineId)
+      .filter((deal) => !stageId || deal.stage_id === stageId)
+      .filter((deal) => !leadId || deal.lead_id === leadId)
+      .filter((deal) => !campaignId || deal.campaign_id === campaignId)
+      .filter((deal) => !status || deal.status === status)
+      .map((deal) => serializeCrmDeal(state, deal));
+    await fulfillJson(route, { items });
+    return;
+  }
+
+  if (path === "/api/v1/crm/deals" && method === "POST") {
+    const deal = createMockCrmDeal(state, readJsonBody(route));
+    if (!deal) {
+      await fulfillJson(route, { error: { detail: "Lead already has an open deal." } }, 409);
+      return;
+    }
+    await fulfillJson(route, serializeCrmDeal(state, deal), 201);
+    return;
+  }
+
+  const crmDealMoveMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/move$/);
+  if (crmDealMoveMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = getCrmDealOrThrow(state, crmDealMoveMatch[1]);
+    const stage = state.crmStages.find((item) => item.public_id === payload.stage_id);
+    if (!stage) {
+      await fulfillJson(route, { error: { detail: "Stage not found." } }, 404);
+      return;
+    }
+    deal.stage_id = stage.public_id;
+    deal.probability = stage.probability;
+    deal.status = stage.stage_type === "won" ? "won" : stage.stage_type === "lost" ? "lost" : "open";
+    deal.updated_at = nextTimestamp(state);
+    state.counters.crmActivities += 1;
+    state.crmActivities.unshift({
+      public_id: `act_mock_${state.counters.crmActivities}`,
+      deal_id: deal.public_id,
+      activity_type: "status_change",
+      title: `Moved to ${stage.name}`,
+      note: null,
+      due_at: null,
+      completed_at: deal.updated_at,
+      actor_user_id: state.sessionUser.public_id,
+      metadata: { stage_id: stage.public_id },
+      created_at: deal.updated_at,
+      updated_at: deal.updated_at,
+    });
+    await fulfillJson(route, serializeCrmDeal(state, deal));
+    return;
+  }
+
+  const crmMarkWonMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/mark-won$/);
+  if (crmMarkWonMatch && method === "POST") {
+    const deal = getCrmDealOrThrow(state, crmMarkWonMatch[1]);
+    const wonStage = state.crmStages.find((stage) => stage.stage_type === "won");
+    deal.status = "won";
+    deal.stage_id = wonStage?.public_id ?? deal.stage_id;
+    deal.probability = 100;
+    deal.updated_at = nextTimestamp(state);
+    await fulfillJson(route, serializeCrmDeal(state, deal));
+    return;
+  }
+
+  const crmMarkLostMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/mark-lost$/);
+  if (crmMarkLostMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = getCrmDealOrThrow(state, crmMarkLostMatch[1]);
+    const lostStage = state.crmStages.find((stage) => stage.stage_type === "lost");
+    deal.status = "lost";
+    deal.stage_id = lostStage?.public_id ?? deal.stage_id;
+    deal.probability = 0;
+    deal.lost_reason = (payload.lost_reason as string | null | undefined) ?? null;
+    deal.updated_at = nextTimestamp(state);
+    await fulfillJson(route, serializeCrmDeal(state, deal));
+    return;
+  }
+
+  const crmActivitiesMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)\/activities$/);
+  if (crmActivitiesMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = getCrmDealOrThrow(state, crmActivitiesMatch[1]);
+    state.counters.crmActivities += 1;
+    const timestamp = nextTimestamp(state);
+    const activity: CrmActivityRecord = {
+      public_id: `act_mock_${state.counters.crmActivities}`,
+      deal_id: deal.public_id,
+      activity_type: (payload.activity_type as ActivityType | undefined) ?? "note",
+      title: String(payload.title ?? "Activity"),
+      note: (payload.note as string | null | undefined) ?? null,
+      due_at: (payload.due_at as string | null | undefined) ?? null,
+      completed_at: null,
+      actor_user_id: state.sessionUser.public_id,
+      metadata: (payload.metadata as Record<string, unknown> | null | undefined) ?? null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    state.crmActivities.unshift(activity);
+    deal.last_activity_at = timestamp;
+    deal.updated_at = timestamp;
+    await fulfillJson(route, serializeCrmActivity(state, activity));
+    return;
+  }
+
+  const crmCompleteActivityMatch = path.match(
+    /^\/api\/v1\/crm\/deals\/([^/]+)\/activities\/([^/]+)\/complete$/,
+  );
+  if (crmCompleteActivityMatch && method === "POST") {
+    getCrmDealOrThrow(state, crmCompleteActivityMatch[1]);
+    const activity = state.crmActivities.find(
+      (item) => item.public_id === crmCompleteActivityMatch[2],
+    );
+    if (!activity) {
+      await fulfillJson(route, { error: { detail: "Activity not found." } }, 404);
+      return;
+    }
+    activity.completed_at = nextTimestamp(state);
+    activity.updated_at = activity.completed_at;
+    await fulfillJson(route, serializeCrmActivity(state, activity));
+    return;
+  }
+
+  const crmDealDetailMatch = path.match(/^\/api\/v1\/crm\/deals\/([^/]+)$/);
+  if (crmDealDetailMatch && method === "GET") {
+    const deal = getCrmDealOrThrow(state, crmDealDetailMatch[1]);
+    await fulfillJson(route, {
+      ...serializeCrmDeal(state, deal),
+      activities: state.crmActivities
+        .filter((activity) => activity.deal_id === deal.public_id)
+        .map((activity) => serializeCrmActivity(state, activity)),
+    });
+    return;
+  }
+
+  if (path === "/api/v1/campaigns" && method === "GET") {
+    await fulfillJson(route, { items: state.campaigns.map((campaign) => serializeCampaign(state, campaign)) });
+    return;
+  }
+
+  if (path === "/api/v1/campaigns" && method === "POST") {
+    const payload = readJsonBody(route);
+    state.counters.campaigns += 1;
+    const timestamp = nextTimestamp(state);
+    const campaign: CampaignRecord = {
+      public_id: `cmp_mock_${state.counters.campaigns}`,
+      name: String(payload.name ?? "Untitled campaign"),
+      description: (payload.description as string | null | undefined) ?? null,
+      icp_profile_id: (payload.icp_profile_id as string | null | undefined) ?? null,
+      status: "draft",
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    state.campaigns.unshift(campaign);
+    addCampaignEvent(state, {
+      campaign_id: campaign.public_id,
+      lead_id: null,
+      outreach_message_id: null,
+      event_type: "campaign.created",
+      metadata: { name: campaign.name },
+    });
+    await fulfillJson(route, campaignDetail(state, campaign), 201);
+    return;
+  }
+
+  const campaignGenerateSequenceMatch = path.match(
+    /^\/api\/v1\/campaigns\/([^/]+)\/generate-sequence$/,
+  );
+  if (campaignGenerateSequenceMatch && method === "POST") {
+    const campaignId = campaignGenerateSequenceMatch[1];
+    getCampaignOrThrow(state, campaignId);
+    const steps = generateSequenceSteps(state, campaignId);
+    addCampaignEvent(state, {
+      campaign_id: campaignId,
+      lead_id: null,
+      outreach_message_id: null,
+      event_type: "campaign.sequence_generated",
+      metadata: { steps: 3 },
+    });
+    await fulfillJson(route, steps);
+    return;
+  }
+
+  const campaignGenerateDraftsMatch = path.match(
+    /^\/api\/v1\/campaigns\/([^/]+)\/generate-drafts$/,
+  );
+  if (campaignGenerateDraftsMatch && method === "POST") {
+    const campaignId = campaignGenerateDraftsMatch[1];
+    getCampaignOrThrow(state, campaignId);
+    const campaignLeadRows = state.campaignLeads.filter(
+      (item) => item.campaign_id === campaignId,
+    );
+    const drafts = campaignLeadRows.map((item) => {
+      const draft = ensureOutreach(state, item.lead_id, { regenerate: true });
+      item.status = "drafted";
+      addCampaignEvent(state, {
+        campaign_id: campaignId,
+        lead_id: item.lead_id,
+        outreach_message_id: draft.public_id,
+        event_type: "campaign.draft_generated",
+        metadata: { step_order: 1, channel: "email", tone: draft.tone },
+      });
+      return draft;
+    });
+    await fulfillJson(route, { created_count: drafts.length, drafts });
+    return;
+  }
+
+  const campaignLeadsMatch = path.match(/^\/api\/v1\/campaigns\/([^/]+)\/leads$/);
+  if (campaignLeadsMatch && method === "POST") {
+    const campaignId = campaignLeadsMatch[1];
+    const campaign = getCampaignOrThrow(state, campaignId);
+    const payload = readJsonBody(route);
+    const leadIds = Array.isArray(payload.lead_ids) ? payload.lead_ids : [];
+    for (const leadId of leadIds) {
+      if (typeof leadId !== "string") continue;
+      getLeadOrThrow(state, leadId);
+      const existing = state.campaignLeads.find(
+        (item) => item.campaign_id === campaignId && item.lead_id === leadId,
+      );
+      if (!existing) {
+        state.campaignLeads.push({
+          campaign_id: campaignId,
+          lead_id: leadId,
+          status: "added",
+          added_at: nextTimestamp(state),
+        });
+      }
+      addCampaignEvent(state, {
+        campaign_id: campaignId,
+        lead_id: leadId,
+        outreach_message_id: null,
+        event_type: "campaign.lead_added",
+        metadata: { lead_id: leadId },
+      });
+    }
+    campaign.updated_at = nextTimestamp(state);
+    await fulfillJson(route, campaignDetail(state, campaign));
+    return;
+  }
+
+  const campaignCreateDealsMatch = path.match(
+    /^\/api\/v1\/campaigns\/([^/]+)\/create-deals$/,
+  );
+  if (campaignCreateDealsMatch && method === "POST") {
+    const campaignId = campaignCreateDealsMatch[1];
+    getCampaignOrThrow(state, campaignId);
+    const payload = readJsonBody(route);
+    const created: ReturnType<typeof serializeCrmDeal>[] = [];
+    const skipped: string[] = [];
+    const campaignLeadRows = state.campaignLeads.filter(
+      (item) => item.campaign_id === campaignId,
+    );
+    for (const campaignLead of campaignLeadRows) {
+      const deal = createMockCrmDeal(
+        state,
+        {
+          lead_id: campaignLead.lead_id,
+          campaign_id: campaignId,
+          allow_duplicate_open: payload.allow_duplicate_open,
+        },
+        { campaignId },
+      );
+      if (deal) {
+        created.push(serializeCrmDeal(state, deal));
+      } else {
+        skipped.push(campaignLead.lead_id);
+      }
+    }
+    await fulfillJson(route, {
+      created_count: created.length,
+      skipped_count: skipped.length,
+      deals: created,
+      skipped_lead_ids: skipped,
+    });
+    return;
+  }
+
+  const campaignEventsMatch = path.match(/^\/api\/v1\/campaigns\/([^/]+)\/events$/);
+  if (campaignEventsMatch && method === "GET") {
+    const campaignId = campaignEventsMatch[1];
+    getCampaignOrThrow(state, campaignId);
+    await fulfillJson(
+      route,
+      state.outreachEvents.filter((item) => item.campaign_id === campaignId),
+    );
+    return;
+  }
+
+  const campaignDetailMatch = path.match(/^\/api\/v1\/campaigns\/([^/]+)$/);
+  if (campaignDetailMatch && method === "GET") {
+    const campaign = getCampaignOrThrow(state, campaignDetailMatch[1]);
+    await fulfillJson(route, campaignDetail(state, campaign));
     return;
   }
 
@@ -1247,10 +2192,7 @@ async function handleApiRoute(route: Route, state: MockState) {
         status: "active",
       },
       owner_user_public_id: state.sessionUser.public_id,
-      settings: {
-        locale: "en-US",
-        theme: "dark",
-      },
+      settings: state.workspaceSettings,
     });
     return;
   }
@@ -1263,6 +2205,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     if (typeof payload.slug === "string") {
       state.sessionUser.workspace_slug = payload.slug;
     }
+    if (payload.settings && typeof payload.settings === "object") {
+      state.workspaceSettings = payload.settings as Record<string, unknown>;
+    }
     addAudit(state, "workspace.updated", "Updated workspace settings.");
     await fulfillJson(route, {
       workspace: {
@@ -1272,10 +2217,7 @@ async function handleApiRoute(route: Route, state: MockState) {
         status: "active",
       },
       owner_user_public_id: state.sessionUser.public_id,
-      settings: {
-        locale: "en-US",
-        theme: "dark",
-      },
+      settings: state.workspaceSettings,
     });
     return;
   }
@@ -1297,14 +2239,18 @@ async function handleApiRoute(route: Route, state: MockState) {
           public_id: "inv_mock_1",
           amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
           currency: "USD",
-          status: state.billing.subscription.status === "past_due" ? "past_due" : "open",
+          status:
+            state.billing.subscription.status === "past_due"
+              ? "past_due"
+              : "open",
           issued_at: iso(10),
           due_at: iso(1440),
           paid_at: null,
           items: [
             {
               description: `${state.billing.subscription.plan_name} simulated subscription`,
-              amount: state.billing.subscription.plan_code === "growth" ? 149 : 49,
+              amount:
+                state.billing.subscription.plan_code === "growth" ? 149 : 49,
               quantity: 1,
             },
           ],
@@ -1322,11 +2268,18 @@ async function handleApiRoute(route: Route, state: MockState) {
 
   if (path === "/api/v1/billing/subscription/change" && method === "POST") {
     const payload = readJsonBody(route);
-    const plan = state.billing.plans.find((item) => item.code === payload.plan_code) ?? state.billing.plans[0];
+    const plan =
+      state.billing.plans.find((item) => item.code === payload.plan_code) ??
+      state.billing.plans[0];
     state.billing.subscription.plan_code = plan.code;
     state.billing.subscription.plan_name = plan.name;
-    state.billing.subscription.billing_cycle = (payload.billing_cycle as "monthly" | "yearly" | undefined) ?? "monthly";
-    addAudit(state, "billing.subscription_changed", `Changed plan to ${plan.code}.`);
+    state.billing.subscription.billing_cycle =
+      (payload.billing_cycle as "monthly" | "yearly" | undefined) ?? "monthly";
+    addAudit(
+      state,
+      "billing.subscription_changed",
+      `Changed plan to ${plan.code}.`,
+    );
     await fulfillJson(route, state.billing.subscription);
     return;
   }
@@ -1361,7 +2314,10 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  if (path === "/api/v1/billing/invoices/simulate-failure" && method === "POST") {
+  if (
+    path === "/api/v1/billing/invoices/simulate-failure" &&
+    method === "POST"
+  ) {
     state.billing.subscription.status = "past_due";
     addAudit(state, "billing.payment_failed", "Simulated payment failure.");
     await fulfillJson(route, {
@@ -1384,7 +2340,11 @@ async function handleApiRoute(route: Route, state: MockState) {
       ...state.providerSettings,
       ...(payload as Partial<typeof state.providerSettings>),
     };
-    addAudit(state, "admin.provider_settings_updated", "Updated provider defaults.");
+    addAudit(
+      state,
+      "admin.provider_settings_updated",
+      "Updated provider defaults.",
+    );
     await fulfillJson(route, state.providerSettings);
     return;
   }
@@ -1399,7 +2359,10 @@ async function handleApiRoute(route: Route, state: MockState) {
     state.counters.promptTemplates += 1;
     const activate = Boolean(payload.activate ?? true);
     if (activate) {
-      state.promptTemplates = state.promptTemplates.map((item) => ({ ...item, is_active: false }));
+      state.promptTemplates = state.promptTemplates.map((item) => ({
+        ...item,
+        is_active: false,
+      }));
     }
     const template: PromptTemplate = {
       public_id: `pt_mock_${state.counters.promptTemplates}`,
@@ -1410,20 +2373,32 @@ async function handleApiRoute(route: Route, state: MockState) {
       created_by_user_public_id: state.sessionUser.public_id,
     };
     state.promptTemplates.unshift(template);
-    addAudit(state, "admin.prompt_template_created", `Created prompt template ${template.public_id}.`);
+    addAudit(
+      state,
+      "admin.prompt_template_created",
+      `Created prompt template ${template.public_id}.`,
+    );
     await fulfillJson(route, template);
     return;
   }
 
-  const activatePromptTemplateMatch = path.match(/^\/api\/v1\/admin\/prompt-templates\/activate\/([^/]+)$/);
+  const activatePromptTemplateMatch = path.match(
+    /^\/api\/v1\/admin\/prompt-templates\/activate\/([^/]+)$/,
+  );
   if (activatePromptTemplateMatch && method === "POST") {
     const promptTemplateId = activatePromptTemplateMatch[1];
     state.promptTemplates = state.promptTemplates.map((item) => ({
       ...item,
       is_active: item.public_id === promptTemplateId,
     }));
-    const activeTemplate = state.promptTemplates.find((item) => item.public_id === promptTemplateId);
-    addAudit(state, "admin.prompt_template_activated", `Activated prompt template ${promptTemplateId}.`);
+    const activeTemplate = state.promptTemplates.find(
+      (item) => item.public_id === promptTemplateId,
+    );
+    addAudit(
+      state,
+      "admin.prompt_template_activated",
+      `Activated prompt template ${promptTemplateId}.`,
+    );
     await fulfillJson(route, activeTemplate);
     return;
   }
@@ -1444,7 +2419,9 @@ async function handleApiRoute(route: Route, state: MockState) {
       openai_fallback_configured: true,
       demo_fallbacks_enabled: false,
       runtime_warnings: [],
-      failed_jobs_last_7_days: state.searchJobs.filter((job) => job.status === "failed").length,
+      failed_jobs_last_7_days: state.searchJobs.filter(
+        (job) => job.status === "failed",
+      ).length,
       provider_failures_last_7_days: state.searchJobs.reduce(
         (count, job) => count + (job.provider_error_count > 0 ? 1 : 0),
         0,
@@ -1503,12 +2480,18 @@ async function handleApiRoute(route: Route, state: MockState) {
       created_by_user_public_id: state.sessionUser.public_id,
     };
     state.scoringVersions.unshift(version);
-    addAudit(state, "admin.scoring_version_created", `Created scoring version ${version.public_id}.`);
+    addAudit(
+      state,
+      "admin.scoring_version_created",
+      `Created scoring version ${version.public_id}.`,
+    );
     await fulfillJson(route, version);
     return;
   }
 
-  const activateScoringMatch = path.match(/^\/api\/v1\/admin\/scoring-config\/activate\/([^/]+)$/);
+  const activateScoringMatch = path.match(
+    /^\/api\/v1\/admin\/scoring-config\/activate\/([^/]+)$/,
+  );
   if (activateScoringMatch && method === "POST") {
     state.activeScoringVersionId = activateScoringMatch[1];
     addAudit(
@@ -1528,7 +2511,34 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const analysisLatestMatch = path.match(/^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/latest$/);
+  if (path === "/api/v1/icp-profiles" && method === "GET") {
+    await fulfillJson(route, {
+      items: [
+        {
+          public_id: "icp_mock_1",
+          name: "Priority local services",
+          description: "Mock ICP profile for lead detail and campaign demos.",
+          target_industries: ["Dentist", "Clinic"],
+          target_cities: ["Istanbul"],
+          min_rating: null,
+          max_rating: null,
+          min_reviews: null,
+          max_reviews: null,
+          website_preference: "any",
+          required_signals: [],
+          excluded_keywords: [],
+          is_active: true,
+          created_at: iso(2),
+          updated_at: iso(2),
+        },
+      ],
+    });
+    return;
+  }
+
+  const analysisLatestMatch = path.match(
+    /^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/latest$/,
+  );
   if (analysisLatestMatch && method === "GET") {
     const leadId = analysisLatestMatch[1];
     await fulfillJson(route, {
@@ -1538,14 +2548,18 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const analysisGenerateMatch = path.match(/^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/generate$/);
+  const analysisGenerateMatch = path.match(
+    /^\/api\/v1\/ai-analysis\/leads\/([^/]+)\/generate$/,
+  );
   if (analysisGenerateMatch && method === "POST") {
     const leadId = analysisGenerateMatch[1];
     await fulfillJson(route, ensureAnalysis(state, leadId));
     return;
   }
 
-  const outreachLatestMatch = path.match(/^\/api\/v1\/outreach\/leads\/([^/]+)\/latest$/);
+  const outreachLatestMatch = path.match(
+    /^\/api\/v1\/outreach\/leads\/([^/]+)\/latest$/,
+  );
   if (outreachLatestMatch && method === "GET") {
     const leadId = outreachLatestMatch[1];
     await fulfillJson(route, {
@@ -1555,34 +2569,100 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const outreachGenerateMatch = path.match(/^\/api\/v1\/outreach\/leads\/([^/]+)\/generate$/);
+  const outreachGenerateMatch = path.match(
+    /^\/api\/v1\/outreach\/leads\/([^/]+)\/generate$/,
+  );
   if (outreachGenerateMatch && method === "POST") {
     const leadId = outreachGenerateMatch[1];
     const payload = readJsonBody(route);
-    await fulfillJson(route, ensureOutreach(state, leadId, {
-      tone: payload.tone as OutreachTone | undefined,
-      regenerate: Boolean(payload.regenerate),
-    }));
+    await fulfillJson(
+      route,
+      ensureOutreach(state, leadId, {
+        tone: payload.tone as OutreachTone | undefined,
+        regenerate: Boolean(payload.regenerate),
+      }),
+    );
     return;
   }
 
-  const outreachUpdateMatch = path.match(/^\/api\/v1\/outreach\/messages\/([^/]+)$/);
+  const outreachUpdateMatch = path.match(
+    /^\/api\/v1\/outreach\/messages\/([^/]+)$/,
+  );
   if (outreachUpdateMatch && method === "PATCH") {
     const payload = readJsonBody(route);
     const messageId = outreachUpdateMatch[1];
     const message = Object.values(state.outreachByLeadId).find(
-      (item): item is OutreachDraft => Boolean(item && item.public_id === messageId),
+      (item): item is OutreachDraft =>
+        Boolean(item && item.public_id === messageId),
     );
     if (!message) {
-      await fulfillJson(route, { error: { detail: "Message not found." } }, 404);
+      await fulfillJson(
+        route,
+        { error: { detail: "Message not found." } },
+        404,
+      );
       return;
     }
     message.subject = String(payload.subject ?? message.subject);
     message.message = String(payload.message ?? message.message);
     message.has_manual_edits = true;
     message.updated_at = nextTimestamp(state);
-    addAudit(state, "lead.outreach_updated", `Updated outreach draft ${message.public_id}.`);
+    addAudit(
+      state,
+      "lead.outreach_updated",
+      `Updated outreach draft ${message.public_id}.`,
+    );
     await fulfillJson(route, message);
+    return;
+  }
+
+  const leadSignalsMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/signals$/);
+  if (leadSignalsMatch && method === "GET") {
+    const leadId = leadSignalsMatch[1];
+    getLeadOrThrow(state, leadId);
+    await fulfillJson(route, {
+      lead_id: leadId,
+      items: [
+        {
+          public_id: `sig_${leadId}_website`,
+          signal_type: "website_present",
+          signal_strength: 0.82,
+          evidence_text: "Seeded lead has enough web and review evidence for demo scoring.",
+          source_url: null,
+          detected_at: iso(7),
+        },
+      ],
+      scores: [
+        {
+          signal_type: "website_present",
+          score: 82,
+          confidence: 0.86,
+          evidence_count: 1,
+          calculated_at: iso(7),
+        },
+      ],
+    });
+    return;
+  }
+
+  const leadAiEvidenceMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/ai-evidence$/);
+  if (leadAiEvidenceMatch && method === "GET") {
+    const leadId = leadAiEvidenceMatch[1];
+    getLeadOrThrow(state, leadId);
+    await fulfillJson(route, {
+      lead_id: leadId,
+      snapshot_public_id: state.analysisByLeadId[leadId]?.public_id ?? null,
+      items: [
+        {
+          public_id: `aev_${leadId}_1`,
+          source_type: "lead_signal",
+          source_url: null,
+          evidence_text: "Seeded evidence supports the campaign demo without external calls.",
+          confidence: 0.84,
+          created_at: iso(7),
+        },
+      ],
+    });
     return;
   }
 
@@ -1619,7 +2699,10 @@ async function handleApiRoute(route: Route, state: MockState) {
       to_status: null,
       note: String(payload.note ?? ""),
     };
-    state.activityByLeadId[leadId] = [entry, ...(state.activityByLeadId[leadId] ?? [])];
+    state.activityByLeadId[leadId] = [
+      entry,
+      ...(state.activityByLeadId[leadId] ?? []),
+    ];
     addAudit(state, "lead.note_added", `Added a note to lead ${leadId}.`);
     await fulfillJson(route, {
       public_id: entry.entry_id,
@@ -1631,7 +2714,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const leadOutreachMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/outreach\/generate$/);
+  const leadOutreachMatch = path.match(
+    /^\/api\/v1\/leads\/([^/]+)\/outreach\/generate$/,
+  );
   if (leadOutreachMatch && method === "POST") {
     const leadId = leadOutreachMatch[1];
     const payload = readJsonBody(route);
@@ -1668,9 +2753,14 @@ async function handleApiRoute(route: Route, state: MockState) {
       to_status: lead.status,
       note: null,
     };
-    state.activityByLeadId[leadId] = [historyEntry, ...(state.activityByLeadId[leadId] ?? [])];
+    state.activityByLeadId[leadId] = [
+      historyEntry,
+      ...(state.activityByLeadId[leadId] ?? []),
+    ];
     const noteText =
-      typeof payload.note === "string" && payload.note.trim().length > 0 ? payload.note : null;
+      typeof payload.note === "string" && payload.note.trim().length > 0
+        ? payload.note
+        : null;
     if (noteText) {
       state.counters.notes += 1;
       state.activityByLeadId[leadId].unshift({
@@ -1684,7 +2774,11 @@ async function handleApiRoute(route: Route, state: MockState) {
         note: noteText,
       });
     }
-    addAudit(state, "lead.status_updated", `Updated lead ${leadId} status to ${lead.status}.`);
+    addAudit(
+      state,
+      "lead.status_updated",
+      `Updated lead ${leadId} status to ${lead.status}.`,
+    );
     await fulfillJson(route, serializeLead(lead));
     return;
   }
@@ -1713,7 +2807,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
-  const leadScoreBreakdownMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/score-breakdown$/);
+  const leadScoreBreakdownMatch = path.match(
+    /^\/api\/v1\/leads\/([^/]+)\/score-breakdown$/,
+  );
   if (leadScoreBreakdownMatch && method === "GET") {
     const leadId = leadScoreBreakdownMatch[1];
     await fulfillJson(route, state.scoreBreakdownsByLeadId[leadId]);
@@ -1724,11 +2820,34 @@ async function handleApiRoute(route: Route, state: MockState) {
   if (leadRefreshMatch && method === "POST") {
     const leadId = leadRefreshMatch[1];
     const lead = getLeadOrThrow(state, leadId);
-    lead.data_confidence = Number(Math.min(0.99, lead.data_confidence + 0.05).toFixed(2));
-    lead.data_completeness = Number(Math.min(0.99, lead.data_completeness + 0.03).toFixed(2));
+    lead.data_confidence = Number(
+      Math.min(0.99, lead.data_confidence + 0.05).toFixed(2),
+    );
+    lead.data_completeness = Number(
+      Math.min(0.99, lead.data_completeness + 0.03).toFixed(2),
+    );
     lead.updated_at = nextTimestamp(state);
-    addAudit(state, "lead.refreshed", `Refreshed provider evidence for lead ${leadId}.`);
+    addAudit(
+      state,
+      "lead.refreshed",
+      `Refreshed provider evidence for lead ${leadId}.`,
+    );
     await fulfillJson(route, serializeLead(lead));
+    return;
+  }
+
+  const leadCreateDealMatch = path.match(/^\/api\/v1\/leads\/([^/]+)\/create-deal$/);
+  if (leadCreateDealMatch && method === "POST") {
+    const payload = readJsonBody(route);
+    const deal = createMockCrmDeal(state, {
+      lead_id: leadCreateDealMatch[1],
+      allow_duplicate_open: payload.allow_duplicate_open,
+    });
+    if (!deal) {
+      await fulfillJson(route, { error: { detail: "Lead already has an open deal." } }, 409);
+      return;
+    }
+    await fulfillJson(route, serializeCrmDeal(state, deal), 201);
     return;
   }
 
@@ -1759,23 +2878,32 @@ export async function installMockApi(page: Page) {
 
   // Mock OpenStreetMap tile requests
   // Matches: https://a.tile.openstreetmap.org/z/x/y.png, etc.
-  await page.route(/https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i, async (route) => {
-    await route.fulfill({ 
-      status: 200,
-      contentType: "image/png",
-      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
-    });
-  });
+  await page.route(
+    /https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      });
+    },
+  );
 
   // Also catch any other tile requests (other providers, etc.)
   await page.route("**/*.png", async (route) => {
     const url = route.request().url();
     // Only mock tile URLs that look like they're trying to fetch map tiles
     if (url.includes("tile") || url.includes("map")) {
-      await route.fulfill({ 
+      await route.fulfill({
         status: 200,
         contentType: "image/png",
-        body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"),
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64",
+        ),
       });
     } else {
       await route.continue();

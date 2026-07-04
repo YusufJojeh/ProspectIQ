@@ -35,7 +35,11 @@ export function buildScoreDistribution(leads: LeadResponse[]) {
 
 export function buildJobThroughputSeries(jobs: SearchJobResponse[]) {
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const buckets = labels.map((label) => ({ label, discovered: 0, qualified: 0 }));
+  const buckets = labels.map((label) => ({
+    label,
+    discovered: 0,
+    qualified: 0,
+  }));
 
   for (const job of jobs) {
     const date = new Date(job.finished_at ?? job.started_at ?? job.queued_at);
@@ -81,19 +85,31 @@ export function buildLeadHealth(lead: LeadResponse) {
     {
       label: "Website readiness",
       value: lead.has_website ? 100 : 0,
-      helper: lead.has_website ? "A website is available for outbound preparation." : "No website is stored yet.",
+      helper: lead.has_website
+        ? "A website is available for outbound preparation."
+        : "No website is stored yet.",
     },
   ];
 }
 
-export function buildBreakdownSummary(breakdown: LeadScoreBreakdownResponse | null | undefined) {
+export function buildBreakdownSummary(
+  breakdown: LeadScoreBreakdownResponse | null | undefined,
+) {
   if (!breakdown) {
     return [];
   }
 
   return breakdown.breakdown.map((item) => ({
     ...item,
-    percent: Math.max(0, Math.min(100, Math.round((item.contribution / Math.max(breakdown.total_score, 1)) * 100))),
+    percent: Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          (item.contribution / Math.max(breakdown.total_score, 1)) * 100,
+        ),
+      ),
+    ),
   }));
 }
 
@@ -117,11 +133,12 @@ export function mergeActivityTimeline(
     id: item.entry_id,
     source: item.entry_type === "status_change" ? "workflow" : "note",
     createdAt: item.created_at,
-    title: item.entry_type === "status_change" ? "Status updated" : "Internal note",
+    title:
+      item.entry_type === "status_change" ? "Status updated" : "Internal note",
     detail:
       item.entry_type === "status_change"
         ? `${item.from_status ?? "initial"} to ${item.to_status ?? "unknown"}`
-        : item.note ?? "No note body stored.",
+        : (item.note ?? "No note body stored."),
     actor: item.actor_full_name ?? item.actor_user_public_id ?? "System",
   }));
 

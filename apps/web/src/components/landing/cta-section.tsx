@@ -23,7 +23,10 @@ export function CtaSection() {
           <div className="pointer-events-none absolute inset-0">
             <div
               className="absolute inset-0"
-              style={{ background: "radial-gradient(ellipse at center, oklch(0.82 0.14 195 / 0.18), transparent 60%)" }}
+              style={{
+                background:
+                  "radial-gradient(ellipse at center, oklch(0.82 0.14 195 / 0.18), transparent 60%)",
+              }}
             />
             <div className="absolute inset-0 bg-grid opacity-30" />
           </div>
@@ -39,16 +42,30 @@ export function CtaSection() {
               <br />
               {t("landing.cta.titleLine2")}
             </h2>
-            <p className="mx-auto mt-5 max-w-lg text-pretty text-base leading-relaxed text-muted-foreground">{t("landing.cta.description")}</p>
+            <p className="mx-auto mt-5 max-w-lg text-pretty text-base leading-relaxed text-muted-foreground">
+              {t("landing.cta.description")}
+            </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button asChild size="lg" className="h-11 gap-1.5 px-5 font-medium">
+              <Button
+                asChild
+                size="lg"
+                className="h-11 gap-1.5 px-5 font-medium"
+              >
                 <Link to={appPaths.signUp}>
-                  {t("landing.cta.requestAccess")} <ArrowRight className="size-4" />
+                  {t("landing.cta.requestAccess")}{" "}
+                  <ArrowRight className="size-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="h-11 bg-transparent px-5 font-medium">
-                <Link to={appPaths.login}>{t("landing.cta.existingWorkspace")}</Link>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="h-11 bg-transparent px-5 font-medium"
+              >
+                <Link to={appPaths.login}>
+                  {t("landing.cta.existingWorkspace")}
+                </Link>
               </Button>
             </div>
           </div>

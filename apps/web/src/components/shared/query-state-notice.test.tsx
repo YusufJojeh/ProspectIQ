@@ -15,7 +15,9 @@ describe("QueryStateNotice", () => {
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("aria-busy", "true");
     expect(screen.getByText("Loading workspace snapshot")).toBeInTheDocument();
-    expect(screen.getByText("Fetching lead coverage from the API.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Fetching lead coverage from the API."),
+    ).toBeInTheDocument();
   });
 
   it("renders an alert role for errors", () => {

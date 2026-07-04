@@ -18,7 +18,9 @@ from app.modules.billing.models import (
 
 class BillingRepository:
     def list_plans(self, db: Session) -> list[Plan]:
-        return list(db.scalars(select(Plan).where(Plan.is_active.is_(True)).order_by(Plan.id.asc())))
+        return list(
+            db.scalars(select(Plan).where(Plan.is_active.is_(True)).order_by(Plan.id.asc()))
+        )
 
     def get_plan_by_code(self, db: Session, code: str) -> Plan | None:
         return db.scalar(select(Plan).where(Plan.code == code))
@@ -39,9 +41,13 @@ class BillingRepository:
             )
         )
 
-    def get_invoice_for_workspace(self, db: Session, workspace_id: int, public_id: str) -> Invoice | None:
+    def get_invoice_for_workspace(
+        self, db: Session, workspace_id: int, public_id: str
+    ) -> Invoice | None:
         return db.scalar(
-            select(Invoice).where(Invoice.workspace_id == workspace_id, Invoice.public_id == public_id)
+            select(Invoice).where(
+                Invoice.workspace_id == workspace_id, Invoice.public_id == public_id
+            )
         )
 
     def get_plan(self, db: Session, plan_id: int) -> Plan | None:
@@ -96,7 +102,11 @@ class BillingRepository:
 
     def list_invoice_items(self, db: Session, invoice_id: int) -> list[InvoiceItem]:
         return list(
-            db.scalars(select(InvoiceItem).where(InvoiceItem.invoice_id == invoice_id).order_by(InvoiceItem.id.asc()))
+            db.scalars(
+                select(InvoiceItem)
+                .where(InvoiceItem.invoice_id == invoice_id)
+                .order_by(InvoiceItem.id.asc())
+            )
         )
 
     def list_payment_attempts(self, db: Session, invoice_id: int) -> list[PaymentAttempt]:

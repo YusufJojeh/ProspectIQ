@@ -11,7 +11,9 @@ import { HeroLeadCard } from "./hero-lead-card";
 
 export function Hero() {
   const { t } = useTranslation();
-  const trustItems = t("landing.hero.trust", { returnObjects: true }) as string[];
+  const trustItems = t("landing.hero.trust", {
+    returnObjects: true,
+  }) as string[];
   const rootRef = useRef<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
@@ -31,12 +33,24 @@ export function Hero() {
 
       timeline
         .from("[data-hero-pill]", { opacity: 0, y: 18, duration: 0.5 }, 0.12)
-        .from("[data-hero-title-line]", { opacity: 0, y: 34, stagger: 0.1 }, 0.2)
+        .from(
+          "[data-hero-title-line]",
+          { opacity: 0, y: 34, stagger: 0.1 },
+          0.2,
+        )
         .from("[data-hero-copy]", { opacity: 0, y: 22, duration: 0.55 }, 0.45)
         .from("[data-hero-actions]", { opacity: 0, y: 18, duration: 0.5 }, 0.58)
         .from("[data-hero-trust]", { opacity: 0, y: 14, duration: 0.45 }, 0.7)
-        .from("[data-hero-card]", { opacity: 0, y: 48, scale: 0.98, duration: 0.95, ease: "expo.out" }, 0.38)
-        .from("[data-hero-glow]", { opacity: 0, scale: 0.86, duration: 1.2, ease: "power2.out" }, 0)
+        .from(
+          "[data-hero-card]",
+          { opacity: 0, y: 48, scale: 0.98, duration: 0.95, ease: "expo.out" },
+          0.38,
+        )
+        .from(
+          "[data-hero-glow]",
+          { opacity: 0, scale: 0.86, duration: 1.2, ease: "power2.out" },
+          0,
+        )
         .fromTo(
           "[data-hero-underline]",
           { scaleX: 0, transformOrigin: "left center" },
@@ -49,20 +63,25 @@ export function Hero() {
   }, []);
 
   return (
-    <section ref={rootRef} className="relative overflow-hidden pb-24 pt-36 lg:pb-32 lg:pt-44">
+    <section
+      ref={rootRef}
+      className="relative overflow-hidden pb-24 pt-36 lg:pb-32 lg:pt-44"
+    >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-grid bg-grid-fade opacity-40" />
         <div
           data-hero-glow
           className="absolute left-1/2 top-0 h-[700px] w-[1200px] -translate-x-1/2 rounded-full blur-3xl"
           style={{
-            background: "radial-gradient(ellipse at center, oklch(0.82 0.14 195 / 0.2), transparent 60%)",
+            background:
+              "radial-gradient(ellipse at center, oklch(0.82 0.14 195 / 0.2), transparent 60%)",
           }}
         />
         <div
           className="absolute -bottom-40 right-[-10%] h-[500px] w-[500px] rounded-full blur-3xl"
           style={{
-            background: "radial-gradient(circle, oklch(0.78 0.16 152 / 0.12), transparent 70%)",
+            background:
+              "radial-gradient(circle, oklch(0.78 0.16 152 / 0.12), transparent 70%)",
           }}
         />
       </div>
@@ -94,25 +113,44 @@ export function Hero() {
             </span>
           </h1>
 
-          <p data-hero-copy className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
+          <p
+            data-hero-copy
+            className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
+          >
             {t("landing.hero.description")}
           </p>
 
-          <div data-hero-actions className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
+          <div
+            data-hero-actions
+            className="mt-10 flex flex-col items-center gap-3 sm:flex-row"
+          >
             <Button asChild size="lg" className="h-11 gap-1.5 px-5 font-medium">
               <Link to={appPaths.signUp}>
-                {t("landing.nav.requestAccess")} <ArrowRight className="size-4" />
+                {t("landing.nav.requestAccess")}{" "}
+                <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="lg" className="h-11 gap-1.5 px-4 font-medium">
-              <a href="/product-tour/index.html" target="_blank" rel="noreferrer">
+            <Button
+              asChild
+              variant="ghost"
+              size="lg"
+              className="h-11 gap-1.5 px-4 font-medium"
+            >
+              <a
+                href="/product-tour/index.html"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <PlayCircle className="size-4" />
                 {t("landing.hero.watchTour")}
               </a>
             </Button>
           </div>
 
-          <div data-hero-trust className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-muted-foreground">
+          <div
+            data-hero-trust
+            className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-muted-foreground"
+          >
             {trustItems.map((item, index) =>
               index === 0 ? (
                 <div key={item} className="flex items-center gap-1.5">

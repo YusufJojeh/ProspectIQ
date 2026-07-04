@@ -1,23 +1,30 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { ArrowUpRight, CheckCircle2, Database, ExternalLink, Link2, Sparkles } from "lucide-react"
+import { motion } from "framer-motion";
+import {
+  ArrowUpRight,
+  CheckCircle2,
+  Database,
+  ExternalLink,
+  Link2,
+  Sparkles,
+} from "lucide-react";
 
-const SCORE = 87
+const SCORE = 87;
 
 const BREAKDOWN = [
   { label: "ICP fit", value: 92, tone: "oklch(var(--signal))" },
   { label: "Budget signal", value: 84, tone: "oklch(var(--evidence))" },
   { label: "Timing intent", value: 78, tone: "oklch(var(--caution))" },
   { label: "Data completeness", value: 96, tone: "oklch(var(--signal))" },
-]
+];
 
 const EVIDENCE = [
   { src: "Clearbit", label: "Series B · $42M raised Mar 2026", conf: 0.98 },
   { src: "LinkedIn", label: "15 hires on Growth team in 90d", conf: 0.94 },
   { src: "BuiltWith", label: "Segment + HubSpot + Intercom", conf: 0.99 },
   { src: "Earnings call", label: "CFO: shifting CAC spend to ABM", conf: 0.82 },
-]
+];
 
 export function HeroLeadCard() {
   return (
@@ -60,7 +67,9 @@ export function HeroLeadCard() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-lg font-semibold tracking-tight">Northbeam Analytics</h3>
+                  <h3 className="truncate text-lg font-semibold tracking-tight">
+                    Northbeam Analytics
+                  </h3>
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[oklch(var(--evidence)/0.3)] bg-[oklch(var(--evidence)/0.08)] px-1.5 py-0.5 text-[10px] font-medium text-[oklch(var(--evidence))]">
                     <CheckCircle2 className="size-2.5" />
                     Verified
@@ -91,15 +100,23 @@ export function HeroLeadCard() {
                   className="rounded-lg border border-border bg-background/60 p-3"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">{b.label}</span>
-                    <span className="font-mono text-[11px] text-foreground">{b.value}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {b.label}
+                    </span>
+                    <span className="font-mono text-[11px] text-foreground">
+                      {b.value}
+                    </span>
                   </div>
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-border">
                     <motion.div
                       initial={{ width: 0 }}
                       whileInView={{ width: `${b.value}%` }}
                       viewport={{ once: true }}
-                      transition={{ delay: 1 + i * 0.08, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{
+                        delay: 1 + i * 0.08,
+                        duration: 0.9,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
                       className="h-full rounded-full"
                       style={{ background: b.tone }}
                     />
@@ -130,7 +147,9 @@ export function HeroLeadCard() {
                 <Database className="size-3" />
                 Evidence stream
               </div>
-              <span className="font-mono text-[10px] text-muted-foreground">4 sources · 0 conflicts</span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                4 sources · 0 conflicts
+              </span>
             </div>
 
             <div className="flex-1 divide-y divide-border">
@@ -152,7 +171,9 @@ export function HeroLeadCard() {
                       conf {(e.conf * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="mt-1 break-words text-[13px] leading-relaxed text-foreground">{e.label}</div>
+                  <div className="mt-1 break-words text-[13px] leading-relaxed text-foreground">
+                    {e.label}
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -167,18 +188,25 @@ export function HeroLeadCard() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function ScoreRing({ score }: { score: number }) {
-  const size = 68
-  const stroke = 5
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
+  const size = 68;
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="oklch(var(--border))" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke="oklch(var(--border))"
+          strokeWidth={stroke}
+          fill="none"
+        />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -194,11 +222,13 @@ function ScoreRing({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        <span className="font-mono text-[18px] font-semibold text-foreground">{score}</span>
+        <span className="font-mono text-[18px] font-semibold text-foreground">
+          {score}
+        </span>
         <span className="mt-0.5 text-[8px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
           Grade A
         </span>
       </div>
     </div>
-  )
+  );
 }

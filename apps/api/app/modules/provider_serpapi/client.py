@@ -154,9 +154,7 @@ class SerpApiClient:
         search_id = metadata.get("id")
         return str(search_id) if search_id is not None else None
 
-    def _parse_payload(
-        self, response: httpx.Response
-    ) -> tuple[dict[str, Any], str | None]:
+    def _parse_payload(self, response: httpx.Response) -> tuple[dict[str, Any], str | None]:
         try:
             payload = response.json()
         except Exception:

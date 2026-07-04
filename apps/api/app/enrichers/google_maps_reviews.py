@@ -102,7 +102,7 @@ class GoogleMapsReviewsEnricher(BaseLeadEnricher):
 
     def _classify(self, review: dict[str, Any]) -> str:
         rating = review.get("rating")
-        if isinstance(rating, (int, float)):
+        if isinstance(rating, int | float):
             if rating >= 4:
                 return "positive"
             if rating <= 2:

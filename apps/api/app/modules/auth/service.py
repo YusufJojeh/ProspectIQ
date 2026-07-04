@@ -6,7 +6,11 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError
 from app.core.security import create_access_token, verify_password
 from app.modules.audit_logs.service import AuditLogService
-from app.modules.auth.exceptions import InactiveUserError, InvalidCredentialsError
+from app.modules.auth.exceptions import (
+    InactiveUserError,
+    InactiveWorkspaceError,
+    InvalidCredentialsError,
+)
 from app.modules.auth.permissions import get_role_permissions
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
@@ -53,6 +57,18 @@ class AuthService:
                 details=f"Blocked login attempt for inactive user {user.public_id}.",
             )
             raise InactiveUserError()
+        if user.workspace.status != "active":
+            self.audit_logs.record(
+                db,
+                workspace_id=user.workspace_id,
+                actor_user_id=user.id,
+                event_name="auth.login_blocked",
+                details=(
+                    f"Blocked login attempt for user {user.public_id} because workspace "
+                    f"{user.workspace.public_id} is {user.workspace.status}."
+                ),
+            )
+            raise InactiveWorkspaceError()
 
         user = self.repository.update_last_login(db, user)
 
@@ -91,7 +107,9 @@ class AuthService:
 
         billing = BillingService()
         billing.ensure_seed_data(db)
-        billing.bootstrap_workspace_subscription(db, workspace=user.workspace, actor_user_id=user.id)
+        billing.bootstrap_workspace_subscription(
+            db, workspace=user.workspace, actor_user_id=user.id
+        )
 
         self.audit_logs.record(
             db,

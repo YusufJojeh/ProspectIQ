@@ -73,7 +73,9 @@ export function MediaPanel({
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   {stat.label}
                 </p>
-                <p className="mt-1 text-lg font-semibold text-foreground">{stat.value}</p>
+                <p className="mt-1 text-lg font-semibold text-foreground">
+                  {stat.value}
+                </p>
               </div>
             ))}
           </div>

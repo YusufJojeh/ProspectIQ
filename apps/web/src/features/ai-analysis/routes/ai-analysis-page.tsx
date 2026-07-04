@@ -17,7 +17,13 @@ import {
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AiPill, AttentionPill, ConfidenceBadge, BandBadge, bandFromScore } from "@/components/brand/badges";
+import {
+  AiPill,
+  AttentionPill,
+  ConfidenceBadge,
+  BandBadge,
+  bandFromScore,
+} from "@/components/brand/badges";
 import { ScoreRing } from "@/components/brand/score-ring";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { listLeads } from "@/features/leads/api";
@@ -58,7 +64,8 @@ export function AiAnalysisPage() {
 
   const visible = scored.filter(({ lead, kind }) => {
     if (filter !== "all" && kind !== filter) return false;
-    if (query && !lead.company_name.toLowerCase().includes(query.toLowerCase())) return false;
+    if (query && !lead.company_name.toLowerCase().includes(query.toLowerCase()))
+      return false;
     return true;
   });
 
@@ -70,15 +77,27 @@ export function AiAnalysisPage() {
   };
 
   const avgConfidence =
-    leads.length > 0 ? leads.reduce((sum, l) => sum + l.data_confidence, 0) / leads.length : 0;
+    leads.length > 0
+      ? leads.reduce((sum, l) => sum + l.data_confidence, 0) / leads.length
+      : 0;
 
   if (leadsQuery.isPending) {
-    return <QueryStateNotice tone="loading" title={t("ai.title")} description={t("ai.generating")} />;
+    return (
+      <QueryStateNotice
+        tone="loading"
+        title={t("ai.title")}
+        description={t("ai.generating")}
+      />
+    );
   }
 
   if (leadsQuery.isError) {
     return (
-      <QueryStateNotice tone="error" title={t("leadDetail.couldNotLoadLeads")} error={leadsQuery.error} />
+      <QueryStateNotice
+        tone="error"
+        title={t("leadDetail.couldNotLoadLeads")}
+        error={leadsQuery.error}
+      />
     );
   }
 
@@ -90,7 +109,12 @@ export function AiAnalysisPage() {
         description={t("ai.heroDescription")}
         actions={
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="bg-transparent" asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-transparent"
+              asChild
+            >
               <Link to={appPaths.assistant}>
                 <Sparkles className="size-3.5" /> {t("ai.openAssistant")}
               </Link>
@@ -134,13 +158,23 @@ export function AiAnalysisPage() {
               icon: AlertTriangle,
             },
           ].map((s) => (
-            <div key={s.k} className="rounded-xl border border-border bg-card p-4">
+            <div
+              key={s.k}
+              className="rounded-xl border border-border bg-card p-4"
+            >
               <div className="flex items-center gap-2 text-[11.5px] uppercase tracking-wider text-muted-foreground">
-                <s.icon className="size-3.5" style={{ color: `oklch(var(--${s.tone}))` }} />
+                <s.icon
+                  className="size-3.5"
+                  style={{ color: `oklch(var(--${s.tone}))` }}
+                />
                 {s.k}
               </div>
-              <div className="mt-2 font-mono text-[24px] font-semibold tabular-nums">{s.v}</div>
-              <div className="mt-0.5 text-[11.5px] text-muted-foreground">{s.sub}</div>
+              <div className="mt-2 font-mono text-[24px] font-semibold tabular-nums">
+                {s.v}
+              </div>
+              <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+                {s.sub}
+              </div>
             </div>
           ))}
         </section>
@@ -149,9 +183,17 @@ export function AiAnalysisPage() {
           {(
             [
               { id: "all", label: t("ai.filterAll"), count: counts.all },
-              { id: "recommend", label: t("ai.filterRecommended"), count: counts.recommend },
+              {
+                id: "recommend",
+                label: t("ai.filterRecommended"),
+                count: counts.recommend,
+              },
               { id: "watch", label: t("ai.filterWatch"), count: counts.watch },
-              { id: "attention", label: t("ai.filterAttention"), count: counts.attention },
+              {
+                id: "attention",
+                label: t("ai.filterAttention"),
+                count: counts.attention,
+              },
             ] as const
           ).map((tab) => (
             <button
@@ -165,7 +207,9 @@ export function AiAnalysisPage() {
               )}
             >
               {tab.label}
-              <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">{tab.count}</span>
+              <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
+                {tab.count}
+              </span>
             </button>
           ))}
           <div className="relative w-full md:ms-auto md:w-64">
@@ -204,50 +248,74 @@ export function AiAnalysisPage() {
                       {lead.category ?? "Business"} · {lead.city ?? "—"}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {kind === "recommend" && <AiPill>{t("ai.recommendOutreach")}</AiPill>}
+                      {kind === "recommend" && (
+                        <AiPill>{t("ai.recommendOutreach")}</AiPill>
+                      )}
                       {kind === "watch" && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-[oklch(var(--caution)/0.35)] bg-[oklch(var(--caution)/0.08)] px-2 py-0.5 text-[11px] font-medium text-[oklch(var(--caution))]">
                           <Clock className="size-3" /> {t("ai.watchSignal")}
                         </span>
                       )}
-                      {kind === "attention" && <AttentionPill>{t("ai.needsReview")}</AttentionPill>}
+                      {kind === "attention" && (
+                        <AttentionPill>{t("ai.needsReview")}</AttentionPill>
+                      )}
                       <ConfidenceBadge value={lead.data_confidence} />
                     </div>
                   </div>
                 </header>
 
                 <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-                  <span className="font-medium text-foreground">{lead.company_name}</span>{" "}
+                  <span className="font-medium text-foreground">
+                    {lead.company_name}
+                  </span>{" "}
                   {kind === "recommend" ? (
                     <>
-                      {t("ai.recommendationCopyPrefix", { reviews: lead.review_count })}
-                      {lead.rating ? t("ai.ratingAverage", { rating: lead.rating }) : "."} {t("ai.confidenceScore")}{" "}
-                      <span className="text-foreground">{Math.round(lead.data_confidence * 100)}%</span>.
+                      {t("ai.recommendationCopyPrefix", {
+                        reviews: lead.review_count,
+                      })}
+                      {lead.rating
+                        ? t("ai.ratingAverage", { rating: lead.rating })
+                        : "."}{" "}
+                      {t("ai.confidenceScore")}{" "}
+                      <span className="text-foreground">
+                        {Math.round(lead.data_confidence * 100)}%
+                      </span>
+                      .
                     </>
                   ) : kind === "watch" ? (
                     <>
                       {t("ai.watchCopyPrefix")}{" "}
-                      <span className="text-foreground">{Math.round(lead.data_completeness * 100)}%</span>.{" "}
-                      {t("ai.watchCopySuffix")}
+                      <span className="text-foreground">
+                        {Math.round(lead.data_completeness * 100)}%
+                      </span>
+                      . {t("ai.watchCopySuffix")}
                     </>
                   ) : (
-                    <>
-                      {t("ai.attentionCopy")}
-                    </>
+                    <>{t("ai.attentionCopy")}</>
                   )}
                 </p>
 
                 <div className="grid grid-cols-3 gap-2 text-[11.5px]">
                   <div className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ai.score")}</div>
-                    <div className="mt-0.5 font-mono font-semibold tabular-nums">{score}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("ai.score")}
+                    </div>
+                    <div className="mt-0.5 font-mono font-semibold tabular-nums">
+                      {score}
+                    </div>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ai.reviews")}</div>
-                    <div className="mt-0.5 font-mono font-semibold tabular-nums">{lead.review_count}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("ai.reviews")}
+                    </div>
+                    <div className="mt-0.5 font-mono font-semibold tabular-nums">
+                      {lead.review_count}
+                    </div>
                   </div>
                   <div className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ai.confidence")}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("ai.confidence")}
+                    </div>
                     <div className="mt-0.5 font-mono font-semibold tabular-nums">
                       {Math.round(lead.data_confidence * 100)}%
                     </div>
@@ -256,17 +324,26 @@ export function AiAnalysisPage() {
 
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <CheckCircle2 className="size-3 text-[oklch(var(--evidence))]" />
-                  {lead.category ?? t("dashboard.business")} · {lead.city ?? "—"}{lead.has_website ? ` · ${t("ai.hasWebsite")}` : ""}
+                  {lead.category ?? t("dashboard.business")} ·{" "}
+                  {lead.city ?? "—"}
+                  {lead.has_website ? ` · ${t("ai.hasWebsite")}` : ""}
                 </div>
 
                 <div className="flex items-center gap-2 border-t border-border pt-3">
-                  <Button size="sm" variant="outline" className="bg-transparent" asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-transparent"
+                    asChild
+                  >
                     <Link to={appPaths.leadDetail(lead.public_id)}>
                       <TrendingUp className="size-3.5" /> {t("ai.openLead")}
                     </Link>
                   </Button>
                   <Button size="sm" variant="ghost" asChild>
-                    <Link to={`${appPaths.assistant}?leadId=${lead.public_id}`}>{t("ai.askAssistant")}</Link>
+                    <Link to={`${appPaths.assistant}?leadId=${lead.public_id}`}>
+                      {t("ai.askAssistant")}
+                    </Link>
                   </Button>
                 </div>
               </article>
@@ -277,15 +354,22 @@ export function AiAnalysisPage() {
         {visible.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card/40 py-16 text-center">
             <Sparkles className="size-5 text-muted-foreground" />
-            <div className="text-sm font-medium">{t("ai.noRecommendationsMatch")}</div>
-            <div className="text-xs text-muted-foreground">{t("ai.noRecommendationsHint")}</div>
+            <div className="text-sm font-medium">
+              {t("ai.noRecommendationsMatch")}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t("ai.noRecommendationsHint")}
+            </div>
           </div>
         )}
 
         {visible.length > 0 && (
           <div className="flex items-center justify-center gap-2 pt-2 text-[11.5px] text-muted-foreground">
             <span>
-              {t("ai.showing", { visible: visible.length, total: scored.length })}
+              {t("ai.showing", {
+                visible: visible.length,
+                total: scored.length,
+              })}
             </span>
             <ArrowRight className="size-3" />
           </div>

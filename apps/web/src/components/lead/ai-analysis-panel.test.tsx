@@ -26,11 +26,14 @@ const snapshot: LeadAnalysisSnapshotResponse = {
   model_name: "gpt-4.1-mini",
   created_at: "2026-04-29T10:15:00Z",
   analysis: {
-    summary: "## Strong fit\n\nThis lead has **high local trust** and clear digital demand.",
+    summary:
+      "## Strong fit\n\nThis lead has **high local trust** and clear digital demand.",
     opportunities: [
       "Prioritize **local SEO** because discoverability gaps are still visible.",
     ],
-    weaknesses: ["Website conversion copy is thin and the CTA hierarchy is unclear."],
+    weaknesses: [
+      "Website conversion copy is thin and the CTA hierarchy is unclear.",
+    ],
     recommended_services: ["Local SEO"],
     outreach_subject: "Quick growth idea for Acme Dental",
     outreach_message: "There is a clear local visibility opportunity.",

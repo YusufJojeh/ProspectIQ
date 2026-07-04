@@ -30,7 +30,9 @@ class AdminRepository:
         )
 
     def get_provider_settings(self, db: Session, *, workspace_id: int) -> ProviderSettings | None:
-        return db.scalar(select(ProviderSettings).where(ProviderSettings.workspace_id == workspace_id))
+        return db.scalar(
+            select(ProviderSettings).where(ProviderSettings.workspace_id == workspace_id)
+        )
 
     def ensure_provider_settings(self, db: Session, *, workspace_id: int) -> ProviderSettings:
         settings = self.get_provider_settings(db, workspace_id=workspace_id)

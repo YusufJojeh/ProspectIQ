@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -87,6 +89,38 @@ class SearchJobService:
         if job is None:
             raise NotFoundError("Search job was not found.")
         return job
+
+    def requeue_stale_active_jobs(self, db: Session, *, workspace_id: int) -> list[SearchJob]:
+        settings = get_settings()
+        stale_after_seconds = max(
+            settings.discovery_stale_job_seconds,
+            settings.discovery_global_job_deadline_seconds + 120,
+        )
+        cutoff = datetime.now(tz=UTC) - timedelta(seconds=stale_after_seconds)
+        stale_jobs = self.repository.list_stale_active_for_workspace(
+            db, workspace_id=workspace_id, cutoff=cutoff
+        )
+
+        requeued: list[SearchJob] = []
+        for job in stale_jobs:
+            previous_status = job.status
+            job.status = SearchJobStatus.QUEUED.value
+            job.queued_at = datetime.now(tz=UTC)
+            job.started_at = None
+            job.finished_at = None
+            saved = self.repository.save(db, job)
+            self.audit_logs.record(
+                db,
+                workspace_id=workspace_id,
+                actor_user_id=job.requested_by_user_id,
+                event_name="search_job.auto_requeued",
+                details=(
+                    f"Auto-requeued stale search job {job.public_id} "
+                    f"after it remained {previous_status} beyond the recovery window."
+                ),
+            )
+            requeued.append(saved)
+        return requeued
 
     def assert_discovery_runtime_available(self) -> None:
         settings = get_settings()

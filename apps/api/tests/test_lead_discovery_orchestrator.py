@@ -511,7 +511,10 @@ def test_pipeline_mode_runs_arabic_and_english_without_breaking(monkeypatch) -> 
     with session_factory() as db:
         job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
         assert job is not None
-        assert job.status in {SearchJobStatus.COMPLETED.value, SearchJobStatus.PARTIALLY_COMPLETED.value}
+        assert job.status in {
+            SearchJobStatus.COMPLETED.value,
+            SearchJobStatus.PARTIALLY_COMPLETED.value,
+        }
         assert job.leads_upserted >= 1
     clear_settings_cache()
 

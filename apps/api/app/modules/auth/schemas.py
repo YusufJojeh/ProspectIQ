@@ -12,7 +12,9 @@ class LoginRequest(BaseModel):
 
 
 class SignupRequest(BaseModel):
-    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=255)]
+    full_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=2, max_length=255)
+    ]
     workspace_name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=2, max_length=255)
     ]

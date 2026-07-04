@@ -216,6 +216,16 @@ py -3.12 -m mypy app --config-file pyproject.toml
 py -3.12 -m alembic upgrade head --sql > $env:TEMP\alembic.sql
 ```
 
+Low-budget live SerpAPI smoke, opt-in only. This spends exactly two Google Maps searches:
+
+```powershell
+cd apps/api
+$env:PROSPECTIQ_LIVE_SEARCH_E2E = "1"
+$env:SERPAPI_RUNTIME_MODE = "live"
+py -3.12 -m pytest tests/test_live_search_e2e.py -q
+Remove-Item Env:\PROSPECTIQ_LIVE_SEARCH_E2E
+```
+
 ### Frontend
 
 ```powershell

@@ -82,4 +82,3 @@ class SubscriptionChangeRequest(BaseModel):
 class BillingSimulationRequest(BaseModel):
     invoice_public_id: str | None = None
     error_message: str | None = None
-

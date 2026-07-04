@@ -19,6 +19,7 @@ class NormalizedLeadFacts(BaseModel):
     visibility_confidence: float | None = None
     visibility_source: str | None = None
     phone_present: bool = False
+    email_present: bool = False
     address_present: bool = False
     hours_present: bool = False
     maps_search_present: bool = False
@@ -43,6 +44,10 @@ class NormalizedLeadFacts(BaseModel):
     enriched_rating: float | None = None
     enriched_review_count: int = 0
     news_present: bool = False
+    tavily_present: bool = False
+    tavily_answer_present: bool = False
+    tavily_result_count: int = 0
+    tavily_top_relevance_score: float = 0.0
 
 
 class DeterministicScoreContext(BaseModel):

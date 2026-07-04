@@ -18,7 +18,10 @@ export function ForgotPasswordPage() {
       footer={
         <p className="text-[12px] text-muted-foreground">
           {t("auth.haveAccount")}{" "}
-          <Link to={appPaths.login} className="font-medium text-foreground hover:text-[oklch(var(--signal))]">
+          <Link
+            to={appPaths.login}
+            className="font-medium text-foreground hover:text-[oklch(var(--signal))]"
+          >
             {t("auth.signIn")}
           </Link>
         </p>

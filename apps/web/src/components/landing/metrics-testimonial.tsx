@@ -6,7 +6,10 @@ import { Quote } from "lucide-react";
 
 export function MetricsTestimonial() {
   const { t } = useTranslation();
-  const metrics = t("landing.metrics.items", { returnObjects: true }) as Array<{ value: string; label: string }>;
+  const metrics = t("landing.metrics.items", { returnObjects: true }) as Array<{
+    value: string;
+    label: string;
+  }>;
 
   return (
     <section className="relative border-y border-border bg-card/40 py-24 lg:py-32">
@@ -26,7 +29,9 @@ export function MetricsTestimonial() {
               <div className="bg-gradient-to-br from-[oklch(0.97_0.005_240)] to-[oklch(0.68_0.01_240)] bg-clip-text text-[44px] font-semibold leading-none tracking-tight text-transparent sm:text-[56px]">
                 {metric.value}
               </div>
-              <div className="text-[13px] leading-relaxed text-muted-foreground">{metric.label}</div>
+              <div className="text-[13px] leading-relaxed text-muted-foreground">
+                {metric.label}
+              </div>
             </motion.div>
           ))}
         </div>
@@ -45,8 +50,12 @@ export function MetricsTestimonial() {
                 MR
               </div>
               <div>
-                <div className="text-[14px] font-semibold text-foreground">{t("landing.metrics.person")}</div>
-                <div className="text-[12px] text-muted-foreground">{t("landing.metrics.role")}</div>
+                <div className="text-[14px] font-semibold text-foreground">
+                  {t("landing.metrics.person")}
+                </div>
+                <div className="text-[12px] text-muted-foreground">
+                  {t("landing.metrics.role")}
+                </div>
               </div>
             </div>
           </div>

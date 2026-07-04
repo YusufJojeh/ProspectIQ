@@ -16,8 +16,6 @@ if (-not (Test-Path $webEnv)) {
     Copy-Item $webEnvExample $webEnv
 }
 
-docker compose -f infra/docker-compose.yml up -d
-
 Set-Location "$Root\apps\api"
 if (-not (Test-Path ".venv")) {
     py -3.12 -m venv .venv
@@ -37,7 +35,7 @@ New-Item -ItemType Directory -Force "$Root\tmp" | Out-Null
 Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory "$Root\apps\api" -ArgumentList @(
     "-NoProfile",
     "-Command",
-    "& '.\.venv\Scripts\python.exe' -m uvicorn app.main:app --reload *> '$Root\tmp\local-api.log'"
+    "& '.\.venv\Scripts\python.exe' -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 *> '$Root\tmp\local-api.log'"
 )
 
 Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory "$Root\apps\web" -ArgumentList @(
@@ -49,4 +47,5 @@ Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory "$Root\apps\w
 Write-Host "`nLocal-live services started." -ForegroundColor Green
 Write-Host "API: http://localhost:8000" -ForegroundColor Green
 Write-Host "Web: http://localhost:5173" -ForegroundColor Green
+Write-Host "LAN: http://$env:COMPUTERNAME`:5173" -ForegroundColor Green
 Write-Host "Logs: tmp/local-api.log and tmp/local-web.log" -ForegroundColor Green

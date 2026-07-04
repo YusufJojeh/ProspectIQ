@@ -11,9 +11,7 @@ from app.shared.utils.identifiers import new_public_id
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
-    __table_args__ = (
-        Index("ix_chat_sessions_workspace_created_at", "workspace_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_chat_sessions_workspace_created_at", "workspace_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -35,9 +33,7 @@ class ChatSession(Base):
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
-    __table_args__ = (
-        Index("ix_chat_messages_session_created_at", "session_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_chat_messages_session_created_at", "session_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(

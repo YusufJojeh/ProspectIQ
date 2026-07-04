@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -20,6 +20,7 @@ from app.modules.assistant.repository import ChatSessionRepository
 from app.modules.assistant.schemas import AssistantMessageInput, AssistantMessagePartInput
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
+from app.modules.leads.schemas import LeadSortOption
 from app.modules.provider_serpapi.engines.google_jobs import (
     build_google_jobs_params,
     extract_jobs_items,
@@ -155,9 +156,7 @@ class AssistantService:
         workspace_id: int,
         lead_id: int | None = None,
     ) -> list[ChatSession]:
-        return self.session_repository.list_sessions(
-            db, workspace_id=workspace_id, lead_id=lead_id
-        )
+        return self.session_repository.list_sessions(db, workspace_id=workspace_id, lead_id=lead_id)
 
     def get_session_detail(
         self, db: Session, *, workspace_id: int, session_public_id: str
@@ -169,9 +168,7 @@ class AssistantService:
             raise NotFoundError("Chat session was not found.")
         return session
 
-    def delete_session(
-        self, db: Session, *, workspace_id: int, session_public_id: str
-    ) -> None:
+    def delete_session(self, db: Session, *, workspace_id: int, session_public_id: str) -> None:
         session = self.get_session_detail(
             db, workspace_id=workspace_id, session_public_id=session_public_id
         )
@@ -227,7 +224,28 @@ class AssistantService:
         """Yield raw text tokens from the LLM or the deterministic fallback."""
         search_context = self._get_active_search_context()
         if lead is None:
-            yield self._build_workspace_response(messages, search_context=search_context)
+            # Workspace-level question: answer from the LLM grounded on real stored
+            # leads/scores. Deterministic builders are only a fallback for when no AI
+            # provider is configured (demo / offline mode).
+            settings = get_settings()
+            candidates = self._resolve_runtime_candidates(settings)
+            if candidates:
+                llm_messages = self._build_workspace_llm_messages(
+                    db,
+                    workspace_id=workspace_id,
+                    messages=messages,
+                    search_context=search_context,
+                )
+                yield from self._stream_from_llm(
+                    settings=settings, candidates=candidates, llm_messages=llm_messages
+                )
+                return
+            yield from self._workspace_fallback_tokens(
+                db,
+                workspace_id=workspace_id,
+                messages=messages,
+                search_context=search_context,
+            )
             return
 
         context = self.lead_intelligence.build(db, lead=lead)
@@ -237,13 +255,30 @@ class AssistantService:
             if latest_analysis is not None
             else None
         )
+        facts_payload = context.facts.model_dump(mode="json")
+        score_context_payload = (
+            context.score_context.model_dump(mode="json") if context.score_context else None
+        )
+
+        if score_context_payload is None and self._is_score_related_request(
+            self._latest_user_message(messages)
+        ):
+            yield self._build_unscored_score_response(
+                lead=lead,
+                messages=messages,
+                facts=facts_payload,
+                latest_analysis=latest_analysis_result,
+            )
+            return
 
         llm_messages = self._build_llm_messages(
             lead=lead,
             messages=messages,
-            facts=context.facts.model_dump(mode="json"),
-            score_context=context.score_context.model_dump(mode="json") if context.score_context else None,
-            latest_analysis=latest_analysis_result.model_dump(mode="json") if latest_analysis_result else None,
+            facts=facts_payload,
+            score_context=score_context_payload,
+            latest_analysis=latest_analysis_result.model_dump(mode="json")
+            if latest_analysis_result
+            else None,
             search_context=search_context,
         )
         settings = get_settings()
@@ -252,14 +287,29 @@ class AssistantService:
             raise ServiceUnavailableError(
                 "Assistant replies are unavailable because no AI provider is configured."
             )
+        yield from self._stream_from_llm(
+            settings=settings, candidates=candidates, llm_messages=llm_messages
+        )
 
+    def _stream_from_llm(
+        self,
+        *,
+        settings: Settings,
+        candidates: list[StreamingRuntimeCandidate],
+        llm_messages: list[dict[str, str]],
+    ) -> Iterator[str]:
+        """Stream from the first healthy runtime, failing over to the next candidate."""
         last_error: Exception | None = None
         for candidate in candidates:
             try:
                 if candidate.stream_fn == "ollama":
-                    yield from self._stream_with_ollama(settings=settings, llm_messages=llm_messages)
+                    yield from self._stream_with_ollama(
+                        settings=settings, llm_messages=llm_messages
+                    )
                 else:
-                    yield from self._stream_with_openai(settings=settings, llm_messages=llm_messages)
+                    yield from self._stream_with_openai(
+                        settings=settings, llm_messages=llm_messages
+                    )
                 return
             except Exception as exc:
                 last_error = exc
@@ -308,6 +358,55 @@ class AssistantService:
             for part in message.parts
             if part.type == "text" and part.text and part.text.strip()
         )
+
+    def _is_score_related_request(self, text: str) -> bool:
+        normalized = text.casefold()
+        score_terms = (
+            "score",
+            "scored",
+            "scoring",
+            "rank",
+            "rating score",
+            "درجة",
+            "درجه",
+            "التقييم",
+            "تقييم",
+            "مقيّم",
+            "مقيم",
+            "غير مقيّم",
+            "غير مقيم",
+        )
+        return any(term in normalized for term in score_terms)
+
+    def _prefers_arabic(self, text: str) -> bool:
+        return any("\u0600" <= char <= "\u06ff" for char in text)
+
+    def _is_qualified_leads_question(self, text: str) -> bool:
+        """Detect if asking about qualified leads to contact."""
+        text_lower = text.lower()
+        keywords_en = ["qualified leads", "which leads", "who should i contact",
+                      "prioritize", "first", "outreach", "reach out"]
+        keywords_ar = ["عملاء مؤهلين", "أي العملاء", "من أبدأ", "من أولا",
+                      "أولويات", "أول", "التواصل", "أتواصل"]
+
+        if any(kw in text_lower for kw in keywords_en):
+            return True
+        if any(kw in text_lower for kw in keywords_ar):
+            return True
+        return False
+
+    def _is_comparison_question(self, text: str) -> bool:
+        """Detect if asking for a comparison between leads."""
+        text_lower = text.lower()
+        keywords_en = ["compare", "comparison", "vs", "versus", "difference",
+                      "which is better", "rank"]
+        keywords_ar = ["قارن", "مقارنة", "بين", "الفرق", "أيهما", "ترتيب"]
+
+        if any(kw in text_lower for kw in keywords_en):
+            return True
+        if any(kw in text_lower for kw in keywords_ar):
+            return True
+        return False
 
     def _get_active_search_context(self) -> AssistantSearchContext:
         context = getattr(self, "_active_search_context", None)
@@ -526,7 +625,7 @@ class AssistantService:
             lead.company_name,
             lead.category,
             lead.city,
-            "official website competitors SEO market",
+            "official website competitors market",
             cleaned_text,
         ]
         return " ".join(str(part).strip() for part in parts if part)
@@ -615,35 +714,505 @@ class AssistantService:
             lines.append(f"{role}: {text}")
         return "\n\n".join(lines)
 
+    def _workspace_fallback_tokens(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
+        search_context: AssistantSearchContext,
+    ) -> Iterator[str]:
+        """Deterministic workspace answers used only when no AI provider is configured."""
+        user_message = self._latest_user_message(messages)
+        if self._is_qualified_leads_question(user_message):
+            yield self._build_qualified_leads_response(
+                db, workspace_id=workspace_id, messages=messages
+            )
+            return
+        if self._is_comparison_question(user_message):
+            yield self._build_comparison_response(
+                db, workspace_id=workspace_id, messages=messages
+            )
+            return
+        yield self._build_workspace_response(
+            db,
+            workspace_id=workspace_id,
+            messages=messages,
+            search_context=search_context,
+        )
+
+    def _workspace_leads_grounding(
+        self, db: Session, *, workspace_id: int, limit: int = 25
+    ) -> dict[str, Any]:
+        """Collect the top stored leads + their latest scores as LLM grounding facts."""
+        leads, total = self.leads_repository.list_paginated(
+            db,
+            workspace_id=workspace_id,
+            page=1,
+            page_size=limit,
+            status=None,
+            search_job_public_id=None,
+            has_website=None,
+            sort=LeadSortOption.SCORE_DESC,
+        )
+        scores = self.leads_repository.get_latest_scores(db, [lead.id for lead in leads])
+        records: list[dict[str, Any]] = []
+        qualified_in_top_n = 0
+        for lead in leads:
+            score = scores.get(lead.id)
+            if score is not None and score.qualified:
+                qualified_in_top_n += 1
+            records.append(
+                {
+                    "company_name": lead.company_name,
+                    "category": lead.category,
+                    "city": lead.city,
+                    "rating": lead.rating,
+                    "review_count": lead.review_count,
+                    "has_website": lead.has_website,
+                    "website_domain": lead.website_domain,
+                    "data_confidence": round(lead.data_confidence, 2),
+                    "score": round(score.total_score) if score is not None else None,
+                    "band": score.band if score is not None else None,
+                    "qualified": bool(score.qualified) if score is not None else None,
+                    "score_state": "scored" if score is not None else "unscored",
+                }
+            )
+        return {
+            "total_leads_in_workspace": total,
+            "returned_leads": len(records),
+            "qualified_in_returned": qualified_in_top_n,
+            "leads": records,
+        }
+
+    def _build_workspace_llm_messages(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
+        search_context: AssistantSearchContext,
+    ) -> list[dict[str, str]]:
+        """Build grounded chat messages for a workspace-level (no specific lead) question."""
+        grounding = self._workspace_leads_grounding(db, workspace_id=workspace_id)
+        system_prompt = "\n".join(
+            [
+                "You are an evidence-first B2B sales intelligence assistant for ProspectIQ.",
+                "You help a sales team prioritise leads, compare them, and plan outreach.",
+                "",
+                "RULES:",
+                "1. Use ONLY the leads, scores, and evidence in the supplied grounding "
+                "context. Never invent companies, numbers, ratings, categories, or URLs.",
+                "2. Answer the user's ACTUAL question. 'Compare and explain' means give the "
+                "comparison AND explain the trade-offs with a clear recommendation — not just "
+                "a table. 'How do I engage / handle them' means give a concrete outreach "
+                "approach per lead, not a bare list.",
+                "3. Rank and prioritise by the provided deterministic `score`. Do not reorder "
+                "leads by your own judgement.",
+                "4. A lead with score_state 'unscored' has no stored score; do not state or "
+                "infer a score for it.",
+                "5. Distinguish stored CRM/score data from any live web or news evidence.",
+                "6. Reply in the same language the user writes in (Arabic or English).",
+                "7. Format in concise, scannable markdown. Use a table only when it adds "
+                "clarity, and always follow a comparison table with a short written analysis.",
+                "8. If there are no leads in the context, say so and suggest running a search "
+                "job — do not fabricate leads.",
+                "9. Never expose internal JSON keys, field names, or implementation details.",
+            ]
+        )
+        context_payload: dict[str, Any] = {
+            "workspace_leads": grounding,
+            "external_search": search_context.model_dump(),
+        }
+        chat_messages: list[dict[str, str]] = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "system",
+                "content": "Grounding context:\n"
+                + json.dumps(context_payload, ensure_ascii=True, sort_keys=True),
+            },
+        ]
+        transcript = self._conversation_transcript(messages)
+        if transcript:
+            chat_messages.append({"role": "user", "content": transcript})
+        else:
+            chat_messages.append(
+                {
+                    "role": "user",
+                    "content": "Give me a prioritized overview of my best leads and who to "
+                    "contact first.",
+                }
+            )
+        return chat_messages
+
+    def _build_qualified_leads_response(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
+    ) -> str:
+        """Build a ranked list of qualified leads ready for outreach."""
+        user_need = self._latest_user_message(messages)
+        prefers_arabic = self._prefers_arabic(user_need)
+
+        # Get qualified leads sorted by score
+        leads, total = self.leads_repository.list_paginated(
+            db,
+            workspace_id=workspace_id,
+            page=1,
+            page_size=10,
+            status=None,
+            search_job_public_id=None,
+            has_website=None,
+            sort=LeadSortOption.SCORE_DESC,
+        )
+        latest_scores = self.leads_repository.get_latest_scores(db, [lead.id for lead in leads])
+        qualified_leads = [
+            (lead, score)
+            for lead in leads
+            if (score := latest_scores.get(lead.id)) and score.qualified
+        ]
+
+        if not qualified_leads:
+            if prefers_arabic:
+                return "لا توجد عملاء مؤهلين حاليًا."
+            return "No qualified leads currently."
+
+        if prefers_arabic:
+            lines = [
+                "# 🎯 العملاء المؤهلون",
+                "",
+                f"**{len(qualified_leads)} عملاء مؤهلين** من أصل {total} محفوظ.",
+                "",
+            ]
+            for idx, (lead, score) in enumerate(qualified_leads[:10], 1):
+                score_text = f"{score.total_score:.0f}/100" if score else "—"
+                rating_text = f"{lead.rating:.1f}⭐" if lead.rating else "—"
+                lines.extend([
+                    f"{idx}. **{lead.company_name}**",
+                    f"   • الدرجة: {score_text}",
+                    f"   • التقييم: {rating_text} ({lead.review_count} مراجعة)",
+                    f"   • الفئة: {lead.category}",
+                    f"   • المدينة: {lead.city or '—'}",
+                    "",
+                ])
+            return "\n".join(lines)
+        else:
+            lines = [
+                "# 🎯 Qualified Leads",
+                "",
+                f"**{len(qualified_leads)} qualified leads** from {total} stored.",
+                "",
+            ]
+            for idx, (lead, score) in enumerate(qualified_leads[:10], 1):
+                score_text = f"{score.total_score:.0f}/100" if score else "—"
+                rating_text = f"{lead.rating:.1f}⭐" if lead.rating else "—"
+                lines.extend([
+                    f"{idx}. **{lead.company_name}**",
+                    f"   • Score: {score_text}",
+                    f"   • Rating: {rating_text} ({lead.review_count} reviews)",
+                    f"   • Category: {lead.category}",
+                    f"   • City: {lead.city or '—'}",
+                    "",
+                ])
+            return "\n".join(lines)
+
+    def _build_comparison_response(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
+    ) -> str:
+        """Build a comparison of top 3 leads."""
+        user_need = self._latest_user_message(messages)
+        prefers_arabic = self._prefers_arabic(user_need)
+
+        leads, _ = self.leads_repository.list_paginated(
+            db,
+            workspace_id=workspace_id,
+            page=1,
+            page_size=3,
+            status=None,
+            search_job_public_id=None,
+            has_website=None,
+            sort=LeadSortOption.SCORE_DESC,
+        )
+        latest_scores = self.leads_repository.get_latest_scores(db, [lead.id for lead in leads])
+
+        if len(leads) < 2:
+            if prefers_arabic:
+                return "عملاء قليلين للمقارنة."
+            return "Insufficient leads for comparison."
+
+        if prefers_arabic:
+            lines = [
+                "# 📊 مقارنة",
+                "",
+                "| الاسم | الدرجة | التقييم | الفئة | المدينة |",
+                "|------|--------|---------|---------|---------|",
+            ]
+            for lead in leads:
+                score = latest_scores.get(lead.id)
+                score_text = f"{score.total_score:.0f}/100" if score else "—"
+                rating_text = f"{lead.rating:.1f}" if lead.rating else "—"
+                lines.append(
+                    f"| {lead.company_name} | {score_text} | {rating_text} | {lead.category} | {lead.city or '—'} |"
+                )
+            return "\n".join(lines)
+        else:
+            lines = [
+                "# 📊 Comparison",
+                "",
+                "| Name | Score | Rating | Category | City |",
+                "|------|--------|---------|---------|---------|",
+            ]
+            for lead in leads:
+                score = latest_scores.get(lead.id)
+                score_text = f"{score.total_score:.0f}/100" if score else "—"
+                rating_text = f"{lead.rating:.1f}" if lead.rating else "—"
+                lines.append(
+                    f"| {lead.company_name} | {score_text} | {rating_text} | {lead.category} | {lead.city or '—'} |"
+                )
+            return "\n".join(lines)
+
     def _build_workspace_response(
         self,
-        messages: list[AssistantMessageInput],
+        db: Session,
         *,
+        workspace_id: int,
+        messages: list[AssistantMessageInput],
         search_context: AssistantSearchContext,
     ) -> str:
+        """Build a workspace-level summary from stored leads and scores."""
         user_need = self._latest_user_message(messages)
-        search_line = ""
-        if search_context.search_status == "unavailable":
-            search_line = "\nExternal search is unavailable, so this answer is limited to stored system context.\n"
-        elif search_context.search_status == "failed":
-            search_line = "\nExternal search failed, so this answer is limited to stored system context.\n"
-        elif search_context.used_search:
-            search_line = "\nI used external search evidence where available and kept it separate from system data.\n"
+        prefers_arabic = self._prefers_arabic(user_need)
+        search_line = (
+            "_Augmented with live web search results._"
+            if search_context.used_search
+            else ""
+        )
+        search_line_ar = (
+            "_تم تعزيزه بنتائج البحث الحي._"
+            if search_context.used_search
+            else ""
+        )
+
+        leads, total = self.leads_repository.list_paginated(
+            db,
+            workspace_id=workspace_id,
+            page=1,
+            page_size=5,
+            status=None,
+            search_job_public_id=None,
+            has_website=None,
+            sort=LeadSortOption.SCORE_DESC,
+        )
+        latest_scores = self.leads_repository.get_latest_scores(db, [lead.id for lead in leads])
+
+        if not leads:
+            if prefers_arabic:
+                return "\n".join(
+                    [
+                        "## مساعد مساحة العمل",
+                        "",
+                        "أستطيع الإجابة عن أسئلة عامة لمساحة العمل، لكن لا توجد leads محفوظة حاليًا.",
+                        search_line_ar,
+                        "",
+                        f"آخر طلب: **{user_need}**",
+                        "",
+                        "الخطوة التالية: شغّل مهمة بحث، اترك التقييم يكتمل، ثم اسأل عن العملاء الذين يستحقون التواصل أولاً.",
+                    ]
+                )
+            return "\n".join(
+                [
+                    "## Workspace assistant",
+                    "",
+                    "I can answer general workspace questions, but there are no stored leads yet.",
+                    search_line,
+                    "",
+                    f"Your latest request: **{user_need}**",
+                    "",
+                    "Next step: run a search job, let scoring finish, then ask which leads deserve outreach first.",
+                ]
+            )
+
+        top_lead = leads[0]
+        top_score = latest_scores.get(top_lead.id)
+        top_score_text = (
+            f"{top_score.total_score:.0f}/100" if top_score is not None else "unscored"
+        )
+        top_band_text = top_score.band if top_score is not None else "unscored"
+        qualified_text = (
+            "qualified"
+            if top_score is not None and top_score.qualified
+            else "not qualified"
+            if top_score is not None
+            else "not scored"
+        )
+        qualified_text_ar = (
+            "مؤهل"
+            if top_score is not None and top_score.qualified
+            else "غير مؤهل"
+            if top_score is not None
+            else "غير مقيّم"
+        )
+        rating_text = (
+            f"{top_lead.rating:.1f} rating / {top_lead.review_count} reviews"
+            if top_lead.rating is not None
+            else f"{top_lead.review_count} reviews"
+        )
+        rating_text_ar = (
+            f"تقييم {top_lead.rating:.1f} / {top_lead.review_count} مراجعة"
+            if top_lead.rating is not None
+            else f"{top_lead.review_count} مراجعة"
+        )
+        confidence_text = f"{round(top_lead.data_confidence * 100)}%"
+
+        candidate_lines: list[str] = []
+        candidate_lines_ar: list[str] = []
+        for index, candidate in enumerate(leads[:3], start=1):
+            candidate_score = latest_scores.get(candidate.id)
+            score_text = (
+                f"{candidate_score.total_score:.0f}/100"
+                if candidate_score is not None
+                else "unscored"
+            )
+            band_text = candidate_score.band if candidate_score is not None else "unscored"
+            candidate_lines.append(
+                f"{index}. **{candidate.company_name}** - {score_text}, {band_text}, "
+                f"{candidate.review_count} reviews, {candidate.website_domain or 'no website'}"
+            )
+            candidate_lines_ar.append(
+                f"{index}. **{candidate.company_name}** - {score_text}، {band_text}، "
+                f"{candidate.review_count} مراجعة، {candidate.website_domain or 'لا يوجد موقع'}"
+            )
+
+        if prefers_arabic:
+            # Build Arabic response with enhanced formatting
+
+            # Calculate additional insights for top lead
+            has_website_ar = "✓ نعم" if top_lead.has_website else "✗ لا"
+            confidence_icon = "🟢" if top_lead.data_confidence >= 0.85 else "🟡" if top_lead.data_confidence >= 0.70 else "🔴"
+            qualification_icon = "✓" if (top_score and top_score.qualified) else "○"
+            band_emoji = "⭐⭐⭐" if top_band_text == "high" else "⭐⭐" if top_band_text == "medium" else "⭐"
+
+            # Build action recommendations
+            action_items_ar = []
+            if top_lead.has_website:
+                action_items_ar.append("• تصفح الموقع الرسمي لفهم الخدمات الحالية")
+            if top_score and top_score.qualified:
+                action_items_ar.append("• ابدأ بمسودة تواصل شخصية")
+            else:
+                action_items_ar.append("• اجمع مزيد من البيانات قبل التواصل")
+            if top_lead.review_count and top_lead.review_count > 50:
+                action_items_ar.append("• قارن مع المنافسين الآخرين في السوق")
+
+            return "\n".join(
+                [
+                    "# 🎯 مساعد مساحة العمل — ملخص العملاء",
+                    "",
+                    "أستطيع الإجابة عن أسئلة عامة بناءً على العملاء المحفوظين والدرجات والأدلة.",
+                    search_line_ar,
+                    "",
+                    f"**آخر طلبك:** {user_need}",
+                    "",
+                    "---",
+                    "",
+                    f"## 🏆 أفضل عميل حاليًا: {top_lead.company_name}",
+                    "",
+                    "| المقياس | التفاصيل |",
+                    "|--------|---------|",
+                    f"| **الدرجة** | {top_score_text} {band_emoji} |",
+                    f"| **التأهيل** | {qualification_icon} {qualified_text_ar} |",
+                    f"| **السمعة** | {rating_text_ar} |",
+                    f"| **الموقع الرسمي** | {has_website_ar} |",
+                    f"| **ثقة البيانات** | {confidence_icon} {confidence_text} |",
+                    "",
+                    "### 💡 السبب وراء اختيار هذا العميل:",
+                    f"- **{'درجة عالية' if top_band_text == 'high' else 'درجة متوسطة' if top_band_text == 'medium' else 'درجة منخفضة أو غير محددة'}:** {top_score_text} في قاعدة البيانات الحالية",
+                    f"- **{'بيانات موثوقة جداً' if top_lead.data_confidence >= 0.85 else 'بيانات كافية' if top_lead.data_confidence >= 0.70 else 'بيانات تحتاج تحسين'}:** ثقة {confidence_text}",
+                    f"- **{'جاهز للتواصل' if top_lead.has_website and top_score and top_score.qualified else 'يحتاج مزيداً من البيانات'}:** {'بيانات كافية للبدء برسالة شخصية' if top_lead.has_website and top_score and top_score.qualified else 'اجمع بيانات إضافية قبل التواصل'}",
+                    "",
+                    "### ⚡ الخطوات التالية المقترحة:",
+                    *action_items_ar,
+                    "",
+                    "---",
+                    "",
+                    f"## 📈 أفضل المرشحين ({min(3, len(leads))} من {total})",
+                    "",
+                    *candidate_lines_ar,
+                    "",
+                    "### 🔍 اسأل المزيد:",
+                    "- _أي العملاء المؤهلين يجب أن أبدأ معهم أولاً؟_",
+                    "- _قارن بين أفضل 3 عملاء واشرح الفروقات_",
+                    f"- _اكتب لي مسودة تواصل متخصصة لـ {top_lead.company_name}_",
+                    "- _أين يقع هذا العميل ضمن السوق المحلية؟_",
+                    "",
+                    "**💡 ملخص:** للمزيد من التفاصيل والأدلة، افتح صفحة تفاصيل العميل.",
+                ]
+            )
+
+        # English response with enhanced formatting
+        has_website_en = "✓ Yes" if top_lead.has_website else "✗ No"
+        confidence_icon = "🟢" if top_lead.data_confidence >= 0.85 else "🟡" if top_lead.data_confidence >= 0.70 else "🔴"
+        qualification_icon = "✓" if (top_score and top_score.qualified) else "○"
+        band_emoji = "⭐⭐⭐" if top_band_text == "high" else "⭐⭐" if top_band_text == "medium" else "⭐"
+
+        # Build action recommendations
+        action_items_en = []
+        if top_lead.has_website:
+            action_items_en.append("• Visit the official website to understand their current services")
+        if top_score and top_score.qualified:
+            action_items_en.append("• Start with a personalized outreach draft")
+        else:
+            action_items_en.append("• Gather additional data before reaching out")
+        if top_lead.review_count and top_lead.review_count > 50:
+            action_items_en.append("• Compare with other competitors in the market")
+
         return "\n".join(
             [
-                "## Workspace assistant",
+                "# 🎯 Workspace Assistant — Lead Summary",
                 "",
-                "I can help with lead qualification, outreach planning, and evidence review.",
+                "I can answer general workspace questions from stored leads, scores, and evidence.",
                 search_line,
                 "",
-                f"Your latest request: **{user_need}**",
+                f"**Your latest request:** {user_need}",
                 "",
-                "To ground the answer in stored evidence, open the assistant from a lead detail page or pass a `lead_id` context.",
+                "---",
                 "",
-                "### Useful next prompts",
-                "- Summarize the strongest evidence for this lead.",
-                "- Explain why this lead scored high or low.",
-                "- Draft a more specific outreach angle from the stored signals.",
+                f"## 🏆 Best Lead Right Now: {top_lead.company_name}",
+                "",
+                "| Metric | Details |",
+                "|--------|---------|",
+                f"| **Score** | {top_score_text} {band_emoji} |",
+                f"| **Qualification** | {qualification_icon} {qualified_text} |",
+                f"| **Reputation** | {rating_text} |",
+                f"| **Official Website** | {has_website_en} |",
+                f"| **Data Confidence** | {confidence_icon} {confidence_text} |",
+                "",
+                "### 💡 Why This Lead Ranks First:",
+                f"- **{'Top-tier' if top_band_text == 'high' else 'Above-average' if top_band_text == 'medium' else 'Low or unscored'} lead:** {top_score_text} in your current database",
+                f"- **{'High-confidence data' if top_lead.data_confidence >= 0.85 else 'Adequate data confidence' if top_lead.data_confidence >= 0.70 else 'Low data confidence — consider enriching'}:** {confidence_text}",
+                f"- **{'Ready to engage' if top_lead.has_website and top_score and top_score.qualified else 'Needs more data'}:** {'sufficient information for a personalized message' if top_lead.has_website and top_score and top_score.qualified else 'gather additional evidence before outreach'}",
+                "",
+                "### ⚡ Suggested Next Steps:",
+                *action_items_en,
+                "",
+                "---",
+                "",
+                f"## 📈 Top candidates ({min(3, len(leads))} of {total})",
+                "",
+                *candidate_lines,
+                "",
+                "### 🔍 Ask Follow-Up Questions:",
+                "- _Which qualified leads should I prioritize for outreach?_",
+                "- _Compare the top 3 leads and explain the key differences._",
+                f"- _Draft a custom outreach message for {top_lead.company_name}_",
+                "- _Where does this lead rank in the local market?_",
+                "",
+                "**💡 Pro Tip:** For deeper evidence and analysis, open the lead detail page.",
             ]
         )
 
@@ -666,14 +1235,16 @@ class AssistantService:
         city = str(local_business.get("city") or lead.city or "the target market")
         review_count = int(local_business.get("review_count") or lead.review_count or 0)
         rating = local_business.get("rating") or lead.rating
-        rating_text = f"{rating:.1f}" if isinstance(rating, (float, int)) else "unrated"
+        rating_text = f"{rating:.1f}" if isinstance(rating, float | int) else "unrated"
         discoverability = web_visibility.get("official_site_discoverability")
         discoverability_text = (
             f"{round(float(discoverability) * 100)}%"
-            if isinstance(discoverability, (float, int))
+            if isinstance(discoverability, float | int)
             else "unknown"
         )
-        official_site_found = bool(place_enrichment.get("official_website_found") or lead.has_website)
+        official_site_found = bool(
+            place_enrichment.get("official_website_found") or lead.has_website
+        )
         qualified = bool(score.get("qualified"))
         score_total: float | int | None = score.get("total_score")
         score_band: str = score.get("band") or "unscored"
@@ -701,7 +1272,11 @@ class AssistantService:
                 [
                     "",
                     "### Score drivers",
-                    *[f"- {reason}" for reason in top_reasons[:3] if isinstance(reason, str) and reason.strip()],
+                    *[
+                        f"- {reason}"
+                        for reason in top_reasons[:3]
+                        if isinstance(reason, str) and reason.strip()
+                    ],
                 ]
             )
 
@@ -716,11 +1291,17 @@ class AssistantService:
 
         next_actions: list[str] = []
         if not official_site_found:
-            next_actions.append("Verify or create an official website before scaling outbound activity.")
+            next_actions.append(
+                "Verify or create an official website before scaling outbound activity."
+            )
         if review_count < 15:
-            next_actions.append("Treat reputation-building as an early service angle because review volume is still light.")
-        if isinstance(discoverability, (float, int)) and float(discoverability) < 0.5:
-            next_actions.append("Position local SEO or profile cleanup as a concrete visibility fix.")
+            next_actions.append(
+                "Treat reputation-building as an early service angle because review volume is still light."
+            )
+        if isinstance(discoverability, float | int) and float(discoverability) < 0.5:
+            next_actions.append(
+                "Position local SEO or profile cleanup as a concrete visibility fix."
+            )
         if latest_analysis is not None and latest_analysis.recommended_services:
             next_actions.append(
                 "Use the latest analysis service recommendations as the default outreach angle: "
@@ -728,10 +1309,105 @@ class AssistantService:
                 + "."
             )
         if not next_actions:
-            next_actions.append("Lead with proof of maturity and propose a narrow, evidence-backed growth audit.")
+            next_actions.append(
+                "Lead with proof of maturity and propose a narrow, evidence-backed growth audit."
+            )
 
         lines.extend(["", "### Suggested next moves", *[f"- {item}" for item in next_actions]])
         return "\n".join(lines)
+
+    def _build_unscored_score_response(
+        self,
+        *,
+        lead: Lead,
+        messages: list[AssistantMessageInput],
+        facts: dict[str, Any],
+        latest_analysis: LeadAnalysisResult | None,
+    ) -> str:
+        user_need = self._latest_user_message(messages)
+        local_business: dict[str, Any] = facts.get("local_business") or {}
+        web_visibility: dict[str, Any] = facts.get("web_visibility") or {}
+        place_enrichment: dict[str, Any] = facts.get("place_enrichment") or {}
+
+        company_name = str(local_business.get("company_name") or lead.company_name)
+        review_count = int(local_business.get("review_count") or lead.review_count or 0)
+        rating = local_business.get("rating") or lead.rating
+        rating_text = f"{rating:.1f}" if isinstance(rating, float | int) else "غير متوفر"
+        website = lead.website_domain or local_business.get("website_domain") or "غير متوفر"
+        confidence = local_business.get("data_confidence") or facts.get("data_confidence")
+        confidence_text = (
+            f"{round(float(confidence) * 100)}%"
+            if isinstance(confidence, float | int)
+            else "غير متوفر"
+        )
+        official_site_found = bool(
+            place_enrichment.get("official_website_found") or lead.has_website
+        )
+        discoverability = web_visibility.get("official_site_discoverability")
+        discoverability_missing = not isinstance(discoverability, float | int)
+        has_hours = bool(local_business.get("hours_present"))
+
+        if self._prefers_arabic(user_need):
+            missing: list[str] = []
+            if not has_hours:
+                missing.append("ساعات العمل")
+            if discoverability_missing:
+                missing.append("إشارة واضحة لاكتشاف الموقع الرسمي في البحث")
+            if latest_analysis is None:
+                missing.append("تحليل AI محفوظ لهذا العميل")
+            if not missing:
+                missing.append("تشغيل خطوة التقييم لحفظ درجة deterministic")
+
+            lines = [
+                f"## {company_name}",
+                "",
+                "**هذا العميل غير مقيّم حاليًا في النظام.**",
+                "لا توجد درجة محفوظة أو شريحة تقييم محفوظة لهذا العميل، لذلك لا أستطيع شرح أسباب درجة غير موجودة أو تأكيد تقييمه.",
+                "",
+                "### الأدلة المتاحة",
+                f"- السمعة العامة: **{review_count} مراجعة** بتقييم **{rating_text}**.",
+                f"- الموقع الإلكتروني: **{website}**.",
+                f"- الموقع الرسمي مؤكد من البيانات المخزنة: **{'نعم' if official_site_found else 'لا'}**.",
+                f"- ثقة البيانات المخزنة: **{confidence_text}**. هذه ثقة في البيانات وليست درجة العميل.",
+                "",
+                "### الناقص قبل التقييم",
+                *[f"- {item}." for item in missing],
+                "",
+                "### الخطوة التالية",
+                "- شغّل تقييم/إعادة تقييم العميل من صفحة التفاصيل أو أعد تشغيل discovery/refresh حتى يتم حفظ `latest_score` و `latest_band`، وبعدها يمكنني شرح محركات الدرجة بدقة.",
+            ]
+            return "\n".join(lines)
+
+        missing_en: list[str] = []
+        if not has_hours:
+            missing_en.append("business hours")
+        if discoverability_missing:
+            missing_en.append("clear official-site discoverability evidence")
+        if latest_analysis is None:
+            missing_en.append("a stored AI analysis snapshot")
+        if not missing_en:
+            missing_en.append("a scoring run that stores the deterministic score")
+
+        return "\n".join(
+            [
+                f"## {company_name}",
+                "",
+                "**This lead is currently unscored in the system.**",
+                "There is no stored score or score band, so I cannot explain score drivers for a score that does not exist.",
+                "",
+                "### Available evidence",
+                f"- Public reputation: **{review_count} reviews** at **{rating_text}**.",
+                f"- Website: **{website}**.",
+                f"- Official website confirmed from stored data: **{'Yes' if official_site_found else 'No'}**.",
+                f"- Stored data confidence: **{confidence_text}**. This is data confidence, not the lead score.",
+                "",
+                "### Missing before scoring",
+                *[f"- {item}." for item in missing_en],
+                "",
+                "### Next action",
+                "- Run lead scoring or refresh/discovery so `latest_score` and `latest_band` are stored. Then I can explain the actual score drivers.",
+            ]
+        )
 
     def _build_llm_messages(
         self,
@@ -758,6 +1434,8 @@ class AssistantService:
                 "7. Prefer tool-based live search over training knowledge for company-specific facts.",
                 "8. Never expose internal JSON keys, field names, or implementation details.",
                 "9. Language: reply in the same language the user writes in (Arabic or English).",
+                "10. If score_context is null or score_state is unscored, the lead has no stored score. Say it is unscored and do not explain score drivers, score band, or qualification as if a score exists.",
+                "11. Never infer a score from rating, review count, confidence, analysis text, or other evidence. Stored score context is the only source for score claims.",
                 "",
                 "RESPONSE FORMAT (for lead analysis requests):",
                 "- **Summary**: 2-3 sentence lead overview",
@@ -778,6 +1456,12 @@ class AssistantService:
                 "rating": lead.rating,
             },
             "facts": facts,
+            "score_state": "scored" if score_context is not None else "unscored",
+            "score_instruction": (
+                "A stored deterministic score exists; score claims must use only score_context."
+                if score_context is not None
+                else "No stored deterministic score exists for this lead. Treat it as unscored and explain available evidence only."
+            ),
             "score_context": score_context,
             "latest_analysis": latest_analysis,
             "external_search": search_context.model_dump(),
@@ -786,14 +1470,20 @@ class AssistantService:
         chat_messages.append(
             {
                 "role": "system",
-                "content": "Grounding context:\n" + json.dumps(context_payload, ensure_ascii=True, sort_keys=True),
+                "content": "Grounding context:\n"
+                + json.dumps(context_payload, ensure_ascii=True, sort_keys=True),
             }
         )
         transcript = self._conversation_transcript(messages)
         if transcript:
             chat_messages.append({"role": "user", "content": transcript})
         else:
-            chat_messages.append({"role": "user", "content": "Summarize this lead and recommend the next best action."})
+            chat_messages.append(
+                {
+                    "role": "user",
+                    "content": "Summarize this lead and recommend the next best action.",
+                }
+            )
         return chat_messages
 
     def _build_web_search_tool_def(self) -> dict[str, Any]:

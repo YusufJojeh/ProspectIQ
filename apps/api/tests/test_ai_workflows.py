@@ -6,7 +6,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.core.errors import ServiceUnavailableError
-from app.modules.ai_analysis.adapters import FallbackAnalysisBuilder, OpenAILLMAdapter
+from app.modules.ai_analysis.adapters import (
+    FallbackAnalysisBuilder,
+    OpenAILLMAdapter,
+    _build_llm_prompt,
+)
 from app.modules.ai_analysis.models import AIAnalysisSnapshot, PromptTemplate, ServiceRecommendation
 from app.modules.ai_analysis.schemas import (
     LeadAnalysisInput,
@@ -196,6 +200,32 @@ def test_openai_adapter_uses_chat_completions_with_structured_response_format() 
     assert "json_schema" in response_format
 
 
+def test_analysis_prompt_requires_bilingual_output_even_with_custom_template() -> None:
+    payload = LeadAnalysisInput(
+        prompt_instructions="Use stored facts only.",
+        local_business=LocalBusinessFactsInput(
+            company_name="Acme Dental",
+            category="Dentist",
+            city="Istanbul",
+            data_completeness=0.8,
+            data_confidence=0.8,
+            phone_present=True,
+            address_present=True,
+            hours_present=True,
+            category_clarity=1.0,
+        ),
+        place_enrichment=PlaceEnrichmentSummary(local_presence_signal=0.0),
+        web_visibility=WebVisibilitySummary(directory_dominance=0.0),
+    )
+
+    prompt = _build_llm_prompt(payload)
+
+    assert "BILINGUAL OUTPUT REQUIRED" in prompt
+    assert "Arabic and English" in prompt
+    assert "العربية:" in prompt
+    assert "English:" in prompt
+
+
 def test_ai_analysis_persists_and_reuses_snapshot() -> None:
     session_factory = _build_session_factory()
     with session_factory() as db:
@@ -236,6 +266,9 @@ def test_ai_analysis_persists_and_reuses_snapshot() -> None:
 
         assert "Acme Dental" in first_result.summary
         assert first_result.recommended_services
+        assert lead.ai_opener == first_result.summary
+        db.refresh(lead)
+        assert lead.ai_opener == first_result.summary
         assert first_snapshot.id == second_snapshot.id
         assert first_result == second_result
         assert db.scalar(select(func.count(AIAnalysisSnapshot.id))) == 1
@@ -381,9 +414,15 @@ def test_sha256_deduplication_returns_existing_snapshot_not_new_one() -> None:
             visibility_confidence=0.5,
             visibility_source="web_search",
         )
-        snap1, _ = service.analyze(db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id)
-        snap2, _ = service.analyze(db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id)
-        snap3, _ = service.analyze(db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id)
+        snap1, _ = service.analyze(
+            db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id
+        )
+        snap2, _ = service.analyze(
+            db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id
+        )
+        snap3, _ = service.analyze(
+            db, workspace_id=workspace.id, lead=lead, facts=facts, created_by_user_id=user.id
+        )
 
         assert snap1.id == snap2.id == snap3.id
         assert db.scalar(select(func.count(AIAnalysisSnapshot.id))) == 1
@@ -421,8 +460,22 @@ def test_fallback_analysis_builder_output_schema_is_valid() -> None:
         result = LLMOutputValidator().validate(raw)
 
         assert result.summary
+        assert "العربية:" in result.summary
+        assert "English:" in result.summary
+        assert all(" / " in item for item in result.weaknesses)
+        assert all(" / " in item for item in result.opportunities)
+        assert "العربية:" in result.outreach_subject
+        assert "English:" in result.outreach_subject
+        assert "العربية:" in result.outreach_message
+        assert "English:" in result.outreach_message
         assert result.recommended_services
-        assert result.recommended_tone in (None, "formal", "friendly", "consultative", "short_pitch")
+        assert result.recommended_tone in (
+            None,
+            "formal",
+            "friendly",
+            "consultative",
+            "short_pitch",
+        )
         assert 0.0 <= result.confidence <= 1.0
 
 

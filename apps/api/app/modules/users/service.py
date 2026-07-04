@@ -83,7 +83,9 @@ class UsersService:
         users = self.repository.list_for_workspace(db, workspace_id)
         return UserListResponse(items=[self._to_option(item) for item in users])
 
-    def get_workspace_user(self, db: Session, *, workspace_id: int, user_public_id: str) -> UserDetailResponse:
+    def get_workspace_user(
+        self, db: Session, *, workspace_id: int, user_public_id: str
+    ) -> UserDetailResponse:
         user = self.repository.get_by_public_id(db, workspace_id, user_public_id)
         if user is None:
             raise NotFoundError("User was not found.")
@@ -298,6 +300,7 @@ def ensure_default_roles(db: Session) -> None:
         "admin": ("Administrator", "Administrative workspace access."),
         "manager": ("Manager", "Operational product access with limited governance."),
         "member": ("Member", "Standard workspace access."),
+        "platform_admin": ("Platform Admin", "Platform-level SaaS operator access."),
     }
     existing = {key for key in db.scalars(select(Role.key).where(Role.key.in_(expected_roles)))}
     missing = [

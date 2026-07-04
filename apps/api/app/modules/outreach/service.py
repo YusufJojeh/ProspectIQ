@@ -266,7 +266,9 @@ class OutreachGenerationService:
             base_message=base_message,
         )
         if language == "ar":
-            message = f"[Arabic language requested — translate the following to Arabic]\n\n{message}"
+            message = (
+                f"[Arabic language requested — translate the following to Arabic]\n\n{message}"
+            )
         return subject, message
 
     def _apply_tone_english(

@@ -93,7 +93,9 @@ def reset_user_password(
 
 
 @router.get("/workspace-settings", response_model=WorkspaceSettingsResponse)
-def get_workspace_settings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> WorkspaceSettingsResponse:
+def get_workspace_settings(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> WorkspaceSettingsResponse:
     return UsersService().get_workspace_settings(db, actor=current_user)
 
 

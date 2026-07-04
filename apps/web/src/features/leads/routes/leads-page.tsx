@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Map, RefreshCw, Sparkles, Table2, LayoutGrid } from "lucide-react";
+import {
+  Download,
+  Map,
+  RefreshCw,
+  Sparkles,
+  Table2,
+  LayoutGrid,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { appPaths } from "@/app/paths";
@@ -15,12 +22,31 @@ import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { generateLeadAnalysis } from "@/features/ai-analysis/api";
-import { assignLead, downloadLeadsExport, getLead, listLeads, refreshLead, updateLeadStatus } from "@/features/leads/api";
+import {
+  assignLead,
+  downloadLeadsExport,
+  getLead,
+  listLeads,
+  refreshLead,
+  updateLeadStatus,
+} from "@/features/leads/api";
 import { generateLeadOutreach } from "@/features/outreach/api";
 import { outreachDraftToMessagePreview } from "@/features/outreach/map-outreach-response";
 import { listUsers } from "@/features/users/api";
@@ -28,10 +54,12 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useSearchJobsQuery } from "@/hooks/use-search-jobs-query";
 import { hasCoordinates } from "@/lib/maps";
 import { leadStatusLabel, scoreBandLabel } from "@/lib/i18n-labels";
+import { localizeAnalysisText } from "@/lib/localized-analysis";
 import { bandTone, formatScore, statusTone } from "@/lib/presenters";
 import { LazyLeadMap } from "@/features/leads/components/lazy-lead-map";
 import type {
   LeadAnalysisSnapshotResponse,
+  LeadResponse,
   LeadScoreBand,
   LeadSortOption,
   LeadStatus,
@@ -42,12 +70,13 @@ import type {
 type WorkspaceView = "table" | "cards" | "map";
 
 export function LeadsPage() {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   useDocumentTitle(t("leads.title"));
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchJobIdParam = searchParams.get("search_job_id");
-  const searchJobId = searchJobIdParam && searchJobIdParam.length > 0 ? searchJobIdParam : "all";
+  const searchJobId =
+    searchJobIdParam && searchJobIdParam.length > 0 ? searchJobIdParam : "all";
   const [view, setView] = useState<WorkspaceView>("table");
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
@@ -66,9 +95,12 @@ export function LeadsPage() {
   const [page, setPage] = useState(1);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [outreachTone, setOutreachTone] = useState<OutreachTone>("consultative");
-  const [analysisPreview, setAnalysisPreview] = useState<LeadAnalysisSnapshotResponse | null>(null);
-  const [outreachPreview, setOutreachPreview] = useState<OutreachMessageResult | null>(null);
+  const [outreachTone, setOutreachTone] =
+    useState<OutreachTone>("consultative");
+  const [analysisPreview, setAnalysisPreview] =
+    useState<LeadAnalysisSnapshotResponse | null>(null);
+  const [outreachPreview, setOutreachPreview] =
+    useState<OutreachMessageResult | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const leadFilters = useMemo(
@@ -81,19 +113,39 @@ export function LeadsPage() {
         category: category || undefined,
         status,
         band,
-        min_score: scoreRange[0] > 0 ? scoreRange[0] : parseOptionalNumber(minScore),
-        max_score: scoreRange[1] < 100 ? scoreRange[1] : parseOptionalNumber(maxScore),
+        min_score:
+          scoreRange[0] > 0 ? scoreRange[0] : parseOptionalNumber(minScore),
+        max_score:
+          scoreRange[1] < 100 ? scoreRange[1] : parseOptionalNumber(maxScore),
         qualified: qualified === "all" ? "all" : qualified === "true",
         owner_user_id: ownerUserId,
         search_job_id: searchJobId,
         has_website: hasWebsite === "all" ? "all" : hasWebsite === "true",
         sort,
       }) as const,
-    [band, category, city, hasWebsite, maxScore, minScore, ownerUserId, page, q, qualified, scoreRange, searchJobId, sort, status],
+    [
+      band,
+      category,
+      city,
+      hasWebsite,
+      maxScore,
+      minScore,
+      ownerUserId,
+      page,
+      q,
+      qualified,
+      scoreRange,
+      searchJobId,
+      sort,
+      status,
+    ],
   );
 
   const jobsQuery = useSearchJobsQuery();
-  const searchJobs = useMemo(() => jobsQuery.data?.items ?? [], [jobsQuery.data?.items]);
+  const searchJobs = useMemo(
+    () => jobsQuery.data?.items ?? [],
+    [jobsQuery.data?.items],
+  );
   const leadsQuery = useQuery({
     queryKey: ["leads", "workspace", leadFilters],
     queryFn: () => listLeads(leadFilters),
@@ -111,14 +163,20 @@ export function LeadsPage() {
     enabled: Boolean(selectedLeadId),
   });
 
-  const allLeads = useMemo(() => leadsQuery.data?.items ?? [], [leadsQuery.data?.items]);
+  const allLeads = useMemo(
+    () => dedupeLeads(leadsQuery.data?.items ?? []),
+    [leadsQuery.data?.items],
+  );
   const leads = useMemo(
-    () => hasPhone ? allLeads.filter((l) => Boolean(l.phone)) : allLeads,
+    () => (hasPhone ? allLeads.filter((l) => Boolean(l.phone)) : allLeads),
     [allLeads, hasPhone],
   );
   const totalLeads = leadsQuery.data?.pagination.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalLeads / 50));
-  const selectedLead = selectedLeadQuery.data ?? leads.find((lead) => lead.public_id === selectedLeadId) ?? null;
+  const selectedLead =
+    selectedLeadQuery.data ??
+    leads.find((lead) => lead.public_id === selectedLeadId) ??
+    null;
   const mappableLeads = leads.filter(hasCoordinates);
   const activeFilterCount = [
     q,
@@ -136,7 +194,22 @@ export function LeadsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, city, category, status, band, qualified, hasWebsite, ownerUserId, searchJobId, sort, minScore, maxScore, scoreRange, hasPhone]);
+  }, [
+    q,
+    city,
+    category,
+    status,
+    band,
+    qualified,
+    hasWebsite,
+    ownerUserId,
+    searchJobId,
+    sort,
+    minScore,
+    maxScore,
+    scoreRange,
+    hasPhone,
+  ]);
 
   useEffect(() => {
     if (leads.length === 0) {
@@ -145,7 +218,10 @@ export function LeadsPage() {
       return;
     }
 
-    if (!selectedLeadId || !leads.some((lead) => lead.public_id === selectedLeadId)) {
+    if (
+      !selectedLeadId ||
+      !leads.some((lead) => lead.public_id === selectedLeadId)
+    ) {
       setSelectedLeadId(leads[0].public_id);
     }
   }, [leads, selectedLeadId]);
@@ -162,32 +238,57 @@ export function LeadsPage() {
   };
 
   const statusMutation = useMutation({
-    mutationFn: ({ leadId, nextStatus }: { leadId: string; nextStatus: LeadStatus }) => updateLeadStatus(leadId, nextStatus),
+    mutationFn: ({
+      leadId,
+      nextStatus,
+    }: {
+      leadId: string;
+      nextStatus: LeadStatus;
+    }) => updateLeadStatus(leadId, nextStatus),
     onSuccess: (_payload, variables) => {
       invalidateLeadQueries();
-      setActionSuccess(t("leads.leadMarkedStatus", { status: leadStatusLabel(t, variables.nextStatus) }));
+      setActionSuccess(
+        t("leads.leadMarkedStatus", {
+          status: leadStatusLabel(t, variables.nextStatus),
+        }),
+      );
     },
   });
   const assignMutation = useMutation({
-    mutationFn: ({ leadId, assigneeId }: { leadId: string; assigneeId: string | null }) => assignLead(leadId, assigneeId),
+    mutationFn: ({
+      leadId,
+      assigneeId,
+    }: {
+      leadId: string;
+      assigneeId: string | null;
+    }) => assignLead(leadId, assigneeId),
     onSuccess: (_payload, variables) => {
       invalidateLeadQueries();
-      setActionSuccess(variables.assigneeId ? t("leads.leadOwnerUpdated") : t("leads.leadOwnerCleared"));
+      setActionSuccess(
+        variables.assigneeId
+          ? t("leads.leadOwnerUpdated")
+          : t("leads.leadOwnerCleared"),
+      );
     },
   });
   const analysisMutation = useMutation({
     mutationFn: (leadId: string) => generateLeadAnalysis(leadId),
     onSuccess: (payload, leadId) => {
       setAnalysisPreview(payload);
-      void queryClient.invalidateQueries({ queryKey: ["lead", leadId, "analysis"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["lead", leadId, "analysis"],
+      });
       setActionSuccess(t("leads.analysisGenerated"));
     },
   });
   const outreachMutation = useMutation({
-    mutationFn: (leadId: string) => generateLeadOutreach(leadId, { tone: outreachTone }),
+    mutationFn: (leadId: string) =>
+      generateLeadOutreach(leadId, { tone: outreachTone }),
     onSuccess: (payload, leadId) => {
       setOutreachPreview(outreachDraftToMessagePreview(payload));
-      void queryClient.invalidateQueries({ queryKey: ["lead", leadId, "outreach"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["lead", leadId, "outreach"],
+      });
       setActionSuccess(t("leads.outreachGenerated"));
     },
   });
@@ -203,7 +304,9 @@ export function LeadsPage() {
   });
   const exportMutation = useMutation({
     mutationFn: (leadIds?: string[]) =>
-      leadIds && leadIds.length > 0 ? downloadLeadsExport({ lead_ids: leadIds }) : downloadLeadsExport(leadFilters),
+      leadIds && leadIds.length > 0
+        ? downloadLeadsExport({ lead_ids: leadIds })
+        : downloadLeadsExport(leadFilters),
   });
 
   if (leadsQuery.isError || jobsQuery.isError || usersQuery.isError) {
@@ -228,7 +331,11 @@ export function LeadsPage() {
             <Button
               variant="outline"
               className="bg-transparent"
-              onClick={() => exportMutation.mutate(selectedIds.size ? Array.from(selectedIds) : undefined)}
+              onClick={() =>
+                exportMutation.mutate(
+                  selectedIds.size ? Array.from(selectedIds) : undefined,
+                )
+              }
               disabled={exportMutation.isPending}
             >
               <Download className="size-3.5" />
@@ -240,7 +347,9 @@ export function LeadsPage() {
             </Button>
             {selectedLead ? (
               <Button asChild>
-                <Link to={appPaths.leadDetail(selectedLead.public_id)}>{t("leads.openLeadDetail")}</Link>
+                <Link to={appPaths.leadDetail(selectedLead.public_id)}>
+                  {t("leads.openLeadDetail")}
+                </Link>
               </Button>
             ) : null}
           </>
@@ -256,21 +365,48 @@ export function LeadsPage() {
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricCard label={t("leads.filteredLeads")} value={String(totalLeads)} helper={t("leads.currentResultSet")} />
-        <MetricCard label={t("leads.mappableOnPage")} value={String(mappableLeads.length)} helper={t("leads.visibleMarkers")} />
-        <MetricCard label={t("leads.selectedLeads")} value={String(selectedIds.size)} helper={t("leads.bulkExportReady")} />
+        <MetricCard
+          label={t("leads.filteredLeads")}
+          value={String(totalLeads)}
+          helper={t("leads.currentResultSet")}
+        />
+        <MetricCard
+          label={t("leads.mappableOnPage")}
+          value={String(mappableLeads.length)}
+          helper={t("leads.visibleMarkers")}
+        />
+        <MetricCard
+          label={t("leads.selectedLeads")}
+          value={String(selectedIds.size)}
+          helper={t("leads.bulkExportReady")}
+        />
       </section>
 
       <section className="grid min-w-0 gap-4 2xl:grid-cols-[320px_minmax(0,1fr)]">
-        <LeadsFiltersPanel activeCount={activeFilterCount} onReset={resetFilters}>
+        <LeadsFiltersPanel
+          activeCount={activeFilterCount}
+          onReset={resetFilters}
+        >
           <FilterField label={t("common.search")}>
-            <Input value={q} onChange={(event) => setQ(event.target.value)} placeholder={t("leads.searchPlaceholder")} />
+            <Input
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
+              placeholder={t("leads.searchPlaceholder")}
+            />
           </FilterField>
           <FilterField label={t("leads.city")}>
-            <Input value={city} onChange={(event) => setCity(event.target.value)} placeholder={t("leads.cityPlaceholder")} />
+            <Input
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              placeholder={t("leads.cityPlaceholder")}
+            />
           </FilterField>
           <FilterField label={t("leads.category")}>
-            <Input value={category} onChange={(event) => setCategory(event.target.value)} placeholder={t("leads.categoryPlaceholder")} />
+            <Input
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              placeholder={t("leads.categoryPlaceholder")}
+            />
           </FilterField>
           <FilterField label={t("searches.jobDetails")}>
             <Select
@@ -301,25 +437,41 @@ export function LeadsPage() {
             </Select>
           </FilterField>
           <FilterField label={t("leads.status")}>
-            <Select value={status} onValueChange={(value) => setStatus(value as LeadStatus | "all")}>
+            <Select
+              value={status}
+              onValueChange={(value) => setStatus(value as LeadStatus | "all")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t("exports.allStatuses")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("exports.allStatuses")}</SelectItem>
                 <SelectItem value="new">{t("leads.statusNew")}</SelectItem>
-                <SelectItem value="reviewed">{t("leads.statusReviewed")}</SelectItem>
-                <SelectItem value="qualified">{t("leads.statusQualified")}</SelectItem>
-                <SelectItem value="contacted">{t("leads.statusContacted")}</SelectItem>
-                <SelectItem value="interested">{t("leads.statusInterested")}</SelectItem>
+                <SelectItem value="reviewed">
+                  {t("leads.statusReviewed")}
+                </SelectItem>
+                <SelectItem value="qualified">
+                  {t("leads.statusQualified")}
+                </SelectItem>
+                <SelectItem value="contacted">
+                  {t("leads.statusContacted")}
+                </SelectItem>
+                <SelectItem value="interested">
+                  {t("leads.statusInterested")}
+                </SelectItem>
                 <SelectItem value="won">{t("leads.statusWon")}</SelectItem>
                 <SelectItem value="lost">{t("leads.statusLost")}</SelectItem>
-                <SelectItem value="archived">{t("leads.statusArchived")}</SelectItem>
+                <SelectItem value="archived">
+                  {t("leads.statusArchived")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
           <FilterField label={t("leads.band")}>
-            <Select value={band} onValueChange={(value) => setBand(value as LeadScoreBand | "all")}>
+            <Select
+              value={band}
+              onValueChange={(value) => setBand(value as LeadScoreBand | "all")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t("leads.allScoreBands")} />
               </SelectTrigger>
@@ -328,31 +480,51 @@ export function LeadsPage() {
                 <SelectItem value="high">{t("leads.bandHigh")}</SelectItem>
                 <SelectItem value="medium">{t("leads.bandMedium")}</SelectItem>
                 <SelectItem value="low">{t("leads.bandLow")}</SelectItem>
-                <SelectItem value="not_qualified">{t("leads.bandNotQualified")}</SelectItem>
+                <SelectItem value="not_qualified">
+                  {t("leads.bandNotQualified")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
           <FilterField label={t("leads.qualification")}>
-            <Select value={qualified} onValueChange={(value) => setQualified(value as "all" | "true" | "false")}>
+            <Select
+              value={qualified}
+              onValueChange={(value) =>
+                setQualified(value as "all" | "true" | "false")
+              }
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t("leads.anyQualification")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t("leads.anyQualification")}</SelectItem>
+                <SelectItem value="all">
+                  {t("leads.anyQualification")}
+                </SelectItem>
                 <SelectItem value="true">{t("leads.qualifiedOnly")}</SelectItem>
-                <SelectItem value="false">{t("leads.needsQualification")}</SelectItem>
+                <SelectItem value="false">
+                  {t("leads.needsQualification")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
           <FilterField label={t("leads.website")}>
-            <Select value={hasWebsite} onValueChange={(value) => setHasWebsite(value as "all" | "true" | "false")}>
+            <Select
+              value={hasWebsite}
+              onValueChange={(value) =>
+                setHasWebsite(value as "all" | "true" | "false")
+              }
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t("leads.anyWebsiteState")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t("leads.anyWebsiteState")}</SelectItem>
+                <SelectItem value="all">
+                  {t("leads.anyWebsiteState")}
+                </SelectItem>
                 <SelectItem value="true">{t("leads.hasWebsite")}</SelectItem>
-                <SelectItem value="false">{t("leads.missingWebsite")}</SelectItem>
+                <SelectItem value="false">
+                  {t("leads.missingWebsite")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
@@ -372,24 +544,41 @@ export function LeadsPage() {
             </Select>
           </FilterField>
           <FilterField label={t("leads.sortBy")}>
-            <Select value={sort} onValueChange={(value) => setSort(value as LeadSortOption)}>
+            <Select
+              value={sort}
+              onValueChange={(value) => setSort(value as LeadSortOption)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="score_desc">{t("leads.highestScore")}</SelectItem>
+                <SelectItem value="score_desc">
+                  {t("leads.highestScore")}
+                </SelectItem>
                 <SelectItem value="newest">{t("leads.newest")}</SelectItem>
-                <SelectItem value="reviews_desc">{t("leads.mostReviews")}</SelectItem>
-                <SelectItem value="rating_desc">{t("leads.bestRating")}</SelectItem>
+                <SelectItem value="reviews_desc">
+                  {t("leads.mostReviews")}
+                </SelectItem>
+                <SelectItem value="rating_desc">
+                  {t("leads.bestRating")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </FilterField>
           <div className="grid grid-cols-2 gap-3">
             <FilterField label={t("leads.minScore")}>
-              <Input type="number" value={minScore} onChange={(event) => setMinScore(event.target.value)} />
+              <Input
+                type="number"
+                value={minScore}
+                onChange={(event) => setMinScore(event.target.value)}
+              />
             </FilterField>
             <FilterField label={t("leads.maxScore")}>
-              <Input type="number" value={maxScore} onChange={(event) => setMaxScore(event.target.value)} />
+              <Input
+                type="number"
+                value={maxScore}
+                onChange={(event) => setMaxScore(event.target.value)}
+              />
             </FilterField>
           </div>
         </LeadsFiltersPanel>
@@ -405,13 +594,25 @@ export function LeadsPage() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <ViewButton active={view === "table"} onClick={() => setView("table")} icon={<Table2 className="size-3.5" />}>
+                  <ViewButton
+                    active={view === "table"}
+                    onClick={() => setView("table")}
+                    icon={<Table2 className="size-3.5" />}
+                  >
                     {t("leads.table")}
                   </ViewButton>
-                  <ViewButton active={view === "cards"} onClick={() => setView("cards")} icon={<LayoutGrid className="size-3.5" />}>
+                  <ViewButton
+                    active={view === "cards"}
+                    onClick={() => setView("cards")}
+                    icon={<LayoutGrid className="size-3.5" />}
+                  >
                     {t("leads.cards")}
                   </ViewButton>
-                  <ViewButton active={view === "map"} onClick={() => setView("map")} icon={<Map className="size-3.5" />}>
+                  <ViewButton
+                    active={view === "map"}
+                    onClick={() => setView("map")}
+                    icon={<Map className="size-3.5" />}
+                  >
                     {t("leads.map")}
                   </ViewButton>
                 </div>
@@ -419,9 +620,17 @@ export function LeadsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="neutral">{t("leads.matchingLeads", { count: totalLeads })}</Badge>
-                <Badge tone="accent">{t("leads.selectedCount", { count: selectedIds.size })}</Badge>
-                {selectedLead ? <Badge tone={bandTone(selectedLead.latest_band)}>{selectedLead.company_name}</Badge> : null}
+                <Badge tone="neutral">
+                  {t("leads.matchingLeads", { count: totalLeads })}
+                </Badge>
+                <Badge tone="accent">
+                  {t("leads.selectedCount", { count: selectedIds.size })}
+                </Badge>
+                {selectedLead ? (
+                  <Badge tone={bandTone(selectedLead.latest_band)}>
+                    {selectedLead.company_name}
+                  </Badge>
+                ) : null}
               </div>
 
               {isInitialLoading ? (
@@ -437,7 +646,9 @@ export function LeadsPage() {
                     description={t("leads.noLeadsYetDescription")}
                     action={
                       <Button asChild>
-                        <Link to={appPaths.searches}>{t("searches.createNewJob")}</Link>
+                        <Link to={appPaths.searches}>
+                          {t("searches.createNewJob")}
+                        </Link>
                       </Button>
                     }
                   />
@@ -468,7 +679,11 @@ export function LeadsPage() {
                   />
                 </div>
               ) : view === "cards" ? (
-                <LeadsCards leads={leads} selectedIds={selectedIds} onToggleSelect={toggleSelected} />
+                <LeadsCards
+                  leads={leads}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelected}
+                />
               ) : mappableLeads.length === 0 ? (
                 activeFilterCount === 0 ? (
                   <EmptyState
@@ -476,7 +691,9 @@ export function LeadsPage() {
                     description={t("leads.noLeadsYetDescription")}
                     action={
                       <Button asChild>
-                        <Link to={appPaths.searches}>{t("searches.createNewJob")}</Link>
+                        <Link to={appPaths.searches}>
+                          {t("searches.createNewJob")}
+                        </Link>
                       </Button>
                     }
                   />
@@ -488,7 +705,12 @@ export function LeadsPage() {
                 )
               ) : (
                 <div className="h-[520px] overflow-hidden rounded-2xl border border-border">
-                  <LazyLeadMap className="h-full" leads={mappableLeads} selectedLeadId={selectedLeadId} onSelect={setSelectedLeadId} />
+                  <LazyLeadMap
+                    className="h-full"
+                    leads={mappableLeads}
+                    selectedLeadId={selectedLeadId}
+                    onSelect={setSelectedLeadId}
+                  />
                 </div>
               )}
 
@@ -502,10 +724,22 @@ export function LeadsPage() {
                     })}
                   </p>
                   <div className="flex w-full gap-2 sm:w-auto">
-                    <Button variant="outline" className="bg-transparent" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      disabled={page <= 1}
+                      onClick={() => setPage((value) => Math.max(1, value - 1))}
+                    >
                       {t("common.back")}
                     </Button>
-                    <Button variant="outline" className="bg-transparent" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      disabled={page >= totalPages}
+                      onClick={() =>
+                        setPage((value) => Math.min(totalPages, value + 1))
+                      }
+                    >
                       {t("common.next")}
                     </Button>
                   </div>
@@ -530,7 +764,13 @@ export function LeadsPage() {
                 />
               ) : null}
 
-              {actionSuccess ? <QueryStateNotice tone="success" title={t("leads.actionCompleted")} description={actionSuccess} /> : null}
+              {actionSuccess ? (
+                <QueryStateNotice
+                  tone="success"
+                  title={t("leads.actionCompleted")}
+                  description={actionSuccess}
+                />
+              ) : null}
 
               {!selectedLead ? (
                 <EmptyState
@@ -540,30 +780,57 @@ export function LeadsPage() {
               ) : (
                 <>
                   <div>
-                    <p className="text-lg font-semibold">{selectedLead.company_name}</p>
+                    <p className="text-lg font-semibold">
+                      {selectedLead.company_name}
+                    </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {selectedLead.city ?? t("dashboard.unknownCity")} · {selectedLead.website_domain ?? t("leads.noWebsite")}
+                      {selectedLead.city ?? t("dashboard.unknownCity")} -{" "}
+                      {selectedLead.website_domain ?? t("leads.noWebsite")}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Badge tone={bandTone(selectedLead.latest_band)}>{scoreBandLabel(t, selectedLead.latest_band)}</Badge>
-                    <Badge tone={statusTone(selectedLead.status)}>{leadStatusLabel(t, selectedLead.status)}</Badge>
-                    <Badge tone={selectedLead.latest_qualified ? "success" : "warning"}>
-                      {selectedLead.latest_qualified ? t("leads.qualified") : t("leads.needsReview")}
+                    <Badge tone={bandTone(selectedLead.latest_band)}>
+                      {scoreBandLabel(t, selectedLead.latest_band)}
                     </Badge>
-                    <Badge tone="neutral">{formatScore(selectedLead.latest_score)}</Badge>
+                    <Badge tone={statusTone(selectedLead.status)}>
+                      {leadStatusLabel(t, selectedLead.status)}
+                    </Badge>
+                    <Badge
+                      tone={
+                        selectedLead.latest_qualified ? "success" : "warning"
+                      }
+                    >
+                      {selectedLead.latest_qualified
+                        ? t("leads.qualified")
+                        : t("leads.needsReview")}
+                    </Badge>
+                    <Badge tone="neutral">
+                      {formatScore(selectedLead.latest_score)}
+                    </Badge>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <SignalCard label={t("leads.rating")} value={selectedLead.rating ? String(selectedLead.rating) : t("common.notAvailable")} />
-                    <SignalCard label={t("leads.reviews")} value={String(selectedLead.review_count)} />
+                    <SignalCard
+                      label={t("leads.rating")}
+                      value={
+                        selectedLead.rating
+                          ? String(selectedLead.rating)
+                          : t("common.notAvailable")
+                      }
+                    />
+                    <SignalCard
+                      label={t("leads.reviews")}
+                      value={String(selectedLead.review_count)}
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label>{t("leads.assignOwner")}</Label>
                     <Select
-                      value={selectedLead.assigned_to_user_public_id ?? "unassigned"}
+                      value={
+                        selectedLead.assigned_to_user_public_id ?? "unassigned"
+                      }
                       disabled={assignMutation.isPending}
                       onValueChange={(value) =>
                         assignMutation.mutate({
@@ -576,9 +843,14 @@ export function LeadsPage() {
                         <SelectValue placeholder={t("leads.unassigned")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unassigned">{t("leads.unassigned")}</SelectItem>
+                        <SelectItem value="unassigned">
+                          {t("leads.unassigned")}
+                        </SelectItem>
                         {(usersQuery.data?.items ?? []).map((user) => (
-                          <SelectItem key={user.public_id} value={user.public_id}>
+                          <SelectItem
+                            key={user.public_id}
+                            value={user.public_id}
+                          >
                             {user.full_name}
                           </SelectItem>
                         ))}
@@ -587,64 +859,142 @@ export function LeadsPage() {
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <Button variant="outline" className="bg-transparent" onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "reviewed" })}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      onClick={() =>
+                        statusMutation.mutate({
+                          leadId: selectedLead.public_id,
+                          nextStatus: "reviewed",
+                        })
+                      }
+                    >
                       {t("leads.markReviewed")}
                     </Button>
-                    <Button variant="outline" className="bg-transparent" onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "qualified" })}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      onClick={() =>
+                        statusMutation.mutate({
+                          leadId: selectedLead.public_id,
+                          nextStatus: "qualified",
+                        })
+                      }
+                    >
                       {t("leads.markQualified")}
                     </Button>
-                    <Button variant="outline" className="bg-transparent" onClick={() => statusMutation.mutate({ leadId: selectedLead.public_id, nextStatus: "contacted" })}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      onClick={() =>
+                        statusMutation.mutate({
+                          leadId: selectedLead.public_id,
+                          nextStatus: "contacted",
+                        })
+                      }
+                    >
                       {t("leads.markContacted")}
                     </Button>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <Button variant="outline" className="bg-transparent" onClick={() => refreshMutation.mutate(selectedLead.public_id)} disabled={refreshMutation.isPending}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      onClick={() =>
+                        refreshMutation.mutate(selectedLead.public_id)
+                      }
+                      disabled={refreshMutation.isPending}
+                    >
                       <RefreshCw className="size-3.5" />
-                      {refreshMutation.isPending ? t("leads.refreshing") : t("common.refresh")}
+                      {refreshMutation.isPending
+                        ? t("leads.refreshing")
+                        : t("common.refresh")}
                     </Button>
-                    <Button variant="outline" className="bg-transparent" onClick={() => analysisMutation.mutate(selectedLead.public_id)} disabled={analysisMutation.isPending}>
+                    <Button
+                      variant="outline"
+                      className="bg-transparent"
+                      onClick={() =>
+                        analysisMutation.mutate(selectedLead.public_id)
+                      }
+                      disabled={analysisMutation.isPending}
+                    >
                       <Sparkles className="size-3.5" />
-                      {analysisMutation.isPending ? t("leads.generating") : t("leads.generateAnalysis")}
+                      {analysisMutation.isPending
+                        ? t("leads.generating")
+                        : t("leads.generateAnalysis")}
                     </Button>
-                    <Button onClick={() => outreachMutation.mutate(selectedLead.public_id)} disabled={outreachMutation.isPending}>
-                      {outreachMutation.isPending ? t("leads.drafting") : t("leads.draftOutreach")}
+                    <Button
+                      onClick={() =>
+                        outreachMutation.mutate(selectedLead.public_id)
+                      }
+                      disabled={outreachMutation.isPending}
+                    >
+                      {outreachMutation.isPending
+                        ? t("leads.drafting")
+                        : t("leads.draftOutreach")}
                     </Button>
                   </div>
 
                   <div className="space-y-2">
                     <Label>{t("leads.outreachTone")}</Label>
-                    <Select value={outreachTone} onValueChange={(value) => setOutreachTone(value as OutreachTone)}>
+                    <Select
+                      value={outreachTone}
+                      onValueChange={(value) =>
+                        setOutreachTone(value as OutreachTone)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder={t("leads.selectTone")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="consultative">{t("outreach.toneConsultative")}</SelectItem>
-                        <SelectItem value="friendly">{t("outreach.toneFriendly")}</SelectItem>
-                        <SelectItem value="formal">{t("outreach.toneFormal")}</SelectItem>
-                        <SelectItem value="short_pitch">{t("outreach.toneShortPitch")}</SelectItem>
+                        <SelectItem value="consultative">
+                          {t("outreach.toneConsultative")}
+                        </SelectItem>
+                        <SelectItem value="friendly">
+                          {t("outreach.toneFriendly")}
+                        </SelectItem>
+                        <SelectItem value="formal">
+                          {t("outreach.toneFormal")}
+                        </SelectItem>
+                        <SelectItem value="short_pitch">
+                          {t("outreach.toneShortPitch")}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {analysisPreview ? (
                     <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                      <p className="font-medium">{t("leads.latestGeneratedAnalysis")}</p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{analysisPreview.analysis.summary}</p>
+                      <p className="font-medium">
+                        {t("leads.latestGeneratedAnalysis")}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {localizeAnalysisText(
+                          analysisPreview.analysis.summary,
+                          i18n.language,
+                        )}
+                      </p>
                     </div>
                   ) : null}
                   {outreachPreview ? (
                     <div className="rounded-2xl border border-border bg-muted/20 p-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{outreachPreview.subject}</p>
-                        <Badge tone="accent">{t(`outreach.tones.${outreachPreview.tone}`)}</Badge>
+                        <Badge tone="accent">
+                          {t(`outreach.tones.${outreachPreview.tone}`)}
+                        </Badge>
                       </div>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{outreachPreview.message}</p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">
+                        {outreachPreview.message}
+                      </p>
                     </div>
                   ) : null}
 
                   <Button asChild className="w-full">
-                    <Link to={appPaths.leadDetail(selectedLead.public_id)}>{t("leads.openFullLeadDetail")}</Link>
+                    <Link to={appPaths.leadDetail(selectedLead.public_id)}>
+                      {t("leads.openFullLeadDetail")}
+                    </Link>
                   </Button>
                 </>
               )}
@@ -686,20 +1036,39 @@ export function LeadsPage() {
   }
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string; helper: string }) {
+function MetricCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+}) {
   return (
     <div className="rounded-[1.5rem] border border-border bg-card/95 p-5 shadow-[0_20px_60px_-44px_rgba(15,23,42,0.85)]">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">{helper}</p>
+      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+        {helper}
+      </p>
     </div>
   );
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
-      <Label tone="muted" className="text-xs font-semibold uppercase tracking-[0.16em]">
+      <Label
+        tone="muted"
+        className="text-xs font-semibold uppercase tracking-[0.16em]"
+      >
         {label}
       </Label>
       {children}
@@ -721,7 +1090,9 @@ function ViewButton({
   return (
     <Button
       variant={active ? "default" : "outline"}
-      className={active ? "flex-1 sm:flex-none" : "flex-1 bg-transparent sm:flex-none"}
+      className={
+        active ? "flex-1 sm:flex-none" : "flex-1 bg-transparent sm:flex-none"
+      }
       onClick={onClick}
     >
       {icon}
@@ -733,10 +1104,21 @@ function ViewButton({
 function SignalCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-muted/20 p-4">
-      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
     </div>
   );
+}
+
+function dedupeLeads(items: LeadResponse[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.public_id)) return false;
+    seen.add(item.public_id);
+    return true;
+  });
 }
 
 function parseOptionalNumber(value: string) {

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.modules.leads.models import Lead, LeadNote, LeadStatusHistory
@@ -14,10 +14,10 @@ from app.modules.users.models import User
 
 class LeadsRepository:
     def _latest_scores_subquery(self) -> Any:
-        latest_scored_at = (
+        latest_score_ids = (
             select(
                 LeadScore.lead_id.label("lead_id"),
-                func.max(LeadScore.scored_at).label("max_scored_at"),
+                func.max(LeadScore.id).label("max_score_id"),
             )
             .group_by(LeadScore.lead_id)
             .subquery()
@@ -30,11 +30,8 @@ class LeadsRepository:
                 LeadScore.qualified.label("qualified"),
             )
             .join(
-                latest_scored_at,
-                and_(
-                    LeadScore.lead_id == latest_scored_at.c.lead_id,
-                    LeadScore.scored_at == latest_scored_at.c.max_scored_at,
-                ),
+                latest_score_ids,
+                LeadScore.id == latest_score_ids.c.max_score_id,
             )
             .subquery()
         )
@@ -87,9 +84,16 @@ class LeadsRepository:
             pattern = f"%{q.strip()}%"
             query_filter = or_(
                 Lead.company_name.ilike(pattern),
+                Lead.category.ilike(pattern),
                 Lead.city.ilike(pattern),
                 Lead.address.ilike(pattern),
+                Lead.phone.ilike(pattern),
+                Lead.website_url.ilike(pattern),
                 Lead.website_domain.ilike(pattern),
+                Lead.email.ilike(pattern),
+                Lead.linkedin_url.ilike(pattern),
+                Lead.industry.ilike(pattern),
+                Lead.ai_opener.ilike(pattern),
             )
             statement = statement.where(query_filter)
             count_statement = count_statement.where(query_filter)
@@ -218,7 +222,9 @@ class LeadsRepository:
             )
         )
 
-    def get_by_id_for_workspace(self, db: Session, *, workspace_id: int, lead_id: int) -> Lead | None:
+    def get_by_id_for_workspace(
+        self, db: Session, *, workspace_id: int, lead_id: int
+    ) -> Lead | None:
         return db.scalar(
             select(Lead).where(
                 Lead.id == lead_id,
@@ -310,15 +316,12 @@ class LeadsRepository:
         if not lead_ids:
             return {}
         subq = (
-            select(LeadScore.lead_id, func.max(LeadScore.scored_at).label("max_scored_at"))
+            select(LeadScore.lead_id, func.max(LeadScore.id).label("max_score_id"))
             .where(LeadScore.lead_id.in_(lead_ids))
             .group_by(LeadScore.lead_id)
             .subquery()
         )
-        statement = select(LeadScore).join(
-            subq,
-            (LeadScore.lead_id == subq.c.lead_id) & (LeadScore.scored_at == subq.c.max_scored_at),
-        )
+        statement = select(LeadScore).join(subq, LeadScore.id == subq.c.max_score_id)
         results = list(db.scalars(statement))
         return {item.lead_id: item for item in results}
 

@@ -89,8 +89,7 @@ def test_update_status_endpoint_creates_status_and_note_activity_entries() -> No
         for item in activity_items
     )
     assert any(
-        item["entry_type"] == "note"
-        and item["note"] == "Reached out after qualification review."
+        item["entry_type"] == "note" and item["note"] == "Reached out after qualification review."
         for item in activity_items
     )
 

@@ -7,18 +7,26 @@ const PROOF_ICONS = [Radar, Network, ShieldCheck];
 
 export function AuthSidebar() {
   const { t } = useTranslation();
-  const proofPoints = t("authSidebar.proofPoints", { returnObjects: true }) as Array<{ title: string; body: string }>;
+  const proofPoints = t("authSidebar.proofPoints", {
+    returnObjects: true,
+  }) as Array<{ title: string; body: string }>;
 
   return (
     <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-[oklch(0.15_0.01_240)] p-10 lg:flex">
       <div className="pointer-events-none absolute inset-0 bg-grid bg-grid-fade opacity-40" />
       <div
         className="pointer-events-none absolute -right-24 top-1/3 size-[420px] rounded-full blur-3xl"
-        style={{ background: "radial-gradient(circle, oklch(0.82 0.14 195 / 0.18), transparent 70%)" }}
+        style={{
+          background:
+            "radial-gradient(circle, oklch(0.82 0.14 195 / 0.18), transparent 70%)",
+        }}
       />
       <div
         className="pointer-events-none absolute -left-32 bottom-0 size-[360px] rounded-full blur-3xl"
-        style={{ background: "radial-gradient(circle, oklch(0.78 0.16 152 / 0.12), transparent 70%)" }}
+        style={{
+          background:
+            "radial-gradient(circle, oklch(0.78 0.16 152 / 0.12), transparent 70%)",
+        }}
       />
 
       <div className="relative z-10 flex items-center justify-between">
@@ -30,9 +38,17 @@ export function AuthSidebar() {
       </div>
 
       <div className="relative z-10 flex flex-col gap-8">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
-          <h1 className="text-pretty text-[34px] font-semibold leading-[1.1] tracking-tight text-foreground">{t("authSidebar.title")}</h1>
-          <p className="mt-4 max-w-md text-pretty text-[15px] leading-relaxed text-muted-foreground">{t("authSidebar.description")}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <h1 className="text-pretty text-[34px] font-semibold leading-[1.1] tracking-tight text-foreground">
+            {t("authSidebar.title")}
+          </h1>
+          <p className="mt-4 max-w-md text-pretty text-[15px] leading-relaxed text-muted-foreground">
+            {t("authSidebar.description")}
+          </p>
         </motion.div>
 
         <div className="flex flex-col gap-3">
@@ -50,8 +66,12 @@ export function AuthSidebar() {
                   <Icon className="size-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-foreground">{point.title}</div>
-                  <div className="text-[12px] leading-relaxed text-muted-foreground">{point.body}</div>
+                  <div className="text-[13px] font-medium text-foreground">
+                    {point.title}
+                  </div>
+                  <div className="text-[12px] leading-relaxed text-muted-foreground">
+                    {point.body}
+                  </div>
                 </div>
               </motion.div>
             );

@@ -88,7 +88,9 @@ def _create_workspace_with_users(
     db.add(workspace)
     db.commit()
     BillingService().ensure_seed_data(db)
-    BillingService().bootstrap_workspace_subscription(db, workspace=workspace, actor_user_id=owner.id)
+    BillingService().bootstrap_workspace_subscription(
+        db, workspace=workspace, actor_user_id=owner.id
+    )
     return {
         "workspace_public_id": workspace.public_id,
         "owner_public_id": owner.public_id,
@@ -147,7 +149,9 @@ def test_signup_bootstraps_workspace_owner_permissions_and_billing_state() -> No
         owner = db.scalar(select(User).where(User.email == "avery@northbeam.com"))
         assert owner is not None
         assert workspace.owner_user_id == owner.id
-        subscription = db.scalar(select(Subscription).where(Subscription.workspace_id == workspace.id))
+        subscription = db.scalar(
+            select(Subscription).where(Subscription.workspace_id == workspace.id)
+        )
         assert subscription is not None
         assert subscription.status == "trialing"
 
@@ -298,7 +302,10 @@ def test_simulated_billing_lifecycle_supports_change_failure_success_cancel_and_
         failed_payment = client.post(
             "/api/v1/billing/invoices/simulate-failure",
             headers=headers,
-            json={"invoice_public_id": latest_invoice_id, "error_message": "Simulated card decline."},
+            json={
+                "invoice_public_id": latest_invoice_id,
+                "error_message": "Simulated card decline.",
+            },
         )
         assert failed_payment.status_code == 200
         assert failed_payment.json()["status"] == "past_due"

@@ -8,7 +8,14 @@ import { z } from "zod";
 import { appPaths } from "@/app/paths";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { login } from "@/features/auth/api";
 import { AuthShell } from "@/features/auth/components/auth-shell";
@@ -46,14 +53,20 @@ export function LoginPage() {
       footer={
         <p className="text-[12px] text-muted-foreground">
           {t("auth.noAccount")}{" "}
-          <Link to={appPaths.signUp} className="font-medium text-foreground hover:text-[oklch(var(--signal))]">
+          <Link
+            to={appPaths.signUp}
+            className="font-medium text-foreground hover:text-[oklch(var(--signal))]"
+          >
             {t("auth.signUp")}
           </Link>
         </p>
       }
     >
       <Form {...form}>
-        <form className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+        >
           <FormField
             control={form.control}
             name="email"
@@ -61,7 +74,11 @@ export function LoginPage() {
               <FormItem>
                 <FormLabel>{t("auth.workEmail")}</FormLabel>
                 <FormControl>
-                  <Input autoComplete="email" placeholder={t("auth.emailPlaceholder") as string} {...field} />
+                  <Input
+                    autoComplete="email"
+                    placeholder={t("auth.emailPlaceholder") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -75,19 +92,33 @@ export function LoginPage() {
               <FormItem>
                 <div className="flex items-center justify-between gap-3">
                   <FormLabel>{t("auth.password")}</FormLabel>
-                  <Link to={appPaths.forgotPassword} className="text-[12px] text-muted-foreground hover:text-foreground">
+                  <Link
+                    to={appPaths.forgotPassword}
+                    className="text-[12px] text-muted-foreground hover:text-foreground"
+                  >
                     {t("auth.forgotPassword")}
                   </Link>
                 </div>
                 <FormControl>
-                  <Input type="password" autoComplete="current-password" placeholder={t("auth.password") as string} {...field} />
+                  <Input
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder={t("auth.password") as string}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          {mutation.error ? <QueryStateNotice tone="error" title={t("auth.signInFailed")} description={mutation.error} /> : null}
+          {mutation.error ? (
+            <QueryStateNotice
+              tone="error"
+              title={t("auth.signInFailed")}
+              description={mutation.error}
+            />
+          ) : null}
 
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? t("auth.signingIn") : t("auth.openWorkspace")}

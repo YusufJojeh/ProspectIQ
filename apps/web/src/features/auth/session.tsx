@@ -36,8 +36,13 @@ const AuthSessionContext =
 
 export function AuthSessionProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
-  const storedSession = useSyncExternalStore(subscribeAuthSession, readStoredSession, () => null);
-  const session = storedSession && !isSessionExpired(storedSession) ? storedSession : null;
+  const storedSession = useSyncExternalStore(
+    subscribeAuthSession,
+    readStoredSession,
+    () => null,
+  );
+  const session =
+    storedSession && !isSessionExpired(storedSession) ? storedSession : null;
   const logout = useCallback(() => {
     clearSession();
     queryClient.clear();
@@ -66,7 +71,9 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   );
 
   return (
-    <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
+    <AuthSessionContext.Provider value={value}>
+      {children}
+    </AuthSessionContext.Provider>
   );
 }
 

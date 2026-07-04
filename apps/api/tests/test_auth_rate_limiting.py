@@ -8,7 +8,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.config import clear_settings_cache
 from app.core.database import Base, get_db
 from app.core.rate_limit import _windows
 from app.core.security import hash_password
@@ -70,7 +69,9 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
         db.add(workspace)
         db.commit()
         BillingService().ensure_seed_data(db)
-        BillingService().bootstrap_workspace_subscription(db, workspace=workspace, actor_user_id=owner.id)
+        BillingService().bootstrap_workspace_subscription(
+            db, workspace=workspace, actor_user_id=owner.id
+        )
 
 
 @contextmanager
@@ -91,6 +92,7 @@ def _override_client(session_factory: sessionmaker[Session]) -> Generator[TestCl
 def _rate_limit_enabled_ctx():
     """Enable the rate limiter for a specific test block."""
     import app.core.rate_limit as _rl
+
     _rl._windows.clear()
     _rl._enabled = True
     try:
@@ -106,6 +108,7 @@ def test_login_rate_limit_returns_429_after_limit() -> None:
 
     with _rate_limit_enabled_ctx(), _override_client(session_factory) as client:
         import time
+
         now = time.monotonic()
         scope_key = "auth:login:testclient"
         _windows[scope_key] = [now] * 10
@@ -141,6 +144,7 @@ def test_signup_rate_limit_returns_429_after_limit() -> None:
 
     with _rate_limit_enabled_ctx(), _override_client(session_factory) as client:
         import time
+
         now = time.monotonic()
         scope_key = "auth:signup:testclient"
         _windows[scope_key] = [now] * 5

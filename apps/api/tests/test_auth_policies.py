@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.security import hash_password
-from app.modules.auth.exceptions import InactiveUserError
+from app.modules.auth.exceptions import InactiveUserError, InactiveWorkspaceError
 from app.modules.auth.policies import get_current_user, get_token_claims, require_role
 from app.modules.auth.schemas import AuthTokenClaims, LoginRequest
 from app.modules.auth.service import AuthService
@@ -108,6 +108,29 @@ def test_authenticate_rejects_inactive_user() -> None:
             raise AssertionError("Expected InactiveUserError for inactive user.")
 
 
+def test_authenticate_rejects_inactive_workspace() -> None:
+    session_factory = build_session_factory()
+
+    with session_factory() as db:
+        workspace, _ = seed_workspace_user(db)
+        workspace.status = "disabled"
+        db.add(workspace)
+        db.commit()
+
+        try:
+            AuthService().authenticate(
+                db,
+                payload=LoginRequest(
+                    email="owner@example.com",
+                    password="SecretPass123!",
+                ),
+            )
+        except InactiveWorkspaceError as exc:
+            assert exc.code == "workspace.inactive"
+        else:
+            raise AssertionError("Expected InactiveWorkspaceError for disabled workspace.")
+
+
 def test_get_token_claims_rejects_missing_credentials() -> None:
     try:
         get_token_claims(None)
@@ -144,6 +167,41 @@ def test_get_current_user_returns_db_user(monkeypatch) -> None:
         )
 
     assert resolved.public_id == user.public_id
+
+
+def test_get_current_user_rejects_inactive_workspace(monkeypatch) -> None:
+    session_factory = build_session_factory()
+    with session_factory() as db:
+        workspace, user = seed_workspace_user(db)
+        workspace.status = "disabled"
+        db.add(workspace)
+        db.commit()
+        claims = {
+            "sub": user.public_id,
+            "workspace_id": workspace.id,
+            "workspace_public_id": workspace.public_id,
+            "workspace_slug": workspace.slug,
+            "role": user.role,
+            "status": user.status,
+        }
+        monkeypatch.setattr(
+            "app.modules.auth.policies.decode_access_token",
+            lambda _: claims,
+        )
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer",
+            credentials="valid-token",
+        )
+
+        try:
+            get_current_user(
+                claims=AuthTokenClaims.model_validate(get_token_claims(credentials)),
+                db=db,
+            )
+        except InactiveWorkspaceError as exc:
+            assert exc.code == "workspace.inactive"
+        else:
+            raise AssertionError("Expected InactiveWorkspaceError for disabled workspace.")
 
 
 def test_require_role_raises_forbidden_for_disallowed_role() -> None:

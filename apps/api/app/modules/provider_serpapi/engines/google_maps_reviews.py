@@ -23,9 +23,7 @@ def build_google_maps_reviews_params(
     return params
 
 
-def run_google_maps_reviews(
-    client: SerpApiClient, *, params: dict[str, Any]
-) -> ProviderCallResult:
+def run_google_maps_reviews(client: SerpApiClient, *, params: dict[str, Any]) -> ProviderCallResult:
     return client.search(params)
 
 
@@ -60,7 +58,7 @@ def extract_place_summary(result: ProviderCallResult) -> dict[str, Any]:
         return {}
     summary: dict[str, Any] = {}
     rating = place_info.get("rating")
-    if isinstance(rating, (int, float)):
+    if isinstance(rating, int | float):
         summary["rating"] = float(rating)
     reviews = place_info.get("reviews")
     if isinstance(reviews, int):

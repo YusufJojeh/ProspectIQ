@@ -73,7 +73,9 @@ def test_production_rejects_local_default_admin_password(monkeypatch) -> None:
 
     try:
         Settings()
-        raise AssertionError("Settings() should have raised for local development default admin password.")
+        raise AssertionError(
+            "Settings() should have raised for local development default admin password."
+        )
     except ValueError as exc:
         assert "local development default value" in str(exc)
 

@@ -412,6 +412,9 @@ def test_workspace_operator_journey_e2e(monkeypatch) -> None:
                     "search_visibility": 0.2,
                     "opportunity": 0.2,
                     "data_confidence": 0.1,
+                    "review_score": 0.0,
+                    "news_presence": 0.0,
+                    "web_search_confidence": 0.0,
                 },
                 "thresholds": {
                     "high_min": 78,

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.ai_analysis.schemas import (
+    AIFeedbackRequest,
+    AIFeedbackResponse,
     BatchAnalysisRequest,
     BatchAnalysisResponse,
     LatestLeadAnalysisResponse,
@@ -55,6 +57,23 @@ def generate_lead_analysis(
         db,
         workspace_id=workspace_id,
         lead_public_id=lead_id,
+        current_user=current_user,
+    )
+
+
+@router.post("/{snapshot_id}/feedback", response_model=AIFeedbackResponse)
+def submit_analysis_feedback(
+    snapshot_id: str,
+    payload: AIFeedbackRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> AIFeedbackResponse:
+    return AIAnalysisService().submit_feedback(
+        db,
+        workspace_id=workspace_id,
+        snapshot_public_id=snapshot_id,
+        payload=payload,
         current_user=current_user,
     )
 
