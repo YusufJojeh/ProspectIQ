@@ -224,8 +224,8 @@ class FallbackAnalysisBuilder:
             )
 
         recommended_services = list(payload.allowed_service_catalog[:2]) or [
-            "Local SEO Sprint",
-            "Google Business Profile Optimization",
+            "Discovery Call",
+            "Custom Proposal",
         ]
 
         score = payload.deterministic_score

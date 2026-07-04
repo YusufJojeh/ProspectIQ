@@ -32,7 +32,8 @@ class EvidenceFactBuilder:
     def build(self, lead: Lead, facts: Iterable[ProviderNormalizedFact]) -> NormalizedLeadFacts:
         fact_list = list(facts)
         by_source = self._group_by_source(fact_list)
-        latest_web = by_source.get("web_search", [None])[0]
+        latest_web = self._latest_web_evidence(by_source)
+        latest_tavily = by_source.get("tavily_web", [None])[0]
 
         phone_present = bool(lead.phone or any(item.phone for item in fact_list))
         email_present = bool(lead.email)
@@ -90,6 +91,21 @@ class EvidenceFactBuilder:
             if value
         }
         enriched_rating, enriched_review_count, news_present = self._enrichment_signals(lead)
+        tavily_present = bool(by_source.get("tavily_web"))
+        tavily_answer_present = bool(
+            latest_tavily is not None and latest_tavily.facts_json.get("answer_present")
+        )
+        tavily_result_count = (
+            int(latest_tavily.facts_json.get("result_count", 0))
+            if latest_tavily is not None and isinstance(latest_tavily.facts_json.get("result_count"), int)
+            else 0
+        )
+        tavily_top_relevance_score = (
+            float(latest_tavily.facts_json.get("top_relevance_score", 0.0))
+            if latest_tavily is not None
+            and isinstance(latest_tavily.facts_json.get("top_relevance_score"), int | float)
+            else 0.0
+        )
 
         return NormalizedLeadFacts(
             company_name=lead.company_name,
@@ -134,7 +150,19 @@ class EvidenceFactBuilder:
             enriched_rating=enriched_rating,
             enriched_review_count=enriched_review_count,
             news_present=news_present,
+            tavily_present=tavily_present,
+            tavily_answer_present=tavily_answer_present,
+            tavily_result_count=tavily_result_count,
+            tavily_top_relevance_score=tavily_top_relevance_score,
         )
+
+    def _latest_web_evidence(
+        self, by_source: dict[str, list[ProviderNormalizedFact]]
+    ) -> ProviderNormalizedFact | None:
+        candidates = [*by_source.get("web_search", []), *by_source.get("tavily_web", [])]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda item: (item.created_at, item.id))
 
     def _enrichment_signals(self, lead: Lead) -> tuple[float | None, int, bool]:
         enrichments = lead.enrichments or {}
@@ -199,7 +227,7 @@ class EvidenceFactBuilder:
         by_source: dict[str, list[ProviderNormalizedFact]],
         lead: Lead,
     ) -> tuple[str | None, str | None]:
-        source_priority = ("maps_place", "maps_search", "web_search")
+        source_priority = ("maps_place", "maps_search", "tavily_web", "web_search")
         for source_type in source_priority:
             for fact in by_source.get(source_type, []):
                 if fact.website_domain:

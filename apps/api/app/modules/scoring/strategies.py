@@ -86,6 +86,7 @@ class WebsitePresenceStrategy:
             source_score = {
                 "maps_place": 95.0,
                 "maps_search": 85.0,
+                "tavily_web": 78.0,
                 "web_search": 72.0,
                 "lead_record": 60.0,
             }.get(facts.official_website_source or "", 60.0)
@@ -209,6 +210,33 @@ class NewsPresenceStrategy:
             if facts.news_present
             else "No recent news coverage was detected for this business."
         )
+        return ScoreBreakdownItem(
+            key=self.key,
+            label=self.label,
+            weight=weight,
+            contribution=round(base_score * weight, 2),
+            reason=reason,
+        )
+
+
+class WebSearchConfidenceStrategy:
+    key = "web_search_confidence"
+    label = "Web Search Confidence"
+
+    def score(self, facts: NormalizedLeadFacts, weight: float) -> ScoreBreakdownItem:
+        if not facts.tavily_present:
+            base_score = 0.0
+            reason = "No Tavily web-search evidence has been collected for this lead yet."
+        else:
+            answer_component = 30.0 if facts.tavily_answer_present else 0.0
+            relevance_component = _clamp(facts.tavily_top_relevance_score * 100) * 0.5
+            coverage_component = min(1.0, facts.tavily_result_count / 5.0) * 20.0
+            base_score = _clamp(answer_component + relevance_component + coverage_component)
+            reason = (
+                f"Tavily returned {facts.tavily_result_count} result(s) with top relevance "
+                f"{round(facts.tavily_top_relevance_score * 100)}%, and "
+                f"{'included' if facts.tavily_answer_present else 'did not include'} a direct answer."
+            )
         return ScoreBreakdownItem(
             key=self.key,
             label=self.label,

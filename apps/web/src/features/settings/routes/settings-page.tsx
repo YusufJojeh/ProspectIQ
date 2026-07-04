@@ -56,7 +56,7 @@ import {
   updateProviderSettings,
 } from "@/features/settings/api";
 import { useDocumentTitle } from "@/hooks/use-document-title";
-import { websitePreferenceLabel } from "@/lib/i18n-labels";
+import { professionLabel, websitePreferenceLabel } from "@/lib/i18n-labels";
 import { formatDate } from "@/lib/presenters";
 import type {
   IcpProfileCreateRequest,
@@ -79,6 +79,7 @@ const scoringSchema = z.object({
   data_confidence: z.coerce.number().min(0).max(1),
   review_score: z.coerce.number().min(0).max(1),
   news_presence: z.coerce.number().min(0).max(1),
+  web_search_confidence: z.coerce.number().min(0).max(1),
   high_min: z.coerce.number().min(0).max(100),
   medium_min: z.coerce.number().min(0).max(100),
   low_min: z.coerce.number().min(0).max(100),
@@ -92,9 +93,21 @@ const promptTemplateSchema = z.object({
   activate: z.boolean().default(true),
 });
 
+const professionOptions = [
+  "general",
+  "digital_marketing",
+  "real_estate",
+  "recruiting",
+  "consulting",
+  "creative_freelance",
+  "b2b_sales",
+] as const;
+type ProfessionOption = (typeof professionOptions)[number];
+
 const workspaceSettingsSchema = z.object({
   name: z.string().min(2).max(255),
   slug: z.string().min(2).max(120),
+  profession: z.enum(professionOptions),
 });
 
 const optionalNumberText = z
@@ -195,13 +208,14 @@ export function SettingsPage() {
   const scoringForm = useForm<ScoringValues>({
     resolver: zodResolver(scoringSchema),
     defaultValues: {
-      local_trust: 0.2,
-      website_presence: 0.2,
-      search_visibility: 0.16,
-      opportunity: 0.16,
+      local_trust: 0.18,
+      website_presence: 0.18,
+      search_visibility: 0.14,
+      opportunity: 0.14,
       data_confidence: 0.08,
-      review_score: 0.15,
+      review_score: 0.13,
       news_presence: 0.05,
+      web_search_confidence: 0.1,
       high_min: 75,
       medium_min: 55,
       low_min: 35,
@@ -222,6 +236,7 @@ export function SettingsPage() {
     defaultValues: {
       name: "",
       slug: "",
+      profession: "general",
     },
   });
   const icpProfileForm = useForm<IcpProfileValues>({
@@ -234,6 +249,10 @@ export function SettingsPage() {
     control: icpProfileForm.control,
     name: "website_preference",
   });
+  const watchedProfession = useWatch({
+    control: workspaceForm.control,
+    name: "profession",
+  });
   const watchedIcpActive = useWatch({
     control: icpProfileForm.control,
     name: "is_active",
@@ -241,9 +260,16 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (workspaceQuery.data) {
+      const rawProfession = workspaceQuery.data.settings.profession;
+      const profession: ProfessionOption =
+        typeof rawProfession === "string" &&
+        (professionOptions as readonly string[]).includes(rawProfession)
+          ? (rawProfession as ProfessionOption)
+          : "general";
       workspaceForm.reset({
         name: workspaceQuery.data.workspace.name,
         slug: workspaceQuery.data.workspace.slug,
+        profession,
       });
     }
   }, [workspaceForm, workspaceQuery.data]);
@@ -394,7 +420,14 @@ export function SettingsPage() {
           <form
             className="grid gap-4 md:grid-cols-2"
             onSubmit={workspaceForm.handleSubmit((values) =>
-              workspaceMutation.mutate(values),
+              workspaceMutation.mutate({
+                name: values.name,
+                slug: values.slug,
+                settings: {
+                  ...(workspaceQuery.data?.settings ?? {}),
+                  profession: values.profession,
+                },
+              }),
             )}
           >
             <Field label={t("settings.workspaceName")}>
@@ -408,6 +441,32 @@ export function SettingsPage() {
                 aria-label={t("settings.workspaceSlug")}
                 {...workspaceForm.register("slug")}
               />
+            </Field>
+            <Field label={t("settings.profession")}>
+              <Select
+                value={watchedProfession}
+                onValueChange={(value) =>
+                  workspaceForm.setValue(
+                    "profession",
+                    value as ProfessionOption,
+                    { shouldDirty: true },
+                  )
+                }
+              >
+                <SelectTrigger
+                  aria-label={t("settings.profession")}
+                  className="h-10 rounded-xl bg-background/70 text-start"
+                >
+                  <SelectValue placeholder={t("settings.profession")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {professionOptions.map((profession) => (
+                    <SelectItem key={profession} value={profession}>
+                      {professionLabel(t, profession)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <div className="md:col-span-2 flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={workspaceMutation.isPending}>
@@ -846,6 +905,7 @@ export function SettingsPage() {
                         data_confidence: values.data_confidence,
                         review_score: values.review_score,
                         news_presence: values.news_presence,
+                        web_search_confidence: values.web_search_confidence,
                       },
                       thresholds: {
                         high_min: values.high_min,
@@ -912,6 +972,14 @@ export function SettingsPage() {
                         type="number"
                         step="0.01"
                         {...scoringForm.register("news_presence")}
+                      />
+                    </Field>
+                    <Field label="web_search_confidence">
+                      <Input
+                        aria-label="web_search_confidence"
+                        type="number"
+                        step="0.01"
+                        {...scoringForm.register("web_search_confidence")}
                       />
                     </Field>
                     <Field label="high_min">

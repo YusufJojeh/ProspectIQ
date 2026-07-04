@@ -35,6 +35,9 @@ from app.modules.provider_serpapi.schemas import (
     WebsiteDiscoveryResult,
 )
 from app.modules.provider_serpapi.service import SerpApiService
+from app.modules.provider_tavily.demo_service import DemoTavilyService
+from app.modules.provider_tavily.normalizers.tavily_web_normalizer import TavilyWebNormalizer
+from app.modules.provider_tavily.service import TavilyService
 from app.modules.scoring.fact_builder import EvidenceFactBuilder
 from app.modules.scoring.schemas import ScoringThresholds, ScoringWeights
 from app.modules.scoring.service import ScoringConfigService, ScoringEngine, persist_lead_score
@@ -98,17 +101,31 @@ class ProviderServiceProtocol(Protocol):
     ) -> tuple[ProviderFetch, dict[str, Any]]: ...
 
 
+class TavilyServiceProtocol(Protocol):
+    def web_search(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        query: str,
+        attempt: int = 1,
+    ) -> tuple[ProviderFetch, dict[str, Any]]: ...
+
+
 class LeadDiscoveryOrchestrator:
     def __init__(
         self,
         *,
         session_factory: sessionmaker[Session] | None = None,
         provider_service: ProviderServiceProtocol | None = None,
+        tavily_service: TavilyServiceProtocol | None = None,
         search_job_repository: SearchJobRepository | None = None,
         evidence_repository: ProviderEvidenceRepository | None = None,
         maps_local_normalizer: MapsLocalNormalizer | None = None,
         maps_place_normalizer: MapsPlaceNormalizer | None = None,
         web_search_normalizer: WebSearchNormalizer | None = None,
+        tavily_web_normalizer: TavilyWebNormalizer | None = None,
         scoring_engine: ScoringEngine | None = None,
         scoring_config_service: ScoringConfigService | None = None,
         fact_builder: EvidenceFactBuilder | None = None,
@@ -119,12 +136,14 @@ class LeadDiscoveryOrchestrator:
     ) -> None:
         self.session_factory = session_factory or get_session_factory()
         self.provider_service = provider_service
+        self.tavily_service = tavily_service
         self.openai_discovery = openai_discovery or OpenAIWebSearchDiscovery()
         self.search_job_repository = search_job_repository or SearchJobRepository()
         self.evidence_repository = evidence_repository or ProviderEvidenceRepository()
         self.maps_local_normalizer = maps_local_normalizer or MapsLocalNormalizer()
         self.maps_place_normalizer = maps_place_normalizer or MapsPlaceNormalizer()
         self.web_search_normalizer = web_search_normalizer or WebSearchNormalizer()
+        self.tavily_web_normalizer = tavily_web_normalizer or TavilyWebNormalizer()
         self.scoring_engine = scoring_engine or ScoringEngine()
         self.scoring_config_service = scoring_config_service or ScoringConfigService()
         self.fact_builder = fact_builder or EvidenceFactBuilder()
@@ -581,6 +600,8 @@ class LeadDiscoveryOrchestrator:
         *,
         deadline: datetime,
     ) -> None:
+        settings = get_settings()
+        tavily_enabled = "tavily_web" in settings.enabled_discovery_engines
         provider_service = self._get_provider_service()
         for lead in self._list_leads(db, lead_ids):
             if datetime.now(tz=UTC) >= deadline:
@@ -592,6 +613,26 @@ class LeadDiscoveryOrchestrator:
             if lead.website_domain:
                 continue
             query = self._build_web_query(lead)
+
+            if tavily_enabled:
+                tavily_service = self._get_tavily_service()
+                if tavily_service is not None:
+                    fetch, payload = tavily_service.web_search(
+                        db,
+                        workspace_id=job.workspace_id,
+                        search_job_id=job.id,
+                        query=query,
+                    )
+                    if fetch.status == ProviderFetchStatus.OK.value:
+                        discovery = self.tavily_web_normalizer.normalize(payload)
+                        self._persist_web_discovery(
+                            db, lead, fetch.id, discovery, source_type="tavily_web"
+                        )
+                        continue
+                    job.provider_error_count += 1
+                    self.search_job_repository.save(db, job)
+                    # Fall through to SerpAPI web search below.
+
             fetch, payload = provider_service.web_search(
                 db,
                 workspace_id=job.workspace_id,
@@ -604,7 +645,7 @@ class LeadDiscoveryOrchestrator:
                 continue
 
             discovery = self.web_search_normalizer.normalize(payload)
-            self._persist_web_discovery(db, lead, fetch.id, discovery)
+            self._persist_web_discovery(db, lead, fetch.id, discovery, source_type="web_search")
 
     def _score_leads(self, db: Session, job: SearchJob, lead_ids: list[int]) -> None:
         if not lead_ids:
@@ -809,6 +850,8 @@ class LeadDiscoveryOrchestrator:
         lead: Lead,
         provider_fetch_id: int,
         discovery: WebsiteDiscoveryResult,
+        *,
+        source_type: str = "web_search",
     ) -> None:
         fact = self.evidence_repository.add_normalized_fact(
             db,
@@ -816,7 +859,7 @@ class LeadDiscoveryOrchestrator:
                 workspace_id=lead.workspace_id,
                 lead_id=lead.id,
                 provider_fetch_id=provider_fetch_id,
-                source_type="web_search",
+                source_type=source_type,
                 data_cid=None,
                 data_id=None,
                 place_id=None,
@@ -1002,6 +1045,19 @@ class LeadDiscoveryOrchestrator:
             service = SerpApiService()
         self.provider_service = service
         return service
+
+    def _get_tavily_service(self) -> TavilyServiceProtocol | None:
+        if self.tavily_service is not None:
+            return self.tavily_service
+        settings = get_settings()
+        runtime = settings.tavily_runtime
+        if runtime in {"demo", "stub"}:
+            self.tavily_service = DemoTavilyService()
+        elif runtime == "blocked" or not settings.has_tavily_configured:
+            return None
+        else:
+            self.tavily_service = TavilyService()
+        return self.tavily_service
 
     def _prefer(
         self,

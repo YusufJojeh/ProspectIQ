@@ -323,6 +323,9 @@ type ScoringConfigVersion = {
     search_visibility: number;
     opportunity: number;
     data_confidence: number;
+    review_score?: number;
+    news_presence?: number;
+    web_search_confidence?: number;
   };
   thresholds: {
     high_min: number;
@@ -345,6 +348,7 @@ type AuditLogEntry = {
 
 export type MockState = {
   sessionUser: AuthenticatedUser;
+  workspaceSettings: Record<string, unknown>;
   users: Array<{
     public_id: string;
     email: string;
@@ -545,6 +549,9 @@ function createState(): MockState {
       search_visibility: 0.2,
       opportunity: 0.2,
       data_confidence: 0.1,
+      review_score: 0,
+      news_presence: 0,
+      web_search_confidence: 0,
     },
     thresholds: {
       high_min: 75,
@@ -752,6 +759,7 @@ function createState(): MockState {
 
   return {
     sessionUser,
+    workspaceSettings: { locale: "en-US", theme: "dark", profession: "general" },
     users: [
       {
         public_id: sessionUser.public_id,
@@ -2184,10 +2192,7 @@ async function handleApiRoute(route: Route, state: MockState) {
         status: "active",
       },
       owner_user_public_id: state.sessionUser.public_id,
-      settings: {
-        locale: "en-US",
-        theme: "dark",
-      },
+      settings: state.workspaceSettings,
     });
     return;
   }
@@ -2200,6 +2205,9 @@ async function handleApiRoute(route: Route, state: MockState) {
     if (typeof payload.slug === "string") {
       state.sessionUser.workspace_slug = payload.slug;
     }
+    if (payload.settings && typeof payload.settings === "object") {
+      state.workspaceSettings = payload.settings as Record<string, unknown>;
+    }
     addAudit(state, "workspace.updated", "Updated workspace settings.");
     await fulfillJson(route, {
       workspace: {
@@ -2209,10 +2217,7 @@ async function handleApiRoute(route: Route, state: MockState) {
         status: "active",
       },
       owner_user_public_id: state.sessionUser.public_id,
-      settings: {
-        locale: "en-US",
-        theme: "dark",
-      },
+      settings: state.workspaceSettings,
     });
     return;
   }

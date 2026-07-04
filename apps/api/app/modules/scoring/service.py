@@ -25,6 +25,7 @@ from app.modules.scoring.strategies import (
     ReviewScoreStrategy,
     ScoringStrategy,
     SearchVisibilityStrategy,
+    WebSearchConfidenceStrategy,
     WebsitePresenceStrategy,
 )
 from app.shared.dto.lead_facts import NormalizedLeadFacts
@@ -45,6 +46,7 @@ class ScoringEngine:
             DataConfidenceStrategy(),
             ReviewScoreStrategy(),
             NewsPresenceStrategy(),
+            WebSearchConfidenceStrategy(),
         ]
 
     def evaluate(

@@ -62,7 +62,7 @@ from app.modules.ai_analysis.models import (
     WorkspaceServiceCatalogItem,
 )
 from app.modules.ai_analysis.repository import AIAnalysisRepository
-from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
+from app.modules.ai_analysis.service_catalog import get_default_service_catalog
 from app.modules.audit_logs.models import AuditLog
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.billing.models import (
@@ -88,6 +88,7 @@ from app.modules.search_jobs.models import SearchJob
 from app.modules.signals.models import LeadSignal
 from app.modules.users.models import User, Workspace
 from app.shared.enums.jobs import ProviderFetchStatus, SearchJobStatus
+from app.shared.utils.workspace_profile import get_workspace_profession
 
 
 class AdminService:
@@ -410,6 +411,8 @@ class AdminService:
     def list_service_catalog(self, db: Session, *, workspace_id: int) -> ServiceCatalogListResponse:
         items = self.admin_repository.list_service_catalog(db, workspace_id=workspace_id)
         if not items:
+            workspace = db.get(Workspace, workspace_id)
+            profession = get_workspace_profession(workspace)
             return ServiceCatalogListResponse(
                 items=[
                     ServiceCatalogItemResponse(
@@ -420,7 +423,7 @@ class AdminService:
                         rank_order=i,
                         created_at=datetime.now(tz=UTC),
                     )
-                    for i, name in enumerate(ALLOWED_SERVICE_CATALOG, start=1)
+                    for i, name in enumerate(get_default_service_catalog(profession), start=1)
                 ],
                 is_default=True,
             )

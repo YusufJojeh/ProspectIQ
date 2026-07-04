@@ -699,6 +699,7 @@ export interface ScoringWeights {
   data_confidence: number;
   review_score: number;
   news_presence: number;
+  web_search_confidence: number;
 }
 
 export interface ScoringThresholds {

@@ -33,6 +33,12 @@ export function websitePreferenceLabel(
   return t(`searches.websitePreferences.${preference}`);
 }
 
+export function professionLabel(t: TFunction, profession: string) {
+  return t(`settings.professions.${profession}`, {
+    defaultValue: profession.replace(/_/g, " "),
+  });
+}
+
 export function searchJobStatusLabel(t: TFunction, status: string) {
   return t(`searches.statuses.${status}`, {
     defaultValue: status.replace(/_/g, " "),

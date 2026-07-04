@@ -1060,6 +1060,16 @@
     "workspaceProfileDescription": "إدارة اسم المساحة ومعرفها وإعداداتها العامة.",
     "workspaceName": "اسم مساحة العمل",
     "workspaceSlug": "معرّف المساحة",
+    "profession": "المهنة / القطاع",
+    "professions": {
+      "general": "توليد العملاء المحتملين بشكل عام",
+      "digital_marketing": "التسويق الرقمي / وكالة تحسين محركات البحث",
+      "real_estate": "العقارات",
+      "recruiting": "التوظيف / الاستقدام",
+      "consulting": "الاستشارات / الخدمات المهنية",
+      "creative_freelance": "الخدمات الإبداعية / العمل الحر",
+      "b2b_sales": "مبيعات الشركات (B2B)"
+    },
     "saveWorkspaceProfile": "حفظ ملف المساحة",
     "owner": "المالك",
     "adminActionCompleted": "اكتمل إجراء الإدارة",

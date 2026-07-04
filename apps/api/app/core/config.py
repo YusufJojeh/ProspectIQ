@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     serpapi_api_key: str = ""
     serpapi_base_url: str = "https://serpapi.com/search.json"
 
+    # Tavily is an optional secondary discovery/validation engine (LLM-grade web
+    # search). Unlike SerpAPI it is never production-required: if unconfigured,
+    # it is simply excluded from the enabled engine list.
+    tavily_api_key: str = ""
+    tavily_base_url: str = "https://api.tavily.com/search"
+    tavily_runtime_mode_override: DiscoveryRuntime | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TAVILY_RUNTIME_MODE"),
+    )
+
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
     openai_base_url: str = "https://api.openai.com/v1"
@@ -221,6 +231,23 @@ class Settings(BaseSettings):
         return bool(self.serpapi_api_key.strip())
 
     @property
+    def has_tavily_configured(self) -> bool:
+        return bool(self.tavily_api_key.strip())
+
+    @property
+    def tavily_runtime(self) -> DiscoveryRuntime:
+        if self.tavily_runtime_mode_override:
+            return self.tavily_runtime_mode_override
+
+        if self.is_testing:
+            return "stub"
+
+        if self.has_tavily_configured:
+            return "live"
+
+        return "blocked"
+
+    @property
     def has_openai_configured(self) -> bool:
         return bool(self.openai_api_key.strip())
 
@@ -293,6 +320,12 @@ class Settings(BaseSettings):
         if self.analysis_runtime == "ollama" and not self.has_openai_configured:
             warnings.append(
                 "Ollama is the primary AI runtime and no OpenAI fallback key is configured."
+            )
+
+        if "tavily_web" in self.enabled_discovery_engines and self.tavily_runtime == "blocked":
+            warnings.append(
+                "DISCOVERY_ENGINE_LIST includes tavily_web but TAVILY_API_KEY is not configured; "
+                "it will be skipped."
             )
 
         return warnings

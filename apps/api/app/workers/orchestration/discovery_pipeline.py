@@ -162,6 +162,10 @@ class EngineExecutionPlanner:
             adapters = ["google_maps_search"]
             variants = query_variants
         else:
+            # tavily_web is intentionally excluded here: it runs per-lead during the
+            # later "validate" stage (see LeadDiscoveryOrchestrator._validate_web_presence),
+            # not the query-fanout "discover" stage, because business-name-specific
+            # validation requires a lead to already exist.
             allowed = {"google_maps_search", "google_web"}
             adapters = [engine for engine in enabled_engines if engine in allowed] or [
                 "google_maps_search"

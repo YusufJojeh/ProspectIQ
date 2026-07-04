@@ -1223,6 +1223,16 @@
     "workspaceProfileDescription": "Update the isolated workspace name and slug used across the authenticated account.",
     "workspaceName": "Workspace name",
     "workspaceSlug": "Workspace slug",
+    "profession": "Profession / industry",
+    "professions": {
+      "general": "General lead generation",
+      "digital_marketing": "Digital marketing / SEO agency",
+      "real_estate": "Real estate",
+      "recruiting": "Recruiting / staffing",
+      "consulting": "Consulting / professional services",
+      "creative_freelance": "Creative / freelance services",
+      "b2b_sales": "B2B sales / business development"
+    },
     "saveWorkspaceProfile": "Save workspace profile",
     "owner": "Owner",
     "adminActionCompleted": "Admin action completed",

@@ -35,14 +35,15 @@ from app.modules.ai_analysis.schemas import (
     LeadScoreContext,
     ServiceRecommendationResponse,
 )
-from app.modules.ai_analysis.service_catalog import ALLOWED_SERVICE_CATALOG
+from app.modules.ai_analysis.service_catalog import get_default_service_catalog
 from app.modules.ai_analysis.validator import LLMOutputValidator
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
-from app.modules.users.models import User
+from app.modules.users.models import User, Workspace
 from app.shared.dto.lead_facts import NormalizedLeadFacts
 from app.shared.services.lead_intelligence import LeadIntelligenceService
+from app.shared.utils.workspace_profile import get_workspace_profession
 
 logger = logging.getLogger(__name__)
 
@@ -424,7 +425,9 @@ class AIAnalysisService:
         active_items = [item.service_name for item in items if item.is_active]
         if active_items:
             return active_items
-        return list(ALLOWED_SERVICE_CATALOG)
+        workspace = db.get(Workspace, workspace_id)
+        profession = get_workspace_profession(workspace)
+        return list(get_default_service_catalog(profession))
 
     def _resolve_runtime_candidates(self) -> list[RuntimeCandidate]:
         if self.llm_client is not None:

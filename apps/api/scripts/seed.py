@@ -599,6 +599,7 @@ def ensure_base_workspace_configuration(db, *, workspace_id: int, admin_id: int)
                 "data_confidence": 0.1,
                 "review_score": 0.0,
                 "news_presence": 0.0,
+                "web_search_confidence": 0.0,
             },
             thresholds_json={
                 "high_min": 75,
@@ -803,6 +804,7 @@ def _seed_secondary_admin_records(db, *, workspace_id: int, admin_id: int) -> No
                     "data_confidence": 0.1,
                     "review_score": 0.0,
                     "news_presence": 0.0,
+                    "web_search_confidence": 0.0,
                 },
                 thresholds_json={
                     "high_min": 78,

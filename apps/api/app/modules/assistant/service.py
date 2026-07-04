@@ -625,7 +625,7 @@ class AssistantService:
             lead.company_name,
             lead.category,
             lead.city,
-            "official website competitors SEO market",
+            "official website competitors market",
             cleaned_text,
         ]
         return " ".join(str(part).strip() for part in parts if part)
