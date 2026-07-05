@@ -5,7 +5,7 @@ export function isDesktopWideProject(projectName: string) {
 }
 
 export function usesCompactAppNav(projectName: string) {
-  return projectName === "tablet" || projectName === "mobile";
+  return projectName === "mobile";
 }
 
 export function isMobileProject(projectName: string) {

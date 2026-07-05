@@ -791,6 +791,12 @@ export interface OperationalHealthResponse {
   serpapi_configured: boolean;
   serpapi_live_reachable: boolean;
   serpapi_runtime_mode: string;
+  tavily_configured: boolean;
+  tavily_runtime_mode: string;
+  tavily_max_results: number;
+  tavily_search_depth: string;
+  tavily_rate_limit_rpm: number;
+  tavily_live_max_calls: number;
   discovery_runtime: string;
   current_ai_runtime: string;
   analysis_runtime: string;

@@ -65,6 +65,7 @@ import {
 import {
   generateLeadOutreach,
   getLatestOutreach,
+  sendOutreachMessage,
   updateOutreachDraft,
 } from "@/features/outreach/api";
 import { listUsers } from "@/features/users/api";
@@ -279,6 +280,16 @@ export function LeadDetailPage() {
       setActionSuccess(t("leadDetail.outreachSaved"));
     },
   });
+  const sendOutreachMutation = useMutation({
+    mutationFn: (messageId: string) => sendOutreachMessage(messageId),
+    onSuccess: () => {
+      refreshQueries();
+      toast.success(t("outreach.sentSuccess"));
+    },
+    onError: (error) => {
+      toast.error(resolveErrorMessage(error, t));
+    },
+  });
   const recomputeSignalsMutation = useMutation({
     mutationFn: () => recomputeLeadSignals(leadId),
     onSuccess: () => {
@@ -343,6 +354,17 @@ export function LeadDetailPage() {
       toast.error(resolveErrorMessage(error, t));
     },
   });
+
+  async function copyOutreachDraft() {
+    const text = copyOutreachText(outreachSubjectDraft, outreachMessageDraft);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t("outreach.copiedToast"));
+    } catch {
+      toast.error(t("outreach.copyError"));
+    }
+  }
 
   if (leadQuery.isError) {
     return (
@@ -743,14 +765,21 @@ export function LeadDetailPage() {
               latestOutreach &&
               saveOutreachMutation.mutate(latestOutreach.public_id)
             }
+            onCopy={() => copyOutreachDraft()}
+            onSend={() =>
+              latestOutreach &&
+              sendOutreachMutation.mutate(latestOutreach.public_id)
+            }
             generating={outreachMutation.isPending}
             saving={saveOutreachMutation.isPending}
+            sending={sendOutreachMutation.isPending}
             canSave={
               latestOutreach !== null &&
               outreachSubjectDraft.trim().length > 0 &&
               outreachMessageDraft.trim().length > 0 &&
               outreachDraftChanged
             }
+            canSend={latestOutreach?.outreach_status === "draft"}
             error={
               latestOutreachQuery.isError ? latestOutreachQuery.error : null
             }
@@ -778,6 +807,10 @@ function getHealthToneClass(value: number) {
     return "border-[oklch(var(--warning)/0.3)] bg-[oklch(var(--warning)/0.08)] text-[oklch(var(--warning))]";
   }
   return "border-[oklch(var(--risk)/0.3)] bg-[oklch(var(--risk)/0.08)] text-[oklch(var(--risk))]";
+}
+
+function copyOutreachText(subject: string, message: string) {
+  return `${subject.trim()}\n\n${message.trim()}`.trim();
 }
 
 function FactCard({ label, value }: { label: string; value: string }) {

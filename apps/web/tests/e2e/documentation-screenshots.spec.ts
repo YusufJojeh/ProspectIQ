@@ -214,6 +214,13 @@ test.beforeAll(async () => {
   await ensureScreenshotDir();
 });
 
+test.beforeEach(({}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-wide",
+    "Documentation figure captures are generated once on the desktop-wide project.",
+  );
+});
+
 test("capture login interface screenshot", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.clear();

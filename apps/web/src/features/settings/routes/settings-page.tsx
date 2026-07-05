@@ -602,6 +602,12 @@ export function SettingsPage() {
                     badLabel={t("settings.unavailable")}
                   />
                   <StatusMetric
+                    label="Tavily"
+                    ok={healthQuery.data?.tavily_configured ?? false}
+                    okLabel={t("settings.configured")}
+                    badLabel={t("settings.missingKey")}
+                  />
+                  <StatusMetric
                     label="Ollama"
                     ok={healthQuery.data?.ollama_reachable ?? false}
                     okLabel={t("settings.reachable")}
@@ -628,6 +634,10 @@ export function SettingsPage() {
                   <MetricCard
                     label={t("settings.serpapiMode")}
                     value={healthQuery.data?.serpapi_runtime_mode ?? "unknown"}
+                  />
+                  <MetricCard
+                    label={t("settings.tavilyMode")}
+                    value={healthQuery.data?.tavily_runtime_mode ?? "unknown"}
                   />
                   <MetricCard
                     label={t("settings.discoveryRuntime")}
@@ -787,6 +797,24 @@ export function SettingsPage() {
                   }
                 />
                 <MetricCard
+                  label={t("settings.tavilyMode")}
+                  value={
+                    healthQuery.data?.tavily_runtime_mode ??
+                    t("common.unknown")
+                  }
+                />
+                <MetricCard
+                  label={t("settings.tavilyRateLimit")}
+                  value={`${healthQuery.data?.tavily_rate_limit_rpm ?? 0} rpm`}
+                />
+                <MetricCard
+                  label={t("settings.tavilySearchDepth")}
+                  value={
+                    healthQuery.data?.tavily_search_depth ??
+                    t("common.unknown")
+                  }
+                />
+                <MetricCard
                   label={t("settings.discoveryRuntime")}
                   value={
                     healthQuery.data?.discovery_runtime ?? t("common.unknown")
@@ -803,6 +831,12 @@ export function SettingsPage() {
                   ok={healthQuery.data?.serpapi_live_reachable ?? false}
                   okLabel={t("settings.reachable")}
                   badLabel={t("settings.unavailable")}
+                />
+                <StatusMetric
+                  label={t("settings.tavilyConfigured")}
+                  ok={healthQuery.data?.tavily_configured ?? false}
+                  okLabel={t("settings.configured")}
+                  badLabel={t("settings.missingKey")}
                 />
               </CardContent>
             </Card>

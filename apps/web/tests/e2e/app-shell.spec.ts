@@ -24,8 +24,9 @@ test("dashboard and shell render through authenticated route flow", async ({ pag
   await expect(page.getByText(/total leads/i)).toBeVisible();
 
   if (usesCompactAppNav(testInfo.project.name)) {
-    await expect(page.getByRole("navigation", { name: /primary/i })).toBeVisible();
-    await page.getByRole("link", { name: /jobs/i }).click();
+    const primaryNav = page.getByRole("navigation", { name: /primary/i });
+    await expect(primaryNav).toBeVisible();
+    await primaryNav.getByRole("link", { name: /jobs/i }).click();
     await expect(page).toHaveURL(/\/app\/searches$/);
   } else {
     await expect(page.getByRole("link", { name: /dashboard/i })).toBeVisible();

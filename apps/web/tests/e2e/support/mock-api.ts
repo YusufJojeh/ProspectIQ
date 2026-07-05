@@ -2427,6 +2427,12 @@ async function handleApiRoute(route: Route, state: MockState) {
       serpapi_configured: true,
       serpapi_live_reachable: true,
       serpapi_runtime_mode: "live",
+      tavily_configured: true,
+      tavily_runtime_mode: "stub",
+      tavily_max_results: 5,
+      tavily_search_depth: "basic",
+      tavily_rate_limit_rpm: 60,
+      tavily_live_max_calls: 3,
       discovery_runtime: "live",
       current_ai_runtime: "ollama",
       analysis_runtime: "ollama",
@@ -2889,9 +2895,32 @@ async function handleApiRoute(route: Route, state: MockState) {
 
 export async function installMockApi(page: Page) {
   const state = createState();
+  const transparentPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  );
 
   await page.route("**/api/v1/**", async (route) => {
     await handleApiRoute(route, state);
+  });
+
+  await page.route(
+    /^https:\/\/www\.google\.com\/s2\/favicons\?.*/i,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: transparentPng,
+      });
+    },
+  );
+
+  await page.route(/^https:\/\/logo\.clearbit\.com\/.*/i, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "image/png",
+      body: transparentPng,
+    });
   });
 
   // Mock OpenStreetMap tile requests
@@ -2902,10 +2931,7 @@ export async function installMockApi(page: Page) {
       await route.fulfill({
         status: 200,
         contentType: "image/png",
-        body: Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-          "base64",
-        ),
+        body: transparentPng,
       });
     },
   );
@@ -2918,10 +2944,7 @@ export async function installMockApi(page: Page) {
       await route.fulfill({
         status: 200,
         contentType: "image/png",
-        body: Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-          "base64",
-        ),
+        body: transparentPng,
       });
     } else {
       await route.continue();

@@ -125,7 +125,7 @@ export function MobileNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center gap-1 overflow-x-auto border-t border-border bg-background/95 px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center gap-1 overflow-x-auto border-t border-border bg-background/95 px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden"
       aria-label="Primary"
     >
       {visibleItems.map((it) => {

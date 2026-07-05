@@ -15,6 +15,13 @@ import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { formatDate, titleCaseLabel } from "@/lib/presenters";
 import type { OutreachDraftResponse, OutreachTone } from "@/types/api";
 import type { ApiError } from "@/lib/api-client";
+import type { BadgeTone } from "@/components/ui/badge";
+
+function outreachStatusTone(status: string): BadgeTone {
+  if (status === "sent") return "success";
+  if (status === "replied") return "signal";
+  return "neutral";
+}
 
 export function LeadOutreachPanel({
   draft,
@@ -26,9 +33,13 @@ export function LeadOutreachPanel({
   onMessageChange,
   onGenerate,
   onSave,
+  onCopy,
+  onSend,
   generating,
   saving,
+  sending,
   canSave,
+  canSend,
   error,
 }: {
   draft: OutreachDraftResponse | null;
@@ -40,9 +51,13 @@ export function LeadOutreachPanel({
   onMessageChange: (value: string) => void;
   onGenerate: (regenerate: boolean) => void;
   onSave: () => void;
+  onCopy: () => void;
+  onSend: () => void;
   generating?: boolean;
   saving?: boolean;
+  sending?: boolean;
   canSave: boolean;
+  canSend: boolean;
   error?: ApiError | Error | null;
 }) {
   const { t } = useTranslation();
@@ -57,7 +72,14 @@ export function LeadOutreachPanel({
             {t("leadDetail.outreachDescription")}
           </p>
         </div>
-        {draft ? <Badge tone="accent">v{draft.version_number}</Badge> : null}
+        {draft ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="accent">v{draft.version_number}</Badge>
+            <Badge tone={outreachStatusTone(draft.outreach_status)}>
+              {t(`leads.outreachStatus.${draft.outreach_status}`)}
+            </Badge>
+          </div>
+        ) : null}
       </header>
 
       <div className="space-y-4 p-4">
@@ -129,14 +151,35 @@ export function LeadOutreachPanel({
                 className="min-h-[220px]"
               />
             </div>
-            <Button
-              data-testid="lead-outreach-save"
-              onClick={onSave}
-              disabled={!canSave || saving}
-            >
-              <Save className="size-3.5" />
-              {saving ? t("common.loading") : t("leadDetail.saveEdits")}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                data-testid="lead-outreach-copy"
+                variant="outline"
+                className="bg-transparent"
+                onClick={onCopy}
+              >
+                <Copy className="size-3.5" />
+                {t("outreach.copyAll")}
+              </Button>
+              <Button
+                data-testid="lead-outreach-save"
+                variant="outline"
+                className="bg-transparent"
+                onClick={onSave}
+                disabled={!canSave || saving}
+              >
+                <Save className="size-3.5" />
+                {saving ? t("common.loading") : t("leadDetail.saveEdits")}
+              </Button>
+              <Button
+                data-testid="lead-outreach-send"
+                onClick={onSend}
+                disabled={!canSend || sending}
+              >
+                <Send className="size-3.5" />
+                {sending ? t("common.loading") : t("outreach.send")}
+              </Button>
+            </div>
           </>
         ) : (
           <QueryStateNotice
