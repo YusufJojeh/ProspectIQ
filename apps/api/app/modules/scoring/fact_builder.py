@@ -33,7 +33,8 @@ class EvidenceFactBuilder:
         fact_list = list(facts)
         by_source = self._group_by_source(fact_list)
         latest_web = self._latest_web_evidence(by_source)
-        latest_tavily = by_source.get("tavily_web", [None])[0]
+        tavily_facts = [*by_source.get("tavily_web", []), *by_source.get("tavily_search", [])]
+        latest_tavily = tavily_facts[0] if tavily_facts else None
 
         phone_present = bool(lead.phone or any(item.phone for item in fact_list))
         email_present = bool(lead.email)
@@ -83,7 +84,11 @@ class EvidenceFactBuilder:
             official_website_found=bool(website_domain),
             official_site_position=official_site_position,
             directory_results_before_official=directory_results_before_official,
-            web_search_present=bool(by_source.get("web_search")),
+            web_search_present=bool(
+                by_source.get("web_search")
+                or by_source.get("tavily_web")
+                or by_source.get("tavily_search")
+            ),
         )
         website_values = {
             value.casefold()
@@ -91,13 +96,14 @@ class EvidenceFactBuilder:
             if value
         }
         enriched_rating, enriched_review_count, news_present = self._enrichment_signals(lead)
-        tavily_present = bool(by_source.get("tavily_web"))
+        tavily_present = bool(tavily_facts)
         tavily_answer_present = bool(
             latest_tavily is not None and latest_tavily.facts_json.get("answer_present")
         )
         tavily_result_count = (
             int(latest_tavily.facts_json.get("result_count", 0))
-            if latest_tavily is not None and isinstance(latest_tavily.facts_json.get("result_count"), int)
+            if latest_tavily is not None
+            and isinstance(latest_tavily.facts_json.get("result_count"), int)
             else 0
         )
         tavily_top_relevance_score = (
@@ -130,7 +136,11 @@ class EvidenceFactBuilder:
             hours_present=hours_present,
             maps_search_present=bool(by_source.get("maps_search")),
             maps_place_present=bool(by_source.get("maps_place")),
-            web_search_present=bool(by_source.get("web_search")),
+            web_search_present=bool(
+                by_source.get("web_search")
+                or by_source.get("tavily_web")
+                or by_source.get("tavily_search")
+            ),
             evidence_sources_count=len(by_source),
             category_clarity=category_clarity,
             official_website_found=bool(website_domain),
@@ -159,7 +169,11 @@ class EvidenceFactBuilder:
     def _latest_web_evidence(
         self, by_source: dict[str, list[ProviderNormalizedFact]]
     ) -> ProviderNormalizedFact | None:
-        candidates = [*by_source.get("web_search", []), *by_source.get("tavily_web", [])]
+        candidates = [
+            *by_source.get("web_search", []),
+            *by_source.get("tavily_web", []),
+            *by_source.get("tavily_search", []),
+        ]
         if not candidates:
             return None
         return max(candidates, key=lambda item: (item.created_at, item.id))
@@ -227,7 +241,7 @@ class EvidenceFactBuilder:
         by_source: dict[str, list[ProviderNormalizedFact]],
         lead: Lead,
     ) -> tuple[str | None, str | None]:
-        source_priority = ("maps_place", "maps_search", "tavily_web", "web_search")
+        source_priority = ("maps_place", "maps_search", "tavily_web", "tavily_search", "web_search")
         for source_type in source_priority:
             for fact in by_source.get(source_type, []):
                 if fact.website_domain:

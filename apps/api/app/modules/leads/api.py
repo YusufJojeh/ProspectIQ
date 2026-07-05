@@ -16,6 +16,7 @@ from app.modules.leads.schemas import (
     LeadNoteCreateRequest,
     LeadNoteResponse,
     LeadOutreachResponse,
+    LeadResearchResponse,
     LeadResponse,
     LeadScoreBreakdownResponse,
     LeadSortOption,
@@ -96,7 +97,9 @@ def get_lead(
     return LeadsService().get_lead(db, workspace_id, lead_id)
 
 
-@router.post("/{lead_id}/create-deal", response_model=DealResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{lead_id}/create-deal", response_model=DealResponse, status_code=status.HTTP_201_CREATED
+)
 def create_lead_deal(
     lead_id: str,
     payload: CreateDealsFromSourceRequest | None = None,
@@ -153,6 +156,21 @@ def analyze_lead(
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> LeadAnalysisResponse:
     return LeadsService().analyze_lead(db, workspace_id, lead_id, current_user=current_user)
+
+
+@router.post("/{lead_id}/research", response_model=LeadResearchResponse)
+def research_lead(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> LeadResearchResponse:
+    return LeadsService().research_lead(
+        db,
+        workspace_id,
+        lead_id,
+        current_user=current_user,
+    )
 
 
 @router.post("/{lead_id}/notes", response_model=LeadNoteResponse)

@@ -87,6 +87,7 @@ class WebsitePresenceStrategy:
                 "maps_place": 95.0,
                 "maps_search": 85.0,
                 "tavily_web": 78.0,
+                "tavily_search": 76.0,
                 "web_search": 72.0,
                 "lead_record": 60.0,
             }.get(facts.official_website_source or "", 60.0)

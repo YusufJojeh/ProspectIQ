@@ -83,6 +83,15 @@ class LeadOutreachResponse(BaseModel):
     message: OutreachMessageResult
 
 
+class LeadResearchResponse(BaseModel):
+    lead_id: str
+    provider_fetch_id: str
+    provider: str = "tavily"
+    status: str
+    request_id: str | None = None
+    message: str
+
+
 class LeadAssignRequest(BaseModel):
     assignee_user_public_id: str | None
 

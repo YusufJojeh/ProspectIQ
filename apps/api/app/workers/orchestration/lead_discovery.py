@@ -36,6 +36,9 @@ from app.modules.provider_serpapi.schemas import (
 )
 from app.modules.provider_serpapi.service import SerpApiService
 from app.modules.provider_tavily.demo_service import DemoTavilyService
+from app.modules.provider_tavily.normalizers.tavily_lead_normalizer import (
+    TavilyLeadDiscoveryNormalizer,
+)
 from app.modules.provider_tavily.normalizers.tavily_web_normalizer import TavilyWebNormalizer
 from app.modules.provider_tavily.service import TavilyService
 from app.modules.scoring.fact_builder import EvidenceFactBuilder
@@ -112,6 +115,28 @@ class TavilyServiceProtocol(Protocol):
         attempt: int = 1,
     ) -> tuple[ProviderFetch, dict[str, Any]]: ...
 
+    def extract_urls(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        urls: list[str],
+        query: str | None = None,
+        attempt: int = 1,
+    ) -> tuple[ProviderFetch, dict[str, Any]]: ...
+
+    def research(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        query: str,
+        model: str = "tavily-research-mini",
+        attempt: int = 1,
+    ) -> tuple[ProviderFetch, dict[str, Any]]: ...
+
 
 class LeadDiscoveryOrchestrator:
     def __init__(
@@ -126,6 +151,7 @@ class LeadDiscoveryOrchestrator:
         maps_place_normalizer: MapsPlaceNormalizer | None = None,
         web_search_normalizer: WebSearchNormalizer | None = None,
         tavily_web_normalizer: TavilyWebNormalizer | None = None,
+        tavily_lead_normalizer: TavilyLeadDiscoveryNormalizer | None = None,
         scoring_engine: ScoringEngine | None = None,
         scoring_config_service: ScoringConfigService | None = None,
         fact_builder: EvidenceFactBuilder | None = None,
@@ -144,6 +170,7 @@ class LeadDiscoveryOrchestrator:
         self.maps_place_normalizer = maps_place_normalizer or MapsPlaceNormalizer()
         self.web_search_normalizer = web_search_normalizer or WebSearchNormalizer()
         self.tavily_web_normalizer = tavily_web_normalizer or TavilyWebNormalizer()
+        self.tavily_lead_normalizer = tavily_lead_normalizer or TavilyLeadDiscoveryNormalizer()
         self.scoring_engine = scoring_engine or ScoringEngine()
         self.scoring_config_service = scoring_config_service or ScoringConfigService()
         self.fact_builder = fact_builder or EvidenceFactBuilder()
@@ -195,8 +222,13 @@ class LeadDiscoveryOrchestrator:
                     # SerpAPI-backed enrichment is pointless (and just burns retries)
                     # when discovery already fell back because SerpAPI was unavailable.
                     if not used_openai_fallback:
-                        self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
-                        self._emit(job_public_id, "normalizing", 65, "Enrichment complete")
+                        if self._can_use_serpapi_provider():
+                            self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
+                            self._emit(job_public_id, "normalizing", 65, "Enrichment complete")
+                        else:
+                            logger.info(
+                                "discovery.enrichment.skipped provider=serpapi reason=unconfigured"
+                            )
                         self._validate_web_presence(db, job, lead_ids, deadline=deadline)
                         self._emit(job_public_id, "normalizing", 80, "Web presence validated")
                         self._run_enrichment(db, lead_ids)
@@ -342,8 +374,8 @@ class LeadDiscoveryOrchestrator:
         self, db: Session, job: SearchJob, *, deadline: datetime
     ) -> list[int]:
         settings = get_settings()
-        provider_service = self._get_provider_service()
-        provider_settings = provider_service.get_settings(db, job.workspace_id)
+        provider_service: ProviderServiceProtocol | None = None
+        provider_settings: ProviderSettings | None = None
 
         planner = QueryPlanner()
         execution_planner = EngineExecutionPlanner()
@@ -377,6 +409,7 @@ class LeadDiscoveryOrchestrator:
         candidate_batches: list[list[LeadCandidate]] = []
         dispatched = 0
         skipped_budget = 0
+        tavily_calls_used = 0
         failed_adapters: set[str] = set()
         for task in tasks:
             if datetime.now(tz=UTC) >= deadline:
@@ -389,6 +422,12 @@ class LeadDiscoveryOrchestrator:
                 task.adapter_name,
                 threshold=settings.discovery_circuit_breaker_failure_threshold,
                 cooldown_seconds=settings.discovery_circuit_breaker_cooldown_seconds,
+            ):
+                skipped_budget += 1
+                continue
+            if (
+                task.adapter_name == "tavily_web"
+                and tavily_calls_used >= settings.tavily_live_max_calls
             ):
                 skipped_budget += 1
                 continue
@@ -419,6 +458,8 @@ class LeadDiscoveryOrchestrator:
                 continue
 
             dispatched += 1
+            if task.adapter_name == "tavily_web":
+                tavily_calls_used += 1
             if fetch.status != ProviderFetchStatus.OK.value:
                 circuit.mark_failure(task.adapter_name)
                 opened = circuit.open_if_threshold(
@@ -447,6 +488,33 @@ class LeadDiscoveryOrchestrator:
                     item.facts["adapter_name"] = task.adapter_name
                     item.facts["execution_stage"] = task.stage
                 candidate_batches.append(normalized)
+            elif task.adapter_name == "tavily_web":
+                extracted_by_url: dict[str, str] = {}
+                remaining_tavily_calls = settings.tavily_live_max_calls - tavily_calls_used
+                if remaining_tavily_calls > 0:
+                    extracted_by_url, extract_calls_used = self._extract_tavily_high_value_urls(
+                        db=db,
+                        job=job,
+                        payload=payload,
+                        task=task,
+                        remaining_calls=remaining_tavily_calls,
+                    )
+                    tavily_calls_used += extract_calls_used
+                normalized = self.tavily_lead_normalizer.normalize(
+                    payload,
+                    business_type=job.business_type,
+                    city=job.city,
+                    query=task.query_variant.text,
+                    extracted_by_url=extracted_by_url,
+                )
+                for item in normalized:
+                    item.facts["provider_fetch_id"] = fetch.id
+                    item.facts["query_variant"] = task.query_variant.key
+                    item.facts["source_engine"] = "tavily"
+                    item.facts["source_mode"] = "web_search"
+                    item.facts["adapter_name"] = task.adapter_name
+                    item.facts["execution_stage"] = task.stage
+                candidate_batches.append(normalized)
 
         merged = merger.merge(
             candidate_batches,
@@ -467,14 +535,16 @@ class LeadDiscoveryOrchestrator:
 
         lead_ids: set[int] = set()
         for candidate in ranked:
+            source_type = self._candidate_source_type(candidate)
+            priority = self._candidate_source_priority(candidate)
             lead = self._upsert_candidate(
                 db,
                 job=job,
                 candidate=candidate,
-                source_type="maps_search",
+                source_type=source_type,
                 provider_fetch_id=int(candidate.facts.get("provider_fetch_id", 0))
                 or self._provider_fetch_id_from_candidate(db, job.workspace_id, candidate),
-                priority=20,
+                priority=priority,
                 allow_source_promotion=True,
             )
             lead_ids.add(lead.id)
@@ -487,11 +557,15 @@ class LeadDiscoveryOrchestrator:
         *,
         db: Session,
         job: SearchJob,
-        provider_service: ProviderServiceProtocol,
+        provider_service: ProviderServiceProtocol | None,
         task: Any,
-        provider_settings: ProviderSettings,
+        provider_settings: ProviderSettings | None,
     ) -> tuple[ProviderFetch, dict[str, Any]]:
         if task.adapter_name == "google_maps_search":
+            if provider_service is None:
+                provider_service = self._get_provider_service()
+            if provider_settings is None:
+                provider_settings = provider_service.get_settings(db, job.workspace_id)
             fetch, payload = provider_service.maps_search(
                 db,
                 workspace_id=job.workspace_id,
@@ -503,8 +577,25 @@ class LeadDiscoveryOrchestrator:
                 keyword_filter=job.keyword_filter,
             )
         elif task.adapter_name == "google_web":
+            if provider_service is None:
+                provider_service = self._get_provider_service()
+            if provider_settings is None:
+                provider_settings = provider_service.get_settings(db, job.workspace_id)
             query = " ".join(part for part in [task.query_variant.text, "official website"] if part)
             fetch, payload = provider_service.web_search(
+                db,
+                workspace_id=job.workspace_id,
+                search_job_id=job.id,
+                query=query,
+            )
+        elif task.adapter_name == "tavily_web":
+            tavily_service = self._get_tavily_service()
+            if tavily_service is None:
+                raise ServiceUnavailableError(
+                    detail="Tavily discovery is unavailable because TAVILY_API_KEY is not configured."
+                )
+            query = " ".join(part for part in [task.query_variant.text, "official"] if part)
+            fetch, payload = tavily_service.web_search(
                 db,
                 workspace_id=job.workspace_id,
                 search_job_id=job.id,
@@ -528,6 +619,61 @@ class LeadDiscoveryOrchestrator:
         db.add(fetch)
         db.commit()
         return fetch, payload
+
+    def _extract_tavily_high_value_urls(
+        self,
+        *,
+        db: Session,
+        job: SearchJob,
+        payload: dict[str, Any],
+        task: Any,
+        remaining_calls: int,
+    ) -> tuple[dict[str, str], int]:
+        if remaining_calls <= 0:
+            return {}, 0
+        tavily_service = self._get_tavily_service()
+        if tavily_service is None:
+            return {}, 0
+        urls = self.tavily_lead_normalizer.high_value_urls(
+            payload,
+            limit=min(2, remaining_calls),
+        )
+        if not urls:
+            return {}, 0
+
+        fetch, extract_payload = tavily_service.extract_urls(
+            db,
+            workspace_id=job.workspace_id,
+            search_job_id=job.id,
+            urls=urls,
+            query=task.query_variant.text,
+        )
+        fetch.request_params_json = {
+            **fetch.request_params_json,
+            "query_variant": task.query_variant.key,
+            "source_engine": fetch.engine,
+            "source_mode": fetch.mode,
+            "adapter_name": task.adapter_name,
+            "execution_stage": "extract",
+            "request_fingerprint": fetch.request_fingerprint,
+        }
+        db.add(fetch)
+        db.commit()
+        if fetch.status != ProviderFetchStatus.OK.value:
+            job.provider_error_count += 1
+            self.search_job_repository.save(db, job)
+            return {}, 1
+        return self.tavily_lead_normalizer.extracted_content_by_url(extract_payload), 1
+
+    def _candidate_source_type(self, candidate: LeadCandidate) -> str:
+        value = candidate.facts.get("source_type")
+        return value if isinstance(value, str) and value else "maps_search"
+
+    def _candidate_source_priority(self, candidate: LeadCandidate) -> int:
+        value = candidate.facts.get("source_priority")
+        if isinstance(value, int) and value > 0:
+            return value
+        return 20
 
     def _provider_fetch_id_from_candidate(
         self, db: Session, workspace_id: int, candidate: LeadCandidate
@@ -602,7 +748,7 @@ class LeadDiscoveryOrchestrator:
     ) -> None:
         settings = get_settings()
         tavily_enabled = "tavily_web" in settings.enabled_discovery_engines
-        provider_service = self._get_provider_service()
+        provider_service: ProviderServiceProtocol | None = None
         for lead in self._list_leads(db, lead_ids):
             if datetime.now(tz=UTC) >= deadline:
                 logger.warning(
@@ -633,6 +779,17 @@ class LeadDiscoveryOrchestrator:
                     self.search_job_repository.save(db, job)
                     # Fall through to SerpAPI web search below.
 
+            if provider_service is None:
+                try:
+                    provider_service = self._get_provider_service()
+                except ServiceUnavailableError:
+                    job.provider_error_count += 1
+                    self.search_job_repository.save(db, job)
+                    logger.info(
+                        "discovery.web_presence.skipped provider=serpapi reason=unconfigured lead_id=%s",
+                        lead.id,
+                    )
+                    continue
             fetch, payload = provider_service.web_search(
                 db,
                 workspace_id=job.workspace_id,
@@ -1058,6 +1215,14 @@ class LeadDiscoveryOrchestrator:
         else:
             self.tavily_service = TavilyService()
         return self.tavily_service
+
+    def _can_use_serpapi_provider(self) -> bool:
+        if self.provider_service is not None:
+            return True
+        settings = get_settings()
+        return settings.discovery_runtime in {"demo", "stub"} or (
+            settings.discovery_runtime == "live" and settings.has_serpapi_configured
+        )
 
     def _prefer(
         self,

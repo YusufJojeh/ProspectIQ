@@ -59,7 +59,63 @@ class DemoTavilyService:
             db,
             workspace_id=workspace_id,
             search_job_id=search_job_id,
+            mode="web_search",
             params={"query": query},
+            payload=payload,
+        )
+
+    def extract_urls(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        urls: list[str],
+        query: str | None = None,
+        attempt: int = 1,  # noqa: ARG002
+    ) -> tuple[ProviderFetch, dict[str, Any]]:
+        payload = {
+            "query": query,
+            "results": [
+                {
+                    "url": url,
+                    "raw_content": "Demo Tavily extracted page content for provider evidence.",
+                }
+                for url in dict.fromkeys(urls)
+            ],
+            "failed_results": [],
+        }
+        return self._persist_fetch(
+            db,
+            workspace_id=workspace_id,
+            search_job_id=search_job_id,
+            mode="extract",
+            params={"urls": list(dict.fromkeys(urls)), "query": query},
+            payload=payload,
+        )
+
+    def research(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        query: str,
+        model: str = "tavily-research-mini",
+        attempt: int = 1,  # noqa: ARG002
+    ) -> tuple[ProviderFetch, dict[str, Any]]:
+        payload = {
+            "request_id": f"demo-research-{_slugify(query)[:24]}",
+            "status": "queued",
+            "model": model,
+            "input": query,
+        }
+        return self._persist_fetch(
+            db,
+            workspace_id=workspace_id,
+            search_job_id=search_job_id,
+            mode="research",
+            params={"input": query, "model": model},
             payload=payload,
         )
 
@@ -69,6 +125,7 @@ class DemoTavilyService:
         *,
         workspace_id: int,
         search_job_id: int | None,
+        mode: str,
         params: dict[str, Any],
         payload: dict[str, Any],
     ) -> tuple[ProviderFetch, dict[str, Any]]:
@@ -77,7 +134,7 @@ class DemoTavilyService:
             workspace_id=workspace_id,
             provider="tavily",
             engine="tavily",
-            mode="web_search",
+            mode=mode,
             search_job_id=search_job_id,
             request_fingerprint=_payload_sha(params),
             request_params_json=params,

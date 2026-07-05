@@ -11,6 +11,7 @@ DiscoveryRuntime = Literal["live", "demo", "stub", "blocked"]
 AnalysisRuntime = Literal["ollama", "openai", "demo", "blocked"]
 AIProviderPreference = Literal["ollama", "openai", "auto", "stub"]
 DiscoveryMode = Literal["single_path", "multi_query_single_engine", "multi_engine_multi_query"]
+TavilySearchDepth = Literal["basic", "fast", "advanced"]
 
 
 class Settings(BaseSettings):
@@ -46,10 +47,22 @@ class Settings(BaseSettings):
     # search). Unlike SerpAPI it is never production-required: if unconfigured,
     # it is simply excluded from the enabled engine list.
     tavily_api_key: str = ""
-    tavily_base_url: str = "https://api.tavily.com/search"
     tavily_runtime_mode_override: DiscoveryRuntime | None = Field(
         default=None,
         validation_alias=AliasChoices("TAVILY_RUNTIME_MODE"),
+    )
+    tavily_live_e2e: bool = Field(default=False, validation_alias=AliasChoices("TAVILY_LIVE_E2E"))
+    tavily_max_results: int = Field(
+        default=5, ge=1, le=20, validation_alias=AliasChoices("TAVILY_MAX_RESULTS")
+    )
+    tavily_search_depth: TavilySearchDepth = Field(
+        default="basic", validation_alias=AliasChoices("TAVILY_SEARCH_DEPTH")
+    )
+    tavily_rate_limit_rpm: int = Field(
+        default=60, ge=1, le=600, validation_alias=AliasChoices("TAVILY_RATE_LIMIT_RPM")
+    )
+    tavily_live_max_calls: int = Field(
+        default=3, ge=1, le=20, validation_alias=AliasChoices("TAVILY_LIVE_MAX_CALLS")
     )
 
     openai_api_key: str = ""
@@ -232,7 +245,12 @@ class Settings(BaseSettings):
 
     @property
     def has_tavily_configured(self) -> bool:
-        return bool(self.tavily_api_key.strip())
+        value = self.tavily_api_key.strip()
+        return bool(value) and value not in {
+            "<replace-me>",
+            "replace-with-tavily-key",
+            "replace-with-live-tavily-key",
+        }
 
     @property
     def tavily_runtime(self) -> DiscoveryRuntime:
@@ -326,6 +344,11 @@ class Settings(BaseSettings):
             warnings.append(
                 "DISCOVERY_ENGINE_LIST includes tavily_web but TAVILY_API_KEY is not configured; "
                 "it will be skipped."
+            )
+
+        if self.tavily_runtime == "live" and not self.has_tavily_configured:
+            warnings.append(
+                "TAVILY_RUNTIME_MODE=live requires TAVILY_API_KEY; Tavily calls will fail closed."
             )
 
         return warnings

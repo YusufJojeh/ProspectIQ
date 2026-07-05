@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError
+from app.core.config import get_settings
+from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.billing.service import BillingService
@@ -20,6 +21,7 @@ from app.modules.leads.schemas import (
     LeadNoteCreateRequest,
     LeadNoteResponse,
     LeadOutreachResponse,
+    LeadResearchResponse,
     LeadResponse,
     LeadScoreBreakdownResponse,
     LeadSortOption,
@@ -28,11 +30,14 @@ from app.modules.leads.schemas import (
 from app.modules.outreach.repository import OutreachRepository
 from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.outreach.service import OutreachGenerationService
+from app.modules.provider_serpapi.models import ProviderNormalizedFact
+from app.modules.provider_tavily.demo_service import DemoTavilyService
+from app.modules.provider_tavily.service import TavilyService
 from app.modules.scoring.models import LeadScore
 from app.modules.scoring.repository import ScoringRepository
 from app.modules.signals.repository import LeadSignalRepository, LeadSignalSummary
 from app.modules.users.models import User
-from app.shared.enums.jobs import LeadScoreBand, LeadStatus
+from app.shared.enums.jobs import LeadScoreBand, LeadStatus, ProviderFetchStatus
 from app.shared.pagination.schemas import PaginationMeta
 from app.shared.services.lead_intelligence import LeadIntelligenceService
 
@@ -223,6 +228,60 @@ class LeadsService:
         )
         return LeadAnalysisResponse(lead_id=lead.public_id, analysis=result)
 
+    def research_lead(
+        self,
+        db: Session,
+        workspace_id: int,
+        lead_id: str,
+        *,
+        current_user: User,
+    ) -> LeadResearchResponse:
+        settings = get_settings()
+        if settings.tavily_runtime == "blocked" or not (
+            settings.has_tavily_configured or settings.tavily_runtime in {"demo", "stub"}
+        ):
+            raise ServiceUnavailableError(
+                "Tavily research is unavailable because TAVILY_API_KEY is not configured."
+            )
+
+        lead = self._get_or_raise(db, workspace_id, lead_id)
+        service = (
+            DemoTavilyService() if settings.tavily_runtime in {"demo", "stub"} else TavilyService()
+        )
+        query = self._build_tavily_research_query(lead)
+        fetch, payload = service.research(
+            db,
+            workspace_id=workspace_id,
+            search_job_id=lead.search_job_id,
+            query=query,
+        )
+        request_id_value = payload.get("request_id")
+        request_id = str(request_id_value) if request_id_value is not None else None
+        status = fetch.status
+        if fetch.status == ProviderFetchStatus.OK.value:
+            self._persist_tavily_research_fact(
+                db, lead=lead, provider_fetch_id=fetch.id, payload=payload
+            )
+
+        self.audit_logs.record(
+            db,
+            workspace_id=workspace_id,
+            actor_user_id=current_user.id,
+            event_name="lead.tavily_research_requested",
+            details=f"Requested Tavily research for lead {lead.public_id}; provider status {status}.",
+        )
+        return LeadResearchResponse(
+            lead_id=lead.public_id,
+            provider_fetch_id=fetch.public_id,
+            status=status,
+            request_id=request_id,
+            message=(
+                "Tavily research request recorded."
+                if fetch.status == ProviderFetchStatus.OK.value
+                else "Tavily research request failed safely."
+            ),
+        )
+
     def create_note(
         self,
         db: Session,
@@ -401,6 +460,58 @@ class LeadsService:
         lead = self._get_or_raise(db, workspace_id, lead_id)
         return self.scoring_repository.get_latest_score_breakdown(db, lead.id)
 
+    def _build_tavily_research_query(self, lead: Lead) -> str:
+        parts = [lead.company_name]
+        if lead.city:
+            parts.append(lead.city)
+        if lead.category:
+            parts.append(lead.category)
+        parts.append("company services customers")
+        return " ".join(parts)[:220]
+
+    def _persist_tavily_research_fact(
+        self,
+        db: Session,
+        *,
+        lead: Lead,
+        provider_fetch_id: int,
+        payload: dict[str, object],
+    ) -> None:
+        request_id = payload.get("request_id")
+        db.add(
+            ProviderNormalizedFact(
+                workspace_id=lead.workspace_id,
+                lead_id=lead.id,
+                provider_fetch_id=provider_fetch_id,
+                source_type="tavily_research",
+                data_cid=None,
+                data_id=None,
+                place_id=None,
+                company_name=lead.company_name,
+                category=lead.category,
+                address=lead.address,
+                city=lead.city,
+                phone=lead.phone,
+                website_url=lead.website_url,
+                website_domain=lead.website_domain,
+                rating=lead.rating,
+                review_count=lead.review_count,
+                lat=lead.lat,
+                lng=lead.lng,
+                confidence=0.55,
+                completeness=lead.data_completeness,
+                facts_json={
+                    "provider": "tavily",
+                    "provider_shape": "tavily_research_request",
+                    "request_id": str(request_id) if request_id is not None else None,
+                    "status": payload.get("status"),
+                    "model": payload.get("model"),
+                    "source": "tavily_research",
+                },
+            )
+        )
+        db.commit()
+
     def _get_or_raise(self, db: Session, workspace_id: int, lead_id: str) -> Lead:
         lead = self.repository.get_by_public_id_for_workspace(
             db,
@@ -445,9 +556,15 @@ class LeadsService:
             status=LeadStatus(lead.status),
             assigned_to_user_public_id=assignee_public_id,
             latest_score=float(latest_score.total_score) if latest_score else None,
-            latest_fit_score=float(latest_score.fit_score) if latest_score and latest_score.fit_score is not None else None,
-            latest_need_score=float(latest_score.need_score) if latest_score and latest_score.need_score is not None else None,
-            latest_urgency_score=float(latest_score.urgency_score) if latest_score and latest_score.urgency_score is not None else None,
+            latest_fit_score=float(latest_score.fit_score)
+            if latest_score and latest_score.fit_score is not None
+            else None,
+            latest_need_score=float(latest_score.need_score)
+            if latest_score and latest_score.need_score is not None
+            else None,
+            latest_urgency_score=float(latest_score.urgency_score)
+            if latest_score and latest_score.urgency_score is not None
+            else None,
             latest_reachability_score=(
                 float(latest_score.reachability_score)
                 if latest_score and latest_score.reachability_score is not None

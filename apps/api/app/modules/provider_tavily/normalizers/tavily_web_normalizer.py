@@ -67,7 +67,9 @@ class TavilyWebNormalizer:
                         "answer_present": answer_present,
                         "result_count": len(results),
                         "top_relevance_score": top_relevance_score,
-                        "match_relevance_score": float(score) if isinstance(score, int | float) else None,
+                        "match_relevance_score": float(score)
+                        if isinstance(score, int | float)
+                        else None,
                         "local_results_present": False,
                         "knowledge_graph_present": False,
                     },

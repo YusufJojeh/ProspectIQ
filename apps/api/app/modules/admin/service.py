@@ -364,6 +364,12 @@ class AdminService:
             serpapi_configured=settings.has_serpapi_configured,
             serpapi_live_reachable=serpapi_probe.reachable,
             serpapi_runtime_mode=settings.serpapi_runtime_mode,
+            tavily_configured=settings.has_tavily_configured,
+            tavily_runtime_mode=settings.tavily_runtime,
+            tavily_max_results=settings.tavily_max_results,
+            tavily_search_depth=settings.tavily_search_depth,
+            tavily_rate_limit_rpm=settings.tavily_rate_limit_rpm,
+            tavily_live_max_calls=settings.tavily_live_max_calls,
             discovery_runtime=settings.discovery_runtime,
             discovery_execution_mode=settings.effective_discovery_mode,
             discovery_kill_switch=settings.discovery_kill_switch,
@@ -666,9 +672,7 @@ class AdminService:
             db,
             workspace_id=user.workspace_id,
             actor_user_id=actor.id,
-            event_name="platform_admin.user_enabled"
-            if enabled
-            else "platform_admin.user_disabled",
+            event_name="platform_admin.user_enabled" if enabled else "platform_admin.user_disabled",
             details=(
                 f"Platform admin {actor.public_id} "
                 f"{'enabled' if enabled else 'disabled'} user {user.public_id} ({user.email})."
@@ -815,9 +819,7 @@ class AdminService:
         flagged_analyses: list[AdminFlaggedAnalysisResponse] = []
         for snapshot, lead, workspace in recent_analyses:
             raw_confidence = snapshot.output_json.get("confidence")
-            confidence = (
-                float(raw_confidence) if isinstance(raw_confidence, int | float) else 0.0
-            )
+            confidence = float(raw_confidence) if isinstance(raw_confidence, int | float) else 0.0
             raw_risks = snapshot.output_json.get("risks_or_uncertainties")
             risks = (
                 [str(risk) for risk in raw_risks if isinstance(risk, str)]
@@ -887,9 +889,7 @@ class AdminService:
             ai_evidence_count=self._count(db, select(func.count(AIAnalysisEvidence.id))),
             ai_feedback_count=self._count(db, select(func.count(AIFeedback.id))),
             top_signal_types=[
-                AdminUsageMetricResponse(
-                    metric_key=str(signal_type), current_value=int(count or 0)
-                )
+                AdminUsageMetricResponse(metric_key=str(signal_type), current_value=int(count or 0))
                 for signal_type, count in signal_rows
             ],
             priority_band_distribution=[
@@ -1141,9 +1141,7 @@ class AdminService:
             for log, actor_public_id in rows
         ]
 
-    def _search_job_response(
-        self, job: SearchJob, workspace: Workspace
-    ) -> AdminSearchJobResponse:
+    def _search_job_response(self, job: SearchJob, workspace: Workspace) -> AdminSearchJobResponse:
         return AdminSearchJobResponse(
             public_id=job.public_id,
             workspace_public_id=workspace.public_id,
@@ -1208,9 +1206,7 @@ class AdminService:
             for item in items
         ]
 
-    def _payment_attempts(
-        self, db: Session, invoice_id: int
-    ) -> list[AdminPaymentAttemptResponse]:
+    def _payment_attempts(self, db: Session, invoice_id: int) -> list[AdminPaymentAttemptResponse]:
         attempts = list(
             db.scalars(
                 select(PaymentAttempt)

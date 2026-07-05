@@ -337,6 +337,12 @@ class OperationalHealthResponse(BaseModel):
     serpapi_configured: bool
     serpapi_live_reachable: bool
     serpapi_runtime_mode: str
+    tavily_configured: bool
+    tavily_runtime_mode: str
+    tavily_max_results: int
+    tavily_search_depth: str
+    tavily_rate_limit_rpm: int
+    tavily_live_max_calls: int
     discovery_runtime: str
     discovery_execution_mode: str
     discovery_kill_switch: bool

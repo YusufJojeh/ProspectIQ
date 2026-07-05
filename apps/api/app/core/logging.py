@@ -43,6 +43,13 @@ class SecretRedactionFilter(logging.Filter):
             r"\1[REDACTED]\3",
         ),
         (
+            re.compile(
+                r"\b([A-Z0-9_]*(?:API_KEY|SECRET|TOKEN|PASSWORD)\s*=\s*)[^\s,;]+",
+                re.IGNORECASE,
+            ),
+            r"\1[REDACTED]",
+        ),
+        (
             re.compile(r"(Bearer\s+)[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE),
             r"\1[REDACTED]",
         ),
