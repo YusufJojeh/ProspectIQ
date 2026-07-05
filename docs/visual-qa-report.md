@@ -121,3 +121,14 @@ Key grouped captures:
 - The suite prefers stable accessible selectors and uses seeded demo data for deterministic coverage.
 - `admin/loading.png` is conditional because the admin page may load too quickly to expose the intermediate loading UI on every machine.
 - The existing `npm run test:e2e` suite remains the mock-backed path; this report documents the real-stack visual suite only.
+
+## Live E2E Environment Variables
+
+Two additional specs require explicit opt-in env vars and are skipped in all default (CI / mock-backed) runs:
+
+| Env var | Spec | What it requires |
+|---|---|---|
+| `SAAS_ADMIN_DEMO_LIVE_E2E=1` | `apps/web/tests/e2e/saas-admin-demo-live.spec.ts` | Running FastAPI backend on port 8000, seeded via `scripts/seed_demo_full.py`. Credentials: `platform-admin@example.test`, `admin@example.test`, `user1@example.test`. |
+| `PROSPECTIQ_LIVE_SEARCH_E2E=1` | Backend pytest (`tests/test_db_hardening.py`) | Real provider keys and live MariaDB with the latest schema applied. |
+
+Without these vars the specs show as skipped (`-`) in Playwright output and are excluded from the pytest collection respectively. Do not set them in the standard CI workflow — they belong in the separate `live-provider-e2e.yml` workflow or a local live-stack run.

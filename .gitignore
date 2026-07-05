@@ -53,5 +53,10 @@ apps/web/test-artifacts/
 *.tmp-*
 apps/api/*.db
 
+# Local document drafts and one-off screenshots (not project deliverables)
+*.docx
+*.xlsx
+leads-*.png
+
 # Claude Code persistent memory (personal working notes, not a project deliverable)
 memory/

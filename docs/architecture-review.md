@@ -11,6 +11,11 @@ LeadScope AI is a clean modular monolith with working backend, frontend, databas
 
 ## Hardening Changes in This Pass
 
+### E2E Test Gating
+
+- `apps/web/tests/e2e/saas-admin-demo-live.spec.ts` was previously included in the default `desktop-wide` Playwright project with no env-var guard. It makes real HTTP calls to `http://127.0.0.1:8000`, uses credentials from a seeded live backend, and would fail in CI whenever a real backend is unavailable. A `test.skip(process.env.SAAS_ADMIN_DEMO_LIVE_E2E !== "1", ...)` guard was added immediately inside the test body so the spec is skipped in all default (mock-backed) runs and only executes when `SAAS_ADMIN_DEMO_LIVE_E2E=1` is explicitly set.
+- The live-provider backend test (`tests/test_db_hardening.py::test_db_maintenance_dry_run_and_repair`) was already gated behind `PROSPECTIQ_LIVE_SEARCH_E2E=1` and remains unchanged.
+
 ### Backend
 
 - extracted shared lead-intelligence assembly into `app/shared/services/lead_intelligence.py`

@@ -136,6 +136,10 @@ test("captures SaaS platform admin demo against seeded live data", async ({
   page,
   request,
 }) => {
+  test.skip(
+    process.env.SAAS_ADMIN_DEMO_LIVE_E2E !== "1",
+    "Live SaaS admin demo requires SAAS_ADMIN_DEMO_LIVE_E2E=1 and a running backend seeded via scripts/seed_demo_full.py.",
+  );
   test.setTimeout(300_000);
 
   await clearBrowserSession(page);

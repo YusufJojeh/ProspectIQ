@@ -1,5 +1,25 @@
 # CHANGES
 
+## [Hardening] Production Hardening Audit - 2026-07-05
+
+### Fixed
+
+- `apps/web/tests/e2e/saas-admin-demo-live.spec.ts`: added `test.skip(process.env.SAAS_ADMIN_DEMO_LIVE_E2E !== "1", ...)` guard so the spec is skipped in all default Playwright runs and CI. The spec was previously in the default `desktop-wide` project without any guard, which would cause CI failures whenever a real seeded backend is not running.
+
+### Confirmed Passing (no changes needed)
+
+- Backend: `ruff check` clean, `mypy` clean, `pytest -q` 191 passed / 2 skipped, `alembic upgrade head --sql` clean.
+- Frontend: `eslint` clean, `tsc --noEmit` clean, `vitest run` 28 tests green, `vite build` clean.
+- Playwright default run: 33 passed / 4 skipped (including the newly-gated `saas-admin-demo-live.spec.ts`).
+- No real secrets found in any tracked file; CI uses placeholder keys only.
+- All CORS, JWT, RBAC, workspace isolation, SSRF, and provider-key controls verified sound.
+
+### Documentation
+
+- `docs/architecture-review.md`: documented the E2E guard fix under Hardening Changes.
+- `docs/visual-qa-report.md`: added Live E2E Environment Variables table describing `SAAS_ADMIN_DEMO_LIVE_E2E` and `PROSPECTIQ_LIVE_SEARCH_E2E` opt-in vars.
+- `.gitignore`: added `*.docx`, `*.xlsx`, and `leads-*.png` patterns to exclude local document drafts and one-off screenshots.
+
 ## [Goal] Tavily Discovery Engine, Web-Search-Confidence Scoring, and Profession Persona - 2026-07-05
 
 ### Added
