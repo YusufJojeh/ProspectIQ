@@ -1,0 +1,42 @@
+@startuml
+title حالات استخدام التواصل - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "وحدة التواصل" {
+  usecase "عرض آخر مسودة تواصل لعميل" as UC_Latest
+  usecase "إنشاء مسودة تواصل" as UC_Generate
+  usecase "إعداد تحليل AI للعميل" as UC_PrepareAI
+  usecase "اختيار النبرة واللغة" as UC_Tone
+  usecase "تعديل مسودة تواصل" as UC_Update
+  usecase "تعليم المسودة كمرسلة" as UC_Send
+  usecase "تسجيل أحداث التواصل" as UC_Audit
+}
+
+AccountOwner --> UC_Latest
+Admin --> UC_Latest
+Manager --> UC_Latest
+Member --> UC_Latest
+AccountOwner --> UC_Generate
+Admin --> UC_Generate
+Manager --> UC_Generate
+Member --> UC_Generate
+AccountOwner --> UC_Update
+Admin --> UC_Update
+Manager --> UC_Update
+Member --> UC_Update
+AccountOwner --> UC_Send
+Admin --> UC_Send
+Manager --> UC_Send
+Member --> UC_Send
+
+UC_Generate ..> UC_PrepareAI : <<include>>
+UC_Generate ..> UC_Tone : <<include>>
+UC_Generate ..> UC_Audit : <<include>>
+UC_Update ..> UC_Audit : <<include>>
+UC_Send ..> UC_Audit : <<include>>
+@enduml

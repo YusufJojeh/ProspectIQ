@@ -1,0 +1,61 @@
+@startuml
+title حالات استخدام الفريق والإدارة - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "وحدة الفريق والإدارة" {
+  usecase "عرض الملف الشخصي والصلاحيات" as UC_Profile
+  usecase "عرض مستخدمي مساحة العمل" as UC_ListUsers
+  usecase "إنشاء مستخدم" as UC_CreateUser
+  usecase "تعديل مستخدم" as UC_UpdateUser
+  usecase "إعادة تعيين كلمة مرور مستخدم" as UC_ResetPassword
+  usecase "فرض ترتيب الأدوار عند الإدارة" as UC_RoleOrder
+  usecase "تحديث إعدادات مساحة العمل" as UC_WorkspaceSettings
+  usecase "إدارة إصدارات إعدادات التسجيل" as UC_ScoringConfig
+  usecase "إدارة إعدادات المزودين" as UC_Providers
+  usecase "إدارة قوالب Prompt" as UC_Prompts
+  usecase "إدارة كتالوج الخدمات" as UC_ServiceCatalog
+  usecase "اختبار قالب Prompt على عميل" as UC_TestPrompt
+  usecase "عرض الصحة التشغيلية" as UC_Health
+  usecase "عرض سجلات التدقيق" as UC_Audit
+}
+
+AccountOwner --> UC_Profile
+Admin --> UC_Profile
+Manager --> UC_Profile
+Member --> UC_Profile
+AccountOwner --> UC_ListUsers
+Admin --> UC_ListUsers
+Manager --> UC_ListUsers
+Member --> UC_ListUsers
+AccountOwner --> UC_CreateUser
+Admin --> UC_CreateUser
+AccountOwner --> UC_UpdateUser
+Admin --> UC_UpdateUser
+AccountOwner --> UC_ResetPassword
+Admin --> UC_ResetPassword
+AccountOwner --> UC_WorkspaceSettings
+Admin --> UC_WorkspaceSettings
+AccountOwner --> UC_ScoringConfig
+Admin --> UC_ScoringConfig
+AccountOwner --> UC_Providers
+Admin --> UC_Providers
+AccountOwner --> UC_Prompts
+Admin --> UC_Prompts
+AccountOwner --> UC_ServiceCatalog
+Admin --> UC_ServiceCatalog
+AccountOwner --> UC_TestPrompt
+Admin --> UC_TestPrompt
+AccountOwner --> UC_Health
+Admin --> UC_Health
+AccountOwner --> UC_Audit
+Admin --> UC_Audit
+
+UC_CreateUser ..> UC_RoleOrder : <<include>>
+UC_UpdateUser ..> UC_RoleOrder : <<include>>
+UC_ResetPassword ..> UC_RoleOrder : <<include>>
+@enduml

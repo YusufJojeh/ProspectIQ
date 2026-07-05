@@ -1,0 +1,30 @@
+@startuml
+title تسلسل تسجيل الدخول - LeadScope AI
+actor "دور نظام مصادق\n(account_owner/admin/manager/member)" as RoleUser
+participant "LoginPage" as UI
+participant "auth/api.ts" as Client
+participant "POST /api/v1/auth/login" as AuthAPI
+participant "RateLimit" as RateLimit
+participant "AuthService" as AuthService
+database "MariaDB" as DB
+participant "AuditLogService" as Audit
+
+RoleUser -> UI : إدخال البريد وكلمة المرور
+UI -> Client : login(payload)
+Client -> AuthAPI : POST /api/v1/auth/login
+AuthAPI -> RateLimit : check_rate_limit(auth:login)
+AuthAPI -> AuthService : authenticate(payload)
+AuthService -> DB : البحث عن المستخدم والتحقق من كلمة المرور
+alt بيانات صحيحة ومستخدم active
+  AuthService -> DB : تحديث last_login_at
+  AuthService -> Audit : record(auth.login_success)
+  AuthService --> AuthAPI : TokenResponse
+  AuthAPI --> Client : access_token + user
+  Client -> Client : persistSession(response)
+  Client --> UI : جلسة مصادق عليها
+else بيانات خاطئة أو مستخدم غير نشط
+  AuthService -> Audit : record(auth.login_failed)
+  AuthService --> AuthAPI : خطأ مصادقة
+  AuthAPI --> UI : Unauthorized/Forbidden
+end
+@enduml

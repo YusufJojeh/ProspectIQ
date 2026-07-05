@@ -1,0 +1,38 @@
+@startuml
+title حالات استخدام دور المدير - LeadScope AI
+left to right direction
+
+actor "مدير" as Manager
+
+rectangle "LeadScope AI" {
+  usecase "مصادقة واستخدام مساحة العمل" as UC_Auth
+  usecase "عرض لوحة التحكم\n(INFERRED من route /app)" as UC_Dashboard
+  usecase "تشغيل اكتشاف العملاء المحتملين" as UC_Search
+  usecase "متابعة وظائف البحث" as UC_SearchProgress
+  usecase "استعراض وتصفية العملاء المحتملين" as UC_Leads
+  usecase "تحديث حالة العميل المحتمل" as UC_Status
+  usecase "تعيين العميل المحتمل" as UC_Assign
+  usecase "إضافة ملاحظة" as UC_Note
+  usecase "تشغيل تحليل الذكاء الاصطناعي" as UC_AI
+  usecase "استخدام مساعد المبيعات" as UC_Assistant
+  usecase "إنشاء وتعديل وإرسال مسودات التواصل" as UC_Outreach
+  usecase "تصدير العملاء المحتملين" as UC_Export
+  usecase "عرض الفريق" as UC_TeamView
+  usecase "عرض الفوترة والاستخدام والفواتير" as UC_BillingView
+}
+
+Manager --> UC_Auth
+Manager --> UC_Dashboard
+Manager --> UC_Search
+Manager --> UC_SearchProgress
+Manager --> UC_Leads
+Manager --> UC_Status
+Manager --> UC_Assign
+Manager --> UC_Note
+Manager --> UC_AI
+Manager --> UC_Assistant
+Manager --> UC_Outreach
+Manager --> UC_Export
+Manager --> UC_TeamView
+Manager --> UC_BillingView
+@enduml

@@ -1,0 +1,67 @@
+@startuml
+title حالات استخدام الفوترة والتصدير - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "وحدة الفوترة والتصدير" {
+  usecase "عرض الخطط" as UC_Plans
+  usecase "عرض الاشتراك" as UC_Subscription
+  usecase "عرض الفواتير" as UC_Invoices
+  usecase "عرض ملخص الاستخدام" as UC_Usage
+  usecase "تغيير الاشتراك" as UC_Change
+  usecase "إلغاء الاشتراك" as UC_Cancel
+  usecase "تجديد الاشتراك" as UC_Renew
+  usecase "تعليم فاتورة كمدفوعة" as UC_Paid
+  usecase "محاكاة فشل دفع" as UC_Failure
+  usecase "تصدير العملاء المحتملين CSV" as UC_CSV
+  usecase "تصدير العملاء المحتملين JSON" as UC_JSON
+  usecase "فرض حد استخدام التصدير" as UC_ExportLimit
+  usecase "تسجيل حدث فوترة أو تصدير" as UC_Audit
+}
+
+AccountOwner --> UC_Plans
+Admin --> UC_Plans
+Manager --> UC_Plans
+Member --> UC_Plans
+AccountOwner --> UC_Subscription
+Admin --> UC_Subscription
+Manager --> UC_Subscription
+Member --> UC_Subscription
+AccountOwner --> UC_Invoices
+Admin --> UC_Invoices
+Manager --> UC_Invoices
+Member --> UC_Invoices
+AccountOwner --> UC_Usage
+Admin --> UC_Usage
+Manager --> UC_Usage
+Member --> UC_Usage
+
+AccountOwner --> UC_Change
+AccountOwner --> UC_Cancel
+AccountOwner --> UC_Renew
+AccountOwner --> UC_Paid
+AccountOwner --> UC_Failure
+
+AccountOwner --> UC_CSV
+Admin --> UC_CSV
+Manager --> UC_CSV
+Member --> UC_CSV
+AccountOwner --> UC_JSON
+Admin --> UC_JSON
+Manager --> UC_JSON
+Member --> UC_JSON
+
+UC_CSV ..> UC_ExportLimit : <<include>>
+UC_JSON ..> UC_ExportLimit : <<include>>
+UC_CSV ..> UC_Audit : <<include>>
+UC_JSON ..> UC_Audit : <<include>>
+UC_Change ..> UC_Audit : <<include>>
+UC_Cancel ..> UC_Audit : <<include>>
+UC_Renew ..> UC_Audit : <<include>>
+UC_Paid ..> UC_Audit : <<include>>
+UC_Failure ..> UC_Audit : <<include>>
+@enduml

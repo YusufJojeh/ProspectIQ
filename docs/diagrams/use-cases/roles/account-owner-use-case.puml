@@ -1,0 +1,50 @@
+@startuml
+title حالات استخدام دور مالك الحساب - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+
+rectangle "LeadScope AI" {
+  usecase "مصادقة واستخدام مساحة العمل" as UC_Auth
+  usecase "تشغيل اكتشاف العملاء المحتملين" as UC_Search
+  usecase "إدارة العملاء المحتملين" as UC_Leads
+  usecase "تشغيل تحليل الذكاء الاصطناعي" as UC_AI
+  usecase "استخدام مساعد المبيعات" as UC_Assistant
+  usecase "إدارة مسودات التواصل" as UC_Outreach
+  usecase "تصدير العملاء المحتملين CSV/JSON" as UC_Export
+  usecase "عرض الفريق" as UC_TeamView
+  usecase "إنشاء وتعديل المستخدمين" as UC_TeamManage
+  usecase "إعادة تعيين كلمات مرور المستخدمين" as UC_Reset
+  usecase "تحديث إعدادات مساحة العمل" as UC_WorkspaceSettings
+  usecase "عرض الخطط والاشتراك والفواتير والاستخدام" as UC_BillingView
+  usecase "تغيير أو إلغاء أو تجديد الاشتراك" as UC_SubscriptionManage
+  usecase "تعليم فاتورة كمدفوعة أو محاكاة فشل دفع" as UC_InvoiceManage
+  usecase "إدارة إعدادات التسجيل والقوالب والمزودين" as UC_AdminConfig
+  usecase "إدارة كتالوج الخدمات" as UC_ServiceCatalog
+  usecase "عرض الصحة التشغيلية" as UC_Health
+  usecase "عرض سجلات التدقيق" as UC_Audit
+}
+
+AccountOwner --> UC_Auth
+AccountOwner --> UC_Search
+AccountOwner --> UC_Leads
+AccountOwner --> UC_AI
+AccountOwner --> UC_Assistant
+AccountOwner --> UC_Outreach
+AccountOwner --> UC_Export
+AccountOwner --> UC_TeamView
+AccountOwner --> UC_TeamManage
+AccountOwner --> UC_Reset
+AccountOwner --> UC_WorkspaceSettings
+AccountOwner --> UC_BillingView
+AccountOwner --> UC_SubscriptionManage
+AccountOwner --> UC_InvoiceManage
+AccountOwner --> UC_AdminConfig
+AccountOwner --> UC_ServiceCatalog
+AccountOwner --> UC_Health
+AccountOwner --> UC_Audit
+
+UC_TeamManage ..> UC_Reset : <<extend>>
+UC_SubscriptionManage ..> UC_BillingView : <<include>>
+UC_InvoiceManage ..> UC_BillingView : <<include>>
+@enduml

@@ -1,0 +1,104 @@
+@startuml
+title مخطط حالات الاستخدام العام - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "LeadScope AI" {
+  usecase "عرض الصفحة العامة" as UC_PublicHome
+  usecase "إنشاء حساب مساحة عمل" as UC_Signup
+  usecase "تسجيل الدخول" as UC_Login
+  usecase "تسجيل الخروج" as UC_Logout
+  usecase "عرض لوحة التحكم\n(INFERRED من صفحة dashboard)" as UC_Dashboard
+  usecase "تشغيل اكتشاف العملاء المحتملين" as UC_Search
+  usecase "متابعة وظائف البحث وتدفق التقدم" as UC_SearchProgress
+  usecase "استعراض وتصفية العملاء المحتملين" as UC_Leads
+  usecase "إدارة حالة وتعيين وملاحظات العميل المحتمل" as UC_LeadManage
+  usecase "تحليل عميل محتمل بالذكاء الاصطناعي" as UC_AIAnalyze
+  usecase "محادثة مع مساعد المبيعات" as UC_Assistant
+  usecase "إنشاء وتعديل وإرسال مسودة تواصل" as UC_Outreach
+  usecase "تصدير العملاء المحتملين" as UC_Export
+  usecase "عرض الفريق" as UC_TeamView
+  usecase "إدارة الفريق" as UC_TeamManage
+  usecase "عرض الفوترة والاستخدام والفواتير" as UC_BillingView
+  usecase "إدارة الاشتراك وحالة الفواتير" as UC_BillingManage
+  usecase "إدارة الإعدادات والتسجيل والتزويد" as UC_AdminOps
+  usecase "عرض سجلات التدقيق" as UC_Audit
+}
+
+AccountOwner --> UC_PublicHome
+Admin --> UC_PublicHome
+Manager --> UC_PublicHome
+Member --> UC_PublicHome
+AccountOwner --> UC_Login
+Admin --> UC_Login
+Manager --> UC_Login
+Member --> UC_Login
+
+AccountOwner --> UC_Signup
+
+AccountOwner --> UC_Logout
+Admin --> UC_Logout
+Manager --> UC_Logout
+Member --> UC_Logout
+AccountOwner --> UC_Dashboard
+Admin --> UC_Dashboard
+Manager --> UC_Dashboard
+Member --> UC_Dashboard
+AccountOwner --> UC_Leads
+Admin --> UC_Leads
+Manager --> UC_Leads
+Member --> UC_Leads
+AccountOwner --> UC_LeadManage
+Admin --> UC_LeadManage
+Manager --> UC_LeadManage
+Member --> UC_LeadManage
+AccountOwner --> UC_AIAnalyze
+Admin --> UC_AIAnalyze
+Manager --> UC_AIAnalyze
+Member --> UC_AIAnalyze
+AccountOwner --> UC_Assistant
+Admin --> UC_Assistant
+Manager --> UC_Assistant
+Member --> UC_Assistant
+AccountOwner --> UC_Outreach
+Admin --> UC_Outreach
+Manager --> UC_Outreach
+Member --> UC_Outreach
+AccountOwner --> UC_Export
+Admin --> UC_Export
+Manager --> UC_Export
+Member --> UC_Export
+AccountOwner --> UC_TeamView
+Admin --> UC_TeamView
+Manager --> UC_TeamView
+Member --> UC_TeamView
+AccountOwner --> UC_BillingView
+Admin --> UC_BillingView
+Manager --> UC_BillingView
+Member --> UC_BillingView
+AccountOwner --> UC_SearchProgress
+Admin --> UC_SearchProgress
+Manager --> UC_SearchProgress
+Member --> UC_SearchProgress
+
+AccountOwner --> UC_Search
+Admin --> UC_Search
+Manager --> UC_Search
+
+AccountOwner --> UC_TeamManage
+Admin --> UC_TeamManage
+AccountOwner --> UC_BillingManage
+AccountOwner --> UC_AdminOps
+Admin --> UC_AdminOps
+AccountOwner --> UC_Audit
+Admin --> UC_Audit
+
+UC_Search ..> UC_SearchProgress : <<extend>>
+UC_AIAnalyze ..> UC_Leads : <<include>>
+UC_Outreach ..> UC_AIAnalyze : <<include>>
+UC_Export ..> UC_Leads : <<include>>
+@enduml

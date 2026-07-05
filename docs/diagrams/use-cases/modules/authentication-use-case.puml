@@ -1,0 +1,42 @@
+@startuml
+title حالات استخدام المصادقة ومساحة العمل - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "وحدة المصادقة" {
+  usecase "إنشاء حساب" as UC_Signup
+  usecase "إنشاء مساحة عمل ومالك" as UC_CreateWorkspace
+  usecase "تسجيل الدخول بالبريد وكلمة المرور" as UC_Login
+  usecase "تطبيق حد معدل محاولات الدخول" as UC_RateLimitLogin
+  usecase "تطبيق حد معدل التسجيل" as UC_RateLimitSignup
+  usecase "إصدار رمز JWT" as UC_Token
+  usecase "قراءة المستخدم الحالي" as UC_Me
+  usecase "تسجيل الخروج" as UC_Logout
+  usecase "رفض المستخدم غير النشط أو الرمز غير الصالح" as UC_Reject
+}
+
+AccountOwner --> UC_Signup
+AccountOwner --> UC_Login
+Admin --> UC_Login
+Manager --> UC_Login
+Member --> UC_Login
+AccountOwner --> UC_Me
+Admin --> UC_Me
+Manager --> UC_Me
+Member --> UC_Me
+AccountOwner --> UC_Logout
+Admin --> UC_Logout
+Manager --> UC_Logout
+Member --> UC_Logout
+
+UC_Signup ..> UC_RateLimitSignup : <<include>>
+UC_Signup ..> UC_CreateWorkspace : <<include>>
+UC_Signup ..> UC_Token : <<include>>
+UC_Login ..> UC_RateLimitLogin : <<include>>
+UC_Login ..> UC_Token : <<include>>
+UC_Me ..> UC_Reject : <<extend>>
+@enduml

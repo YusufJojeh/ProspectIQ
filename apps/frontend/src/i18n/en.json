@@ -1,0 +1,40 @@
+{
+  "search": {
+    "placeholder": "Search for leads… e.g. SaaS CTOs in Dubai",
+    "button": "Find Leads",
+    "voice_hint": "Speak your search",
+    "voice_listening": "Listening…",
+    "voice_unsupported": "Voice not supported in this browser"
+  },
+  "status": {
+    "searching": "Searching the web…",
+    "enriching": "Enriching lead data…",
+    "scoring": "Scoring leads with AI…",
+    "done": "Done! Your leads are ready."
+  },
+  "lead": {
+    "score": "Lead Score",
+    "copy_email": "Copy Email",
+    "open_linkedin": "LinkedIn",
+    "email_confidence": "Email Confidence",
+    "employees": "Employees",
+    "ai_opener": "Suggested Opener",
+    "no_opener": "No opener available",
+    "no_email": "No email",
+    "copied": "Copied!"
+  },
+  "export": {
+    "csv": "Export CSV",
+    "json": "Export JSON",
+    "copy_all": "Copy All Emails",
+    "count": "{{count}} leads found"
+  },
+  "errors": {
+    "search_failed": "Search failed. Please try again.",
+    "no_results": "No leads found. Try a broader query."
+  },
+  "lang": {
+    "en": "EN",
+    "ar": "عربي"
+  }
+}

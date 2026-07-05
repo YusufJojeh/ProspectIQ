@@ -1,0 +1,44 @@
+@startuml
+title حالات استخدام دور المسؤول - LeadScope AI
+left to right direction
+
+actor "مسؤول" as Admin
+
+rectangle "LeadScope AI" {
+  usecase "مصادقة واستخدام مساحة العمل" as UC_Auth
+  usecase "تشغيل اكتشاف العملاء المحتملين" as UC_Search
+  usecase "إدارة العملاء المحتملين" as UC_Leads
+  usecase "تشغيل تحليل الذكاء الاصطناعي" as UC_AI
+  usecase "استخدام مساعد المبيعات" as UC_Assistant
+  usecase "إدارة مسودات التواصل" as UC_Outreach
+  usecase "تصدير العملاء المحتملين" as UC_Export
+  usecase "عرض الفريق" as UC_TeamView
+  usecase "إنشاء وتعديل المستخدمين" as UC_TeamManage
+  usecase "إعادة تعيين كلمات مرور المستخدمين" as UC_Reset
+  usecase "تحديث إعدادات مساحة العمل" as UC_WorkspaceSettings
+  usecase "عرض الخطط والاشتراك والفواتير والاستخدام" as UC_BillingView
+  usecase "إدارة إعدادات التسجيل والقوالب والمزودين" as UC_AdminConfig
+  usecase "إدارة كتالوج الخدمات" as UC_ServiceCatalog
+  usecase "عرض الصحة التشغيلية" as UC_Health
+  usecase "عرض سجلات التدقيق" as UC_Audit
+}
+
+Admin --> UC_Auth
+Admin --> UC_Search
+Admin --> UC_Leads
+Admin --> UC_AI
+Admin --> UC_Assistant
+Admin --> UC_Outreach
+Admin --> UC_Export
+Admin --> UC_TeamView
+Admin --> UC_TeamManage
+Admin --> UC_Reset
+Admin --> UC_WorkspaceSettings
+Admin --> UC_BillingView
+Admin --> UC_AdminConfig
+Admin --> UC_ServiceCatalog
+Admin --> UC_Health
+Admin --> UC_Audit
+
+UC_TeamManage ..> UC_Reset : <<extend>>
+@enduml

@@ -1,0 +1,36 @@
+@startuml
+title تسلسل توليد تحليل AI لعميل محتمل - LeadScope AI
+actor "دور نظام مصادق\n(account_owner/admin/manager/member)" as User
+participant "AIAnalysisPage/LeadDetailPage" as UI
+participant "ai-analysis/api.ts" as Client
+participant "POST /api/v1/ai-analysis/leads/{lead_id}/generate" as AIAPI
+participant "AIAnalysisService" as AIService
+participant "LeadIntelligenceService" as Facts
+participant "PromptBuilder" as Prompt
+participant "LLM Adapter\n(Ollama/OpenAI)" as LLM
+participant "LLMOutputValidator" as Validator
+database "MariaDB" as DB
+participant "AuditLogService" as Audit
+
+User -> UI : طلب تحليل جديد
+UI -> Client : generateLeadAnalysis(leadId)
+Client -> AIAPI : POST /generate
+AIAPI -> AIService : generate_for_lead(workspace_id, lead_id, current_user)
+AIService -> DB : تحميل العميل وقالب Prompt النشط
+AIService -> Facts : build(lead)
+Facts --> AIService : facts + score_context
+AIService -> Prompt : build_input_payload + build_prompt
+AIService -> DB : البحث عن snapshot بنفس input_hash
+alt Snapshot موجود و force_refresh=false
+  AIService --> AIAPI : إعادة التحليل المحفوظ
+else توليد جديد
+  AIService -> LLM : analyze(input_payload)
+  LLM --> AIService : JSON output
+  AIService -> Validator : validate(payload)
+  Validator --> AIService : LeadAnalysisResult
+  AIService -> DB : حفظ AIAnalysisSnapshot و ServiceRecommendation
+  AIService -> Audit : record(lead.analyzed)
+  AIService --> AIAPI : LeadAnalysisSnapshotResponse
+end
+AIAPI --> UI : نتيجة التحليل
+@enduml

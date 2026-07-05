@@ -1,0 +1,33 @@
+@startuml
+title تسلسل اكتشاف العملاء المحتملين - LeadScope AI
+actor "مالك الحساب أو مسؤول أو مدير" as User
+participant "SearchesPage" as UI
+participant "searches/api.ts" as Client
+participant "POST /api/v1/search-jobs" as SearchAPI
+participant "SearchJobService" as SearchService
+participant "BillingService" as Billing
+database "MariaDB" as DB
+participant "AuditLogService" as Audit
+participant "BackgroundTasks" as Background
+participant "LeadDiscoveryOrchestrator" as Orchestrator
+participant "SerpApiService" as SerpAPI
+
+User -> UI : إدخال معايير البحث
+UI -> Client : createSearchJob(payload)
+Client -> SearchAPI : POST /api/v1/search-jobs
+SearchAPI -> SearchService : create_search_job(payload, workspace_id, user_id)
+SearchService -> Billing : enforce_usage(searches_per_month)
+Billing -> DB : قراءة الاشتراك وحدود الخطة
+SearchService -> DB : حفظ SearchRequest و SearchJob(status=queued)
+SearchService -> Audit : record(search_job.created)
+SearchService -> Billing : record_usage(searches_per_month)
+SearchAPI -> Background : add_task(run discovery)
+SearchAPI --> UI : 202 SearchJobResponse
+Background -> Orchestrator : run(job_public_id)
+Orchestrator -> SerpAPI : جلب نتائج المزودين
+SerpAPI --> Orchestrator : مرشحون وبيانات إثراء
+Orchestrator -> DB : upsert leads وتحديث حالة الوظيفة
+UI -> Client : getSearchJob(jobId) أو stream
+Client -> SearchAPI : GET /api/v1/search-jobs/{job_id}/stream
+SearchAPI --> UI : أحداث SSE للتقدم
+@enduml

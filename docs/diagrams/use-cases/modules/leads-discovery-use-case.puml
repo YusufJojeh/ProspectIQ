@@ -1,0 +1,72 @@
+@startuml
+title حالات استخدام اكتشاف وإدارة العملاء المحتملين - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "وحدة البحث والعملاء المحتملين" {
+  usecase "إنشاء وظيفة بحث من نموذج" as UC_CreateSearch
+  usecase "إنشاء وظيفة بحث من Prompt" as UC_CreateSearchPrompt
+  usecase "التحقق من حد الاستخدام الشهري للبحث" as UC_SearchLimit
+  usecase "تسجيل حدث إنشاء البحث" as UC_SearchAudit
+  usecase "تشغيل Orchestrator لاكتشاف العملاء" as UC_DiscoveryWorker
+  usecase "متابعة التقدم عبر SSE" as UC_Stream
+  usecase "عرض وظائف البحث ونتائجها" as UC_SearchView
+  usecase "استعراض وتصفية العملاء المحتملين" as UC_ListLeads
+  usecase "عرض تفاصيل العميل المحتمل" as UC_LeadDetail
+  usecase "تحديث الحالة" as UC_Status
+  usecase "تعيين المالك" as UC_Assign
+  usecase "إضافة ملاحظة" as UC_Note
+  usecase "تحديث/إنعاش بيانات عميل" as UC_Refresh
+  usecase "عرض النشاط والأدلة وتفصيل الدرجة" as UC_Evidence
+}
+
+AccountOwner --> UC_CreateSearch
+Admin --> UC_CreateSearch
+Manager --> UC_CreateSearch
+AccountOwner --> UC_CreateSearchPrompt
+Admin --> UC_CreateSearchPrompt
+Manager --> UC_CreateSearchPrompt
+
+AccountOwner --> UC_SearchView
+Admin --> UC_SearchView
+Manager --> UC_SearchView
+Member --> UC_SearchView
+AccountOwner --> UC_ListLeads
+Admin --> UC_ListLeads
+Manager --> UC_ListLeads
+Member --> UC_ListLeads
+AccountOwner --> UC_LeadDetail
+Admin --> UC_LeadDetail
+Manager --> UC_LeadDetail
+Member --> UC_LeadDetail
+AccountOwner --> UC_Status
+Admin --> UC_Status
+Manager --> UC_Status
+Member --> UC_Status
+AccountOwner --> UC_Assign
+Admin --> UC_Assign
+Manager --> UC_Assign
+Member --> UC_Assign
+AccountOwner --> UC_Note
+Admin --> UC_Note
+Manager --> UC_Note
+Member --> UC_Note
+AccountOwner --> UC_Refresh
+Admin --> UC_Refresh
+Manager --> UC_Refresh
+Member --> UC_Refresh
+AccountOwner --> UC_Evidence
+Admin --> UC_Evidence
+Manager --> UC_Evidence
+Member --> UC_Evidence
+
+UC_CreateSearch ..> UC_SearchLimit : <<include>>
+UC_CreateSearchPrompt ..> UC_CreateSearch : <<include>>
+UC_CreateSearch ..> UC_SearchAudit : <<include>>
+UC_CreateSearch ..> UC_DiscoveryWorker : <<extend>>
+UC_CreateSearch ..> UC_Stream : <<extend>>
+@enduml

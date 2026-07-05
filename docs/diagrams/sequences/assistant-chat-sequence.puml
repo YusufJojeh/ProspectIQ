@@ -1,0 +1,32 @@
+@startuml
+title تسلسل محادثة مساعد المبيعات - LeadScope AI
+actor "دور نظام مصادق\n(account_owner/admin/manager/member)" as User
+participant "AssistantPage" as UI
+participant "DefaultChatTransport" as Transport
+participant "POST /api/v1/assistant/chat" as AssistantAPI
+participant "AssistantService" as Assistant
+database "MariaDB" as DB
+participant "SerpApiService" as SerpAPI
+participant "LLM Runtime\n(Ollama/OpenAI)" as LLM
+
+User -> UI : إرسال رسالة
+UI -> Transport : stream message + token
+Transport -> AssistantAPI : POST /assistant/chat
+AssistantAPI -> Assistant : resolve_lead(optional lead_id)
+Assistant -> DB : تحميل العميل إن وجد
+Assistant -> DB : get_or_create_session
+Assistant -> DB : حفظ رسالة المستخدم
+Assistant -> Assistant : resolve_search_context
+alt البحث الخارجي مطلوب ومتاح
+  Assistant -> SerpAPI : web_search/news/jobs
+  SerpAPI --> Assistant : مصادر ونتائج
+  AssistantAPI --> UI : SSE data-search + source-url
+else البحث غير مطلوب أو غير متاح
+  AssistantAPI --> UI : SSE search_status
+end
+Assistant -> LLM : stream grounded messages
+LLM --> Assistant : text deltas
+AssistantAPI --> UI : SSE text-delta
+Assistant -> DB : حفظ رد المساعد الكامل
+AssistantAPI --> UI : SSE finish + DONE
+@enduml

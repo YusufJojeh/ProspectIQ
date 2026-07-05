@@ -1,0 +1,87 @@
+@startuml
+title حالات استخدام الذكاء الاصطناعي - LeadScope AI
+left to right direction
+
+actor "مالك الحساب" as AccountOwner
+actor "مسؤول" as Admin
+actor "مدير" as Manager
+actor "عضو" as Member
+
+rectangle "وحدة الذكاء الاصطناعي" {
+  package "تحليل العملاء المحتملين" {
+    usecase "عرض آخر تحليل محفوظ" as UC_Latest
+    usecase "عرض سجل التحليلات" as UC_History
+    usecase "توليد تحليل جديد لعميل" as UC_Generate
+    usecase "توليد تحليل دفعي" as UC_Batch
+    usecase "بناء Prompt من الأدلة المخزنة" as UC_Prompt
+    usecase "تشغيل Ollama أو OpenAI مع fallback" as UC_Runtime
+    usecase "التحقق من مخرجات LLM" as UC_Validate
+    usecase "حفظ Snapshot وتوصيات الخدمات" as UC_Save
+    usecase "تسجيل حدث lead.analyzed" as UC_AuditAnalyze
+  }
+
+  package "مساعد المبيعات" {
+    usecase "بدء/متابعة محادثة SSE" as UC_Chat
+    usecase "ربط المحادثة بعميل اختياري" as UC_LinkLead
+    usecase "استخدام بحث SerpAPI عند الحاجة" as UC_Search
+    usecase "استخدام web_search tool عند تفعيله" as UC_WebTool
+    usecase "حفظ رسائل المستخدم والمساعد" as UC_SaveChat
+    usecase "عرض جلسات المحادثة" as UC_ListSessions
+    usecase "حذف جلسة محادثة" as UC_DeleteSession
+  }
+
+  package "إدارة AI" {
+    usecase "إدارة قوالب Prompt" as UC_AdminPrompt
+    usecase "اختبار Prompt على عميل دون حفظ Snapshot دائم\n(INFERRED من public_id preview_)" as UC_TestPrompt
+    usecase "عرض إعدادات المزودين والصحة" as UC_ProviderHealth
+  }
+}
+
+AccountOwner --> UC_Latest
+Admin --> UC_Latest
+Manager --> UC_Latest
+Member --> UC_Latest
+AccountOwner --> UC_History
+Admin --> UC_History
+Manager --> UC_History
+Member --> UC_History
+AccountOwner --> UC_Generate
+Admin --> UC_Generate
+Manager --> UC_Generate
+Member --> UC_Generate
+AccountOwner --> UC_Batch
+Admin --> UC_Batch
+Manager --> UC_Batch
+Member --> UC_Batch
+AccountOwner --> UC_Chat
+Admin --> UC_Chat
+Manager --> UC_Chat
+Member --> UC_Chat
+AccountOwner --> UC_ListSessions
+Admin --> UC_ListSessions
+Manager --> UC_ListSessions
+Member --> UC_ListSessions
+AccountOwner --> UC_DeleteSession
+Admin --> UC_DeleteSession
+Manager --> UC_DeleteSession
+Member --> UC_DeleteSession
+
+AccountOwner --> UC_AdminPrompt
+Admin --> UC_AdminPrompt
+AccountOwner --> UC_TestPrompt
+Admin --> UC_TestPrompt
+AccountOwner --> UC_ProviderHealth
+Admin --> UC_ProviderHealth
+
+UC_Generate ..> UC_Prompt : <<include>>
+UC_Generate ..> UC_Runtime : <<include>>
+UC_Generate ..> UC_Validate : <<include>>
+UC_Generate ..> UC_Save : <<include>>
+UC_Generate ..> UC_AuditAnalyze : <<include>>
+UC_Batch ..> UC_Generate : <<include>>
+UC_Chat ..> UC_LinkLead : <<extend>>
+UC_Chat ..> UC_Search : <<extend>>
+UC_Chat ..> UC_WebTool : <<extend>>
+UC_Chat ..> UC_SaveChat : <<include>>
+UC_TestPrompt ..> UC_Runtime : <<include>>
+@enduml

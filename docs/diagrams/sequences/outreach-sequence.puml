@@ -1,0 +1,24 @@
+@startuml
+title تسلسل إنشاء مسودة تواصل - LeadScope AI
+actor "دور نظام مصادق\n(account_owner/admin/manager/member)" as User
+participant "OutreachPage/LeadDetailPage" as UI
+participant "outreach/api.ts" as Client
+participant "POST /api/v1/outreach/leads/{lead_id}/generate" as OutreachAPI
+participant "OutreachGenerationService" as Outreach
+participant "AIAnalysisService" as AIService
+database "MariaDB" as DB
+participant "AuditLogService" as Audit
+
+User -> UI : اختيار عميل ونبرة ولغة
+UI -> Client : generateLeadOutreach(leadId, payload)
+Client -> OutreachAPI : POST /generate
+OutreachAPI -> Outreach : generate_for_lead(...)
+Outreach -> AIService : prepare_analysis_for_lead(...)
+AIService -> DB : تحميل/توليد تحليل AI
+AIService --> Outreach : lead + snapshot + analysis
+Outreach -> Outreach : apply_tone(tone, language)
+Outreach -> DB : حفظ OutreachMessage version
+Outreach -> Audit : record(lead.outreach_generated)
+Outreach --> OutreachAPI : OutreachDraftResponse
+OutreachAPI --> UI : مسودة قابلة للتعديل والإرسال
+@enduml

@@ -1,0 +1,30 @@
+@startuml
+title تسلسل تصدير العملاء المحتملين - LeadScope AI
+actor "دور نظام مصادق\n(account_owner/admin/manager/member)" as User
+participant "LeadsPage/ExportsPage" as UI
+participant "leads/api.ts" as Client
+participant "GET /api/v1/exports/leads.csv|json" as ExportAPI
+participant "ExportService" as Export
+participant "BillingService" as Billing
+database "MariaDB" as DB
+participant "AuditLogService" as Audit
+
+User -> UI : طلب تصدير مع الفلاتر
+UI -> Client : downloadLeadsExport(filters)
+Client -> ExportAPI : GET /exports/leads.csv أو leads.json
+ExportAPI -> Export : export_with_billing(fmt, filters)
+Export -> Billing : enforce_usage(exports_per_month)
+Billing -> DB : قراءة الاشتراك والعدادات
+alt الحد غير متجاوز
+  Export -> DB : جمع العملاء وآخر التحليلات والتواصل والمالكين
+  Export -> Export : تحويل إلى CSV أو JSON
+  Export -> Audit : record(leads.exported_csv/json)
+  Export -> Billing : record_usage(exports_per_month)
+  ExportAPI --> Client : ملف التصدير
+  Client -> UI : تنزيل prospectiq-leads
+else الحد متجاوز أو الاشتراك غير فعال
+  Billing -> Audit : record(billing.plan_limit_denied)
+  Billing --> ExportAPI : PlanLimitExceededError أو SubscriptionAccessError
+  ExportAPI --> UI : خطأ
+end
+@enduml
