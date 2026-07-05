@@ -16,9 +16,9 @@ export function AppShell({ children }: AppShellProps) {
       <AppSidebar />
       <SidebarInset className="min-w-0">
         <AppTopbar />
-        <main className="flex-1 overflow-x-clip">
+        <div className="flex-1 overflow-x-clip">
           <PageTransition>{children ?? <Outlet />}</PageTransition>
-        </main>
+        </div>
       </SidebarInset>
       <CommandMenu />
     </SidebarProvider>

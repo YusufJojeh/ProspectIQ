@@ -1761,6 +1761,24 @@ async function handleApiRoute(route: Route, state: MockState) {
     return;
   }
 
+  const searchJobStreamMatch = path.match(/^\/api\/v1\/search-jobs\/([^/]+)\/stream$/);
+  if (searchJobStreamMatch && method === "GET") {
+    const events = [
+      { stage: "fetching", progress: 20, message: "Fetching candidate businesses…" },
+      { stage: "normalizing", progress: 55, message: "Normalizing and deduplicating leads…" },
+      { stage: "scoring", progress: 85, message: "Scoring leads against qualification criteria…" },
+      { stage: "done", progress: 100, message: "Discovery run complete." },
+    ];
+    const body = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
+    await route.fulfill({
+      status: 200,
+      headers: CORS_HEADERS,
+      contentType: "text/event-stream",
+      body,
+    });
+    return;
+  }
+
   const searchJobByIdMatch = path.match(/^\/api\/v1\/search-jobs\/([^/]+)$/);
   if (searchJobByIdMatch && method === "GET") {
     const jobId = searchJobByIdMatch[1];

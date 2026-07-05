@@ -47,5 +47,11 @@ tmp/
 output/
 .claude/
 .playwright-mcp/
+.playwright-cli/
 apps/web/tests/e2e/.auth/
 apps/web/test-artifacts/
+*.tmp-*
+apps/api/*.db
+
+# Claude Code persistent memory (personal working notes, not a project deliverable)
+memory/

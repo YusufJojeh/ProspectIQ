@@ -12,7 +12,11 @@ export const routes = {
   aiAnalysis: "/app/ai-analysis",
   assistant: "/app/assistant",
   outreach: "/app/outreach",
-  admin: "/app/admin",
+  // Workspace-level admin dashboard (RequireRole: account_owner/admin).
+  // Not to be confused with `/app/admin`, which is the separate
+  // platform_admin-only entry point (see AdminEntryPage in router.tsx).
+  admin: "/app/workspace-admin",
+  platformAdmin: "/app/admin",
   auditLogs: "/app/audit-logs",
   exports: "/app/exports",
   settings: "/app/settings",
