@@ -104,3 +104,21 @@ def test_secret_redaction_filter_masks_query_api_keys() -> None:
     assert allowed is True
     assert "super-secret" not in record.getMessage()
     assert "api_key=[REDACTED]" in record.getMessage()
+
+
+def test_secret_redaction_filter_masks_env_style_api_keys() -> None:
+    record = logging.LogRecord(
+        name="app",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="provider config TAVILY_API_KEY=super-secret-token TAVILY_RUNTIME_MODE=live",
+        args=(),
+        exc_info=None,
+    )
+
+    allowed = SecretRedactionFilter().filter(record)
+
+    assert allowed is True
+    assert "super-secret-token" not in record.getMessage()
+    assert "TAVILY_API_KEY=[REDACTED]" in record.getMessage()

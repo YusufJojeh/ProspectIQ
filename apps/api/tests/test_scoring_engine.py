@@ -275,6 +275,46 @@ def test_fact_builder_extracts_tavily_evidence_from_normalized_facts() -> None:
     assert facts.website_domain == "acmedental.example"
 
 
+def test_fact_builder_extracts_tavily_search_discovery_evidence() -> None:
+    lead = Lead(
+        workspace_id=1,
+        company_name="North Clinic",
+        city="Istanbul",
+        data_completeness=0.5,
+        data_confidence=0.62,
+        has_website=False,
+        review_count=0,
+    )
+    tavily_fact = ProviderNormalizedFact(
+        workspace_id=1,
+        lead_id=0,
+        provider_fetch_id=0,
+        source_type="tavily_search",
+        company_name="North Clinic",
+        website_url="https://northclinic.example",
+        website_domain="northclinic.example",
+        review_count=0,
+        confidence=0.82,
+        completeness=0.45,
+        facts_json={
+            "source": "tavily",
+            "answer_present": False,
+            "result_count": 3,
+            "top_relevance_score": 0.91,
+            "visibility_confidence": 0.82,
+        },
+        created_at=datetime.now(tz=UTC),
+    )
+
+    facts = EvidenceFactBuilder().build(lead, [tavily_fact])
+
+    assert facts.tavily_present is True
+    assert facts.tavily_result_count == 3
+    assert facts.tavily_top_relevance_score == 0.91
+    assert facts.official_website_source == "tavily_search"
+    assert facts.visibility_confidence == 0.82
+
+
 def test_scoring_config_requires_weight_sum_and_threshold_order() -> None:
     try:
         ScoringWeights(

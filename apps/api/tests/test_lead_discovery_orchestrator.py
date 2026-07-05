@@ -156,6 +156,115 @@ class _FakeProviderService:
         return fetch, payload
 
 
+class _FakeTavilyService:
+    def __init__(self, *, search_payload: dict, extract_payload: dict | None = None) -> None:
+        self.search_payload = search_payload
+        self.extract_payload = extract_payload or {"results": []}
+        self.web_queries: list[str] = []
+        self.extract_urls_seen: list[str] = []
+
+    def web_search(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        query: str,
+        attempt: int = 1,
+    ):
+        self.web_queries.append(query)
+        return self._persist_fetch(
+            db,
+            workspace_id=workspace_id,
+            search_job_id=search_job_id,
+            mode="web_search",
+            payload=self.search_payload,
+            status=ProviderFetchStatus.OK.value,
+            attempt=attempt,
+        )
+
+    def extract_urls(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        urls: list[str],
+        query: str | None = None,  # noqa: ARG002
+        attempt: int = 1,
+    ):
+        self.extract_urls_seen.extend(urls)
+        return self._persist_fetch(
+            db,
+            workspace_id=workspace_id,
+            search_job_id=search_job_id,
+            mode="extract",
+            payload=self.extract_payload,
+            status=ProviderFetchStatus.OK.value,
+            attempt=attempt,
+        )
+
+    def research(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        query: str,  # noqa: ARG002
+        model: str = "tavily-research-mini",  # noqa: ARG002
+        attempt: int = 1,
+    ):
+        return self._persist_fetch(
+            db,
+            workspace_id=workspace_id,
+            search_job_id=search_job_id,
+            mode="research",
+            payload={"request_id": "tvly-research-test", "status": "queued"},
+            status=ProviderFetchStatus.OK.value,
+            attempt=attempt,
+        )
+
+    def _persist_fetch(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        search_job_id: int | None,
+        mode: str,
+        payload: dict,
+        status: str,
+        attempt: int,
+    ):
+        fetch = ProviderFetch(
+            workspace_id=workspace_id,
+            provider="tavily",
+            engine="tavily",
+            mode=mode,
+            search_job_id=search_job_id,
+            request_fingerprint=f"tavily-{mode}-{attempt}",
+            request_params_json={"mode": mode},
+            serpapi_search_id=f"tavily-{mode}-id",
+            status=status,
+            http_status=200 if status == ProviderFetchStatus.OK.value else 429,
+            started_at=datetime.now(tz=UTC),
+            finished_at=datetime.now(tz=UTC),
+            error_message=None if status == ProviderFetchStatus.OK.value else "provider failed",
+            attempt=attempt,
+        )
+        db.add(fetch)
+        db.commit()
+        db.refresh(fetch)
+        db.add(
+            ProviderRawPayload(
+                provider_fetch_id=fetch.id,
+                payload_json=payload,
+                payload_sha256=f"sha-tavily-{mode}-{attempt}",
+            )
+        )
+        db.commit()
+        return fetch, payload
+
+
 def _build_session_factory() -> sessionmaker[Session]:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
@@ -516,6 +625,137 @@ def test_pipeline_mode_runs_arabic_and_english_without_breaking(monkeypatch) -> 
             SearchJobStatus.PARTIALLY_COMPLETED.value,
         }
         assert job.leads_upserted >= 1
+    clear_settings_cache()
+
+
+def test_pipeline_mode_can_discover_leads_with_tavily_search(monkeypatch) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "google_maps_search,tavily_web")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "4")
+    monkeypatch.setenv("TAVILY_LIVE_MAX_CALLS", "2")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(search_payload={"local_results": []}, web_payload={})
+    tavily = _FakeTavilyService(
+        search_payload={
+            "results": [
+                {
+                    "title": "Acme Dental - Official Website",
+                    "url": "https://acmedental.example",
+                    "content": "Acme Dental provides local dentistry.",
+                    "score": 0.92,
+                },
+                {
+                    "title": "Acme Dental Contact",
+                    "url": "https://acmedental.example/contact",
+                    "content": "Duplicate domain should not become a second lead.",
+                    "score": 0.88,
+                },
+            ]
+        },
+        extract_payload={
+            "results": [
+                {
+                    "url": "https://acmedental.example",
+                    "raw_content": "Official extracted content for Acme Dental.",
+                }
+            ]
+        },
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        provider_service=provider,
+        tavily_service=tavily,
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        lead = db.scalar(select(Lead).where(Lead.search_job_id == job.id))
+        assert lead is not None
+        assert lead.company_name == "Acme Dental"
+        assert lead.website_domain == "acmedental.example"
+        tavily_fact = db.scalar(
+            select(ProviderNormalizedFact).where(
+                ProviderNormalizedFact.lead_id == lead.id,
+                ProviderNormalizedFact.source_type == "tavily_search",
+            )
+        )
+        assert tavily_fact is not None
+        assert tavily_fact.facts_json["extracted_content"] == (
+            "Official extracted content for Acme Dental."
+        )
+
+    assert len(tavily.web_queries) == 1
+    assert tavily.extract_urls_seen == ["https://acmedental.example"]
+    clear_settings_cache()
+
+
+def test_pipeline_mode_can_run_tavily_without_serpapi(monkeypatch) -> None:
+    monkeypatch.setenv("SERPAPI_API_KEY", "")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "tavily_web")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "3")
+    monkeypatch.setenv("TAVILY_RUNTIME_MODE", "stub")
+    monkeypatch.setenv("TAVILY_LIVE_MAX_CALLS", "2")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    tavily = _FakeTavilyService(
+        search_payload={
+            "results": [
+                {
+                    "title": "Acme Dental - Official Website",
+                    "url": "https://acmedental.example",
+                    "content": "Acme Dental provides local dentistry.",
+                    "score": 0.92,
+                }
+            ]
+        },
+        extract_payload={
+            "results": [
+                {
+                    "url": "https://acmedental.example",
+                    "raw_content": "Official extracted content for Acme Dental.",
+                }
+            ]
+        },
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        tavily_service=tavily,
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        assert job.provider_error_count == 0
+        lead = db.scalar(select(Lead).where(Lead.search_job_id == job.id))
+        assert lead is not None
+        assert lead.website_domain == "acmedental.example"
+        assert (
+            db.scalar(
+                select(func.count(ProviderFetch.id)).where(ProviderFetch.provider == "tavily")
+            )
+            == 2
+        )
+        assert (
+            db.scalar(
+                select(func.count(ProviderFetch.id)).where(ProviderFetch.provider == "serpapi")
+            )
+            == 0
+        )
+
+    assert tavily.web_queries == ["Dentist Istanbul official"]
+    assert tavily.extract_urls_seen == ["https://acmedental.example"]
     clear_settings_cache()
 
 

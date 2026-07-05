@@ -27,6 +27,27 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
+      - name: Set up Python for Tavily smoke
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      - name: Run guarded Tavily SDK smoke
+        working-directory: apps/api
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          TAVILY_LIVE_E2E: "1"
+        run: |
+          if [ -z "${TAVILY_API_KEY}" ]; then
+            echo "TAVILY_API_KEY secret is not configured; skipping Tavily live smoke."
+            exit 0
+          fi
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+          python -m pytest tests/test_tavily_live_smoke.py -q
+
       - name: Build API image
         run: docker build -t leadscope-live-api:${{ github.sha }} ./apps/api
 
@@ -54,6 +75,7 @@ jobs:
               "DATABASE_URL=mysql+pymysql://prospectiq:replace-me@db:3306/prospectiq": "DATABASE_URL=mysql+pymysql://prospectiq:prospectiq@db:3306/prospectiq",
               "JWT_SECRET=replace-with-a-long-random-secret": "JWT_SECRET=live-provider-ci-secret-key-at-least-32",
               "SERPAPI_API_KEY=replace-with-serpapi-key": "SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}",
+              "TAVILY_API_KEY=replace-with-tavily-key": "TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}",
               "OPENAI_API_KEY=replace-with-openai-key": "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}",
           }
           content = path.read_text()
