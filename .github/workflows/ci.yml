@@ -121,6 +121,7 @@ jobs:
               "DATABASE_URL=mysql+pymysql://prospectiq:replace-me@db:3306/prospectiq": "DATABASE_URL=mysql+pymysql://prospectiq:prospectiq@db:3306/prospectiq",
               "JWT_SECRET=replace-with-a-long-random-secret": "JWT_SECRET=ci-super-secret-jwt-key-at-least-32-bytes",
               "SERPAPI_API_KEY=replace-with-serpapi-key": "SERPAPI_API_KEY=ci-serpapi-placeholder",
+              "TAVILY_API_KEY=replace-with-tavily-key": "TAVILY_API_KEY=",
               "OPENAI_API_KEY=replace-with-openai-key": "OPENAI_API_KEY=ci-openai-placeholder",
           }
           content = path.read_text()

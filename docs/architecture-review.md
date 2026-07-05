@@ -4,7 +4,7 @@
 
 LeadScope AI is a clean modular monolith with working backend, frontend, database migrations, CI, and end-to-end workflow coverage. The strongest architectural choices are:
 
-- provider-specific acquisition and normalization logic is kept inside `apps/api/app/modules/provider_serpapi`
+- provider-specific acquisition and normalization logic is kept inside `apps/api/app/modules/provider_serpapi` (and, following the same pattern, `apps/api/app/modules/provider_tavily` for the optional secondary Tavily engine)
 - deterministic scoring is isolated from AI generation
 - raw provider payloads, normalized facts, lead truth, and AI snapshots are stored separately
 - the React app is organized by feature areas instead of page-local data plumbing

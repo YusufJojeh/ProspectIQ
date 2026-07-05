@@ -86,6 +86,10 @@ The runtime is explicit and controlled by env vars. No implicit discovery demo f
   - `demo`: explicit demo discovery mode
   - `stub`: deterministic test-only discovery mode
   - `blocked`: disables discovery
+- **Tavily runtime gate** (optional secondary engine): `TAVILY_RUNTIME_MODE`
+  - Auto-resolves to `live` once `TAVILY_API_KEY` is set, otherwise `blocked` (safely skipped)
+  - Same `live` / `demo` / `stub` / `blocked` values as SerpAPI are supported as an explicit override
+  - Add `tavily_web` to `DISCOVERY_ENGINE_LIST` to opt into Tavily-backed per-lead website/visibility validation
 - **Discovery execution mode**: `DISCOVERY_MODE`
   - `single_path`
   - `multi_query_single_engine`

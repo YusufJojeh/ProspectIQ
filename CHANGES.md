@@ -1,5 +1,22 @@
 # CHANGES
 
+## [Goal] Tavily Discovery Engine, Web-Search-Confidence Scoring, and Profession Persona - 2026-07-05
+
+### Added
+- New `provider_tavily` module (`client.py`, `engines/tavily_web.py`, `normalizers/tavily_web_normalizer.py`, `service.py`, `demo_service.py`) mirroring `provider_serpapi` conventions, gated by a `TAVILY_RUNTIME_MODE` runtime (live/demo/stub/blocked) that auto-resolves to `live` once `TAVILY_API_KEY` is configured.
+- Tavily is wired as an opt-in `tavily_web` engine used during per-lead website/visibility validation (`LeadDiscoveryOrchestrator._validate_web_presence`), selectable via `DISCOVERY_ENGINE_LIST`. It is never production-required.
+- New `WebSearchConfidenceStrategy` scoring strategy scoring Tavily-sourced evidence (answer presence, result relevance, result count); `ScoringWeights` rebalanced across all 8 strategies. Migration `0018_web_search_confidence_weight.py` backfills the new weight key for existing `scoring_config_versions` rows.
+- Workspace profession/industry persona: a new `settings_json.profession` convention (no schema change — reuses the existing workspace settings API) that selects a profession-aware default service catalog in `ai_analysis` (real estate, recruiting, consulting, creative/freelance, B2B sales, digital marketing, or general), replacing the previously hardcoded SEO/marketing-only catalog. Exposed via a profession selector on the workspace settings page.
+
+### Tests
+- `apps/api/tests/test_tavily_provider.py`: client retry/backoff, param builder, normalizer, demo service persistence, runtime gating.
+- `apps/api/tests/test_scoring_engine.py`: new strategy scoring, fact-builder Tavily evidence extraction, breakdown wiring.
+- `apps/web/tests/e2e/settings-workspace-profile.spec.ts`: profession selector round-trip, scoring config form field presence.
+
+### Validation
+- Backend: `ruff check`, `mypy`, `pytest` (full suite), `alembic upgrade head --sql` all green.
+- Frontend: `eslint`, `tsc --noEmit`, `vitest run` (28 tests), `vite build`, targeted Playwright spec all green.
+
 ## [Goal] Mini CRM Pipeline & Deal Tracking - 2026-06-26
 
 ### Added

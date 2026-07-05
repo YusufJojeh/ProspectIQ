@@ -4,7 +4,17 @@ from logging.config import fileConfig
 
 from alembic import context
 from alembic.ddl.impl import DefaultImpl
-from sqlalchemy import Column, MetaData, PrimaryKeyConstraint, String, Table, engine_from_config, inspect, pool, text
+from sqlalchemy import (
+    Column,
+    MetaData,
+    PrimaryKeyConstraint,
+    String,
+    Table,
+    engine_from_config,
+    inspect,
+    pool,
+    text,
+)
 
 from app.core.config import get_settings
 from app.core.database import Base

@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -115,7 +115,7 @@ export function CrmBoardPage() {
     },
   });
 
-  const deals = dealsQuery.data?.items ?? [];
+  const deals = useMemo(() => dealsQuery.data?.items ?? [], [dealsQuery.data]);
   const stageDeals = useMemo(() => groupDealsByStage(deals), [deals]);
 
   if (pipelinesQuery.isPending) {
