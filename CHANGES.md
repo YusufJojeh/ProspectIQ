@@ -1,5 +1,23 @@
 # CHANGES
 
+## [Hardening] Tavily Agentic Provider Polish - 2026-07-05
+
+### Added
+
+- Reworked Tavily integration around the official `tavily-python` SDK with Search, selective Extract, and opt-in Research support.
+- Added local Tavily token-bucket rate limiting, `retry-after` handling for 429s, safe 401/403/timeout/5xx behavior, request fingerprinting, and workspace-scoped provider usage records.
+- Added normalized Tavily discovery evidence with title, URL, snippet/content, provider, timestamp, confidence, and safe raw metadata; SerpAPI/stub paths remain intact.
+- Added guarded live Tavily smoke coverage behind `TAVILY_LIVE_E2E=1` plus mock-backed provider/orchestrator/scoring/security regression tests.
+- Added guarded Tavily SDK smoke execution to the separate live-provider workflow; default CI keeps Tavily disabled.
+- Surfaced Tavily provider status in settings and refreshed provider/QA/deployment documentation.
+
+### Validation
+
+- Backend gates passed: `ruff check app tests migrations`, `ruff format --check app tests migrations`, `mypy app`, `pytest --basetemp ..\..\tmp\pytest-bt-full-0705b -q`, and `alembic upgrade head --sql`.
+- Frontend gates passed: `npm run lint`, `npx tsc -b --pretty false`, `npm run test:unit`, `npm run build`, and `npm run test:e2e` (`126 passed`, `19 skipped`).
+- Playwright documentation captures refreshed in `output/playwright/frontend-figures`.
+- Tracked-file secret scan found no real Tavily/OpenAI/SerpAPI keys; only documented placeholders were present in examples and CI templates.
+
 ## [Hardening] Production Hardening Audit - 2026-07-05
 
 ### Fixed

@@ -67,10 +67,17 @@ All variables live in two files (both are **git-ignored**, never commit them):
 | `SERPAPI_RUNTIME_MODE` | `live` to use real SerpAPI (requires a real key). `demo` / `stub` / `blocked` skip the network |
 | `SERPAPI_API_KEY` | Your SerpAPI key when `SERPAPI_RUNTIME_MODE=live` |
 | `SERPAPI_BASE_URL` | `https://serpapi.com/search.json` |
+| `TAVILY_API_KEY` | Your Tavily key when `TAVILY_RUNTIME_MODE=live` |
+| `TAVILY_RUNTIME_MODE` | `stub` for deterministic local/CI behavior or `live` for SDK-backed Tavily Search/Extract/Research |
+| `TAVILY_LIVE_E2E` | `0` by default. Set to `1` only for the guarded real Tavily smoke test |
+| `TAVILY_MAX_RESULTS` | Tavily Search result cap, default `5` |
+| `TAVILY_SEARCH_DEPTH` | Tavily Search depth: `basic`, `fast`, or `advanced` |
+| `TAVILY_RATE_LIMIT_RPM` | Local token bucket rate limit, default `60` requests per minute |
+| `TAVILY_LIVE_MAX_CALLS` | Per-job cap for live Tavily discovery/extract calls, default `3` |
 | `DISCOVERY_KILL_SWITCH` | `false` to allow discovery; `true` downgrades to single-path |
 | `DISCOVERY_MODE` | `multi_engine_multi_query` (recommended) or `multi_query_single_engine` or `single_path` |
 | `DISCOVERY_MULTI_ENGINE_ENABLED` | `true` lets `multi_engine_multi_query` actually run |
-| `DISCOVERY_ENGINE_LIST` | Comma-separated SerpAPI engines, default `google_maps_search,google_maps_place,google_web` |
+| `DISCOVERY_ENGINE_LIST` | Comma-separated engines, default `google_maps_search,google_maps_place,google_web`. Add `tavily_web` to opt into Tavily discovery/validation |
 | `DISCOVERY_MAX_CONCURRENCY` | Parallel SerpAPI calls per job |
 | `DISCOVERY_MAX_CALLS_PER_JOB` | Upper bound on SerpAPI calls per job |
 | `DISCOVERY_MAX_CANDIDATES_AFTER_MERGE` | Cap on candidates after cross-source dedupe |
@@ -128,6 +135,7 @@ Then edit each `.env` and fill in real values for:
 - `JWT_SECRET` — generate a long random secret (≥32 chars)
 - `DATABASE_URL` — point to your local MariaDB/MySQL
 - `SERPAPI_API_KEY` — real SerpAPI key (or leave empty + set `SERPAPI_RUNTIME_MODE=blocked`)
+- `TAVILY_API_KEY` - optional real Tavily key; keep `TAVILY_RUNTIME_MODE=stub` unless you are testing Tavily live behavior
 - `OPENAI_API_KEY` — real OpenAI key (or leave empty if you only use Ollama)
 - `DEFAULT_ADMIN_EMAIL` / `DEFAULT_ADMIN_PASSWORD`
 
@@ -198,7 +206,7 @@ The script will:
    local `root` account when missing).
 4. Run `alembic upgrade head` (idempotent).
 5. Run `scripts/seed.py --demo-data` (idempotent).
-6. Probe SerpAPI, OpenAI, and Ollama with the credentials from `.env` and
+6. Probe SerpAPI, Tavily, OpenAI, and Ollama with the credentials from `.env` and
    **report which ones are reachable** without printing any secret value.
 7. Start the API on the requested port (default 8001) in the background.
 8. Start the web dev server on the requested port (default 5174) in the
@@ -299,7 +307,7 @@ time without restarting:
 ```powershell
 cd apps\api
 .\.venv\Scripts\Activate.ps1
-py -3.12 -c "from app.core.config import get_settings; s=get_settings(); print('AI:', s.analysis_runtime, '| fallback:', s.analysis_fallback_runtime); print('Discovery:', s.discovery_runtime)"
+py -3.12 -c "from app.core.config import get_settings; s=get_settings(); print('AI:', s.analysis_runtime, '| fallback:', s.analysis_fallback_runtime); print('Discovery:', s.discovery_runtime); print('Tavily:', s.tavily_runtime, '| configured:', s.has_tavily_configured)"
 ```
 
 You should see something like:
@@ -307,6 +315,7 @@ You should see something like:
 ```
 AI: ollama | fallback: openai
 Discovery: live
+Tavily: stub | configured: False
 ```
 
 If the analysis runtime is ever `demo` you have a configuration drift — fix
@@ -369,6 +378,7 @@ mode. The rest of the app still works without them.
 | Feature | Requires | What breaks if missing |
 | --- | --- | --- |
 | Real lead discovery (search jobs) | `SERPAPI_RUNTIME_MODE=live` + a valid `SERPAPI_API_KEY` | Search jobs return no real candidates. The backend exposes `Discovery: blocked` in `get_settings()` |
+| Agentic Tavily lead intelligence | `TAVILY_RUNTIME_MODE=live` + a valid `TAVILY_API_KEY` + `tavily_web` in `DISCOVERY_ENGINE_LIST` | Tavily Search/Extract/Research stay in deterministic stub/blocked mode; SerpAPI and other discovery paths continue to work |
 | Local LLM streaming (Ollama) | Local Ollama daemon on `OLLAMA_BASE_URL`, model `OLLAMA_MODEL` pulled (`ollama pull llama3.1`) | The first attempt to hit the LLM falls back to OpenAI. No user-visible failure if OpenAI is reachable. If both are unreachable the assistant raises `503 ServiceUnavailable` |
 | Cloud LLM (OpenAI) | Valid `OPENAI_API_KEY` + `OPENAI_MODEL` | Same as above — only matters when Ollama is also down |
 | Outreach email delivery | **Not implemented** in this codebase. Outreach generates the message but does not send it | The frontend exposes a "copy to clipboard" button only |
@@ -387,7 +397,7 @@ URL, so nothing else moves.
 
 ## 10. Key Rotation Policy
 
-If any API key (OpenAI, SerpAPI, or any future provider) is ever exposed in
+If any API key (OpenAI, SerpAPI, Tavily, or any future provider) is ever exposed in
 a chat log, commit message, screenshot, or any channel outside the `.env`
 file itself:
 
@@ -398,7 +408,7 @@ file itself:
    ```powershell
    cd apps\api
    .\.venv\Scripts\Activate.ps1
-   py -3.12 -c "from app.core.config import get_settings; s=get_settings(); print('AI:', s.analysis_runtime, '| fallback:', s.analysis_fallback_runtime); print('Discovery:', s.discovery_runtime)"
+   py -3.12 -c "from app.core.config import get_settings; s=get_settings(); print('AI:', s.analysis_runtime, '| fallback:', s.analysis_fallback_runtime); print('Discovery:', s.discovery_runtime); print('Tavily:', s.tavily_runtime, '| configured:', s.has_tavily_configured)"
    ```
 5. Never reuse a key that was exposed, even if the exposure was brief.
 

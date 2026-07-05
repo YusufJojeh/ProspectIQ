@@ -87,9 +87,10 @@ The runtime is explicit and controlled by env vars. No implicit discovery demo f
   - `stub`: deterministic test-only discovery mode
   - `blocked`: disables discovery
 - **Tavily runtime gate** (optional secondary engine): `TAVILY_RUNTIME_MODE`
-  - Auto-resolves to `live` once `TAVILY_API_KEY` is set, otherwise `blocked` (safely skipped)
-  - Same `live` / `demo` / `stub` / `blocked` values as SerpAPI are supported as an explicit override
-  - Add `tavily_web` to `DISCOVERY_ENGINE_LIST` to opt into Tavily-backed per-lead website/visibility validation
+  - Uses the official `tavily-python` SDK for Search, selective Extract, and opt-in Research
+  - Use `stub` for deterministic local/CI behavior or `live` with a real `TAVILY_API_KEY`
+  - Add `tavily_web` to `DISCOVERY_ENGINE_LIST` to opt into Tavily-backed discovery and per-lead website validation
+  - `TAVILY_RATE_LIMIT_RPM` controls the local token bucket; `429` retries respect `retry-after`
 - **Discovery execution mode**: `DISCOVERY_MODE`
   - `single_path`
   - `multi_query_single_engine`
@@ -148,6 +149,12 @@ SERPAPI_API_KEY=<real-serpapi-key>
 DISCOVERY_MODE=multi_engine_multi_query
 DISCOVERY_MULTI_ENGINE_ENABLED=true
 DISCOVERY_ENGINE_LIST=google_maps_search,google_maps_place,google_web
+TAVILY_RUNTIME_MODE=stub
+TAVILY_LIVE_E2E=0
+TAVILY_MAX_RESULTS=5
+TAVILY_SEARCH_DEPTH=basic
+TAVILY_RATE_LIMIT_RPM=60
+TAVILY_LIVE_MAX_CALLS=3
 AI_PROVIDER=openai
 OPENAI_API_KEY=<real-openai-key>
 OPENAI_BASE_URL=https://api.openai.com/v1

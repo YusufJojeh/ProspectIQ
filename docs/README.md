@@ -10,3 +10,6 @@ Current reference material:
 - `demo-flow.md`: presentation-safe demo accounts, runtime mode, reset commands, and walkthrough script.
 - `go-live-checklist.md`: operational readiness checklist for local, demo, and go-live use.
 - `visual-qa-report.md`: real Playwright visual QA coverage, screenshot inventory, and issues fixed.
+- `PROVIDERS.md`: SerpAPI/Tavily runtime, evidence, rate-limit, and live-test rules.
+- `QA.md`: default quality gates, guarded Tavily live smoke, and secret scan.
+- `DEPLOYMENT.md`: deploy env guidance and push-readiness checklist.
