@@ -121,7 +121,9 @@ def test_workspace_response_recommends_best_stored_lead() -> None:
     service = AssistantService()
 
     with session_factory() as db:
-        workspace = db.query(Workspace).filter(Workspace.public_id == seed.workspace_public_id).one()
+        workspace = (
+            db.query(Workspace).filter(Workspace.public_id == seed.workspace_public_id).one()
+        )
         response = service._build_workspace_response(
             db,
             workspace_id=workspace.id,
@@ -156,7 +158,9 @@ def test_workspace_response_uses_arabic_for_arabic_request() -> None:
     service = AssistantService()
 
     with session_factory() as db:
-        workspace = db.query(Workspace).filter(Workspace.public_id == seed.workspace_public_id).one()
+        workspace = (
+            db.query(Workspace).filter(Workspace.public_id == seed.workspace_public_id).one()
+        )
         response = service._build_workspace_response(
             db,
             workspace_id=workspace.id,
@@ -249,9 +253,7 @@ def test_workspace_question_falls_back_to_deterministic_without_provider(monkeyp
     seed = _seed_workspace(session_factory)
     service = AssistantService()
 
-    monkeypatch.setattr(
-        AssistantService, "_resolve_runtime_candidates", lambda self, settings: []
-    )
+    monkeypatch.setattr(AssistantService, "_resolve_runtime_candidates", lambda self, settings: [])
 
     with session_factory() as db:
         workspace = (

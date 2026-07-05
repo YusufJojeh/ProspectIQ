@@ -61,9 +61,7 @@ def delete_icp_profile(
     _: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> Response:
-    IcpProfileService().delete_profile(
-        db, workspace_id=workspace_id, profile_public_id=profile_id
-    )
+    IcpProfileService().delete_profile(db, workspace_id=workspace_id, profile_public_id=profile_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

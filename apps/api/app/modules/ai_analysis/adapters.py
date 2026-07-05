@@ -214,7 +214,9 @@ class FallbackAnalysisBuilder:
         if not payload.place_enrichment.official_website_found:
             gaps.append("لم يتم تأكيد موقع رسمي. / No official website was confirmed.")
         if business.review_count < 15:
-            gaps.append(f"عدد المراجعات {business.review_count} فقط. / Review count is only {business.review_count}.")
+            gaps.append(
+                f"عدد المراجعات {business.review_count} فقط. / Review count is only {business.review_count}."
+            )
         if (payload.web_visibility.official_site_discoverability or 0.0) < 0.5:
             gaps.append("اكتشاف الموقع الرسمي ضعيف. / Official-site discoverability is weak.")
         if not gaps:

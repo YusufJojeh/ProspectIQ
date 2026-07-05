@@ -52,7 +52,10 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("invited_by_user_id", sa.Integer(), nullable=True))
     op.add_column("users", sa.Column("avatar_url", sa.String(length=512), nullable=True))
     op.add_column("users", sa.Column("job_title", sa.String(length=255), nullable=True))
-    op.add_column("users", sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()))
+    op.add_column(
+        "users",
+        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+    )
     op.add_column("users", sa.Column("last_login_at", sa.DateTime(), nullable=True))
     op.create_foreign_key(
         "fk_users_invited_by_user_id",
@@ -105,7 +108,9 @@ def upgrade() -> None:
     # --- Data migration: only runs online (needs live DB to read rows) ---
     if not context.is_offline_mode():
         bind = op.get_bind()
-        workspaces = list(bind.execute(sa.text("SELECT id, public_id, name FROM workspaces")).mappings())
+        workspaces = list(
+            bind.execute(sa.text("SELECT id, public_id, name FROM workspaces")).mappings()
+        )
         for row in workspaces:
             slug = row["name"].strip().lower().replace(" ", "-")
             bind.execute(
@@ -193,7 +198,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("public_id", sa.String(length=24), nullable=False, unique=True),
         sa.Column("workspace_id", sa.Integer(), sa.ForeignKey("workspaces.id"), nullable=False),
-        sa.Column("subscription_id", sa.Integer(), sa.ForeignKey("subscriptions.id"), nullable=False),
+        sa.Column(
+            "subscription_id", sa.Integer(), sa.ForeignKey("subscriptions.id"), nullable=False
+        ),
         sa.Column("amount", sa.Numeric(10, 2), nullable=False),
         sa.Column("currency", sa.String(length=8), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
@@ -308,7 +315,9 @@ def upgrade() -> None:
                 },
             )
             subscription_id = bind.execute(
-                sa.text("SELECT id FROM subscriptions WHERE workspace_id=:workspace_id ORDER BY id DESC LIMIT 1"),
+                sa.text(
+                    "SELECT id FROM subscriptions WHERE workspace_id=:workspace_id ORDER BY id DESC LIMIT 1"
+                ),
                 {"workspace_id": row["id"]},
             ).scalar()
             bind.execute(

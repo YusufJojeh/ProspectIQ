@@ -115,9 +115,7 @@ def test_demo_seed_is_idempotent_for_accounts_and_dataset() -> None:
         first_job_count = int(db.scalar(select(func.count(SearchJob.id))) or 0)
         first_lead_count = int(db.scalar(select(func.count(Lead.id))) or 0)
         first_signal_count = int(db.scalar(select(func.count(LeadSignal.id))) or 0)
-        first_evidence_count = int(
-            db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0
-        )
+        first_evidence_count = int(db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0)
 
         _seed_demo_workspace(db)
 
@@ -138,9 +136,7 @@ def test_demo_seed_is_idempotent_for_accounts_and_dataset() -> None:
         second_job_count = int(db.scalar(select(func.count(SearchJob.id))) or 0)
         second_lead_count = int(db.scalar(select(func.count(Lead.id))) or 0)
         second_signal_count = int(db.scalar(select(func.count(LeadSignal.id))) or 0)
-        second_evidence_count = int(
-            db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0
-        )
+        second_evidence_count = int(db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0)
 
         assert first_user_count == second_user_count == 3
         assert first_job_count == second_job_count

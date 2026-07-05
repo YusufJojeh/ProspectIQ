@@ -43,7 +43,13 @@ def _apply_prompt_locale(db: Session, workspace_id: int, prompt: str) -> None:
         gl = "ae"
     elif "\u0627\u0644\u062f\u0648\u062d\u0629" in lowered:
         gl = "qa"
-    elif any(city in lowered for city in ("\u0625\u0633\u0637\u0646\u0628\u0648\u0644", "\u0627\u0633\u0637\u0646\u0628\u0648\u0644")):
+    elif any(
+        city in lowered
+        for city in (
+            "\u0625\u0633\u0637\u0646\u0628\u0648\u0644",
+            "\u0627\u0633\u0637\u0646\u0628\u0648\u0644",
+        )
+    ):
         gl = "tr"
 
     existing = db.scalar(

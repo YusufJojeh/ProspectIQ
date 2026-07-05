@@ -47,7 +47,10 @@ async def test_search_prompt_parser_uses_local_fallback_for_arabic_prompt(
         "\u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644"
     )
 
-    assert parsed.business_type == "\u0635\u0627\u0644\u0648\u0646\u0627\u062a \u062a\u062c\u0645\u064a\u0644"
+    assert (
+        parsed.business_type
+        == "\u0635\u0627\u0644\u0648\u0646\u0627\u062a \u062a\u062c\u0645\u064a\u0644"
+    )
     assert parsed.city == "\u062c\u062f\u0629"
     assert parsed.min_rating == 4
     assert parsed.min_reviews == 50

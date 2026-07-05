@@ -95,12 +95,16 @@ class CampaignService:
     def get_campaign(
         self, db: Session, *, workspace_id: int, campaign_id: str
     ) -> CampaignDetailResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         counts = self.repository.counts_for_campaigns(db, [campaign.id])
         icp_public_ids = self._icp_public_ids(db, [campaign.icp_profile_id])
         base = self._to_campaign_response(campaign, counts.get(campaign.id, (0, 0)), icp_public_ids)
         campaign_leads = self.repository.list_campaign_leads(db, campaign.id)
-        lead_responses = self._lead_responses(db, workspace_id=workspace_id, campaign_leads=campaign_leads)
+        lead_responses = self._lead_responses(
+            db, workspace_id=workspace_id, campaign_leads=campaign_leads
+        )
         lead_response_by_id = {lead_id: response for lead_id, response in lead_responses}
         leads = [
             CampaignLeadResponse(
@@ -113,9 +117,7 @@ class CampaignService:
         ]
         lead_ids = [item.lead_id for item in campaign_leads]
         latest_messages = self.outreach_repository.get_latest_messages_for_leads(db, lead_ids)
-        public_id_by_lead_id = {
-            lead_id: response.public_id for lead_id, response in lead_responses
-        }
+        public_id_by_lead_id = {lead_id: response.public_id for lead_id, response in lead_responses}
         drafts = [
             self.outreach_service._to_response(  # noqa: SLF001
                 db,
@@ -144,7 +146,9 @@ class CampaignService:
         campaign_id: str,
         payload: CampaignUpdateRequest,
     ) -> CampaignDetailResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         if payload.name is not None:
             campaign.name = payload.name
         if payload.description is not None:
@@ -164,7 +168,9 @@ class CampaignService:
     def archive_campaign(
         self, db: Session, *, workspace_id: int, campaign_id: str
     ) -> CampaignActionResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         campaign.status = CampaignStatus.ARCHIVED.value
         self.repository.save_campaign(db, campaign)
         self._record_event(
@@ -184,10 +190,16 @@ class CampaignService:
         campaign_id: str,
         payload: CampaignLeadAddRequest,
     ) -> CampaignDetailResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         for lead_public_id in payload.lead_ids:
-            lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_public_id)
-            existing = self.repository.get_campaign_lead(db, campaign_id=campaign.id, lead_id=lead.id)
+            lead = self._get_lead_or_raise(
+                db, workspace_id=workspace_id, lead_public_id=lead_public_id
+            )
+            existing = self.repository.get_campaign_lead(
+                db, campaign_id=campaign.id, lead_id=lead.id
+            )
             if existing is None:
                 self.repository.add_campaign_lead(
                     db,
@@ -219,9 +231,13 @@ class CampaignService:
         campaign_id: str,
         lead_id: str,
     ) -> CampaignActionResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         lead = self._get_lead_or_raise(db, workspace_id=workspace_id, lead_public_id=lead_id)
-        campaign_lead = self.repository.get_campaign_lead(db, campaign_id=campaign.id, lead_id=lead.id)
+        campaign_lead = self.repository.get_campaign_lead(
+            db, campaign_id=campaign.id, lead_id=lead.id
+        )
         if campaign_lead is None:
             raise NotFoundError("Campaign lead was not found.")
         self.repository.remove_campaign_lead(db, campaign_lead)
@@ -239,7 +255,9 @@ class CampaignService:
     def generate_sequence(
         self, db: Session, *, workspace_id: int, campaign_id: str
     ) -> list[SequenceStepResponse]:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         steps = [
             SequenceStep(
                 campaign_id=campaign.id,
@@ -287,13 +305,21 @@ class CampaignService:
             metadata={"steps": 3},
         )
         self.repository.save_campaign(db, campaign)
-        return [self._to_sequence_response(step) for step in self.repository.list_sequence_steps(db, campaign.id)]
+        return [
+            self._to_sequence_response(step)
+            for step in self.repository.list_sequence_steps(db, campaign.id)
+        ]
 
     def list_sequence_steps(
         self, db: Session, *, workspace_id: int, campaign_id: str
     ) -> list[SequenceStepResponse]:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
-        return [self._to_sequence_response(step) for step in self.repository.list_sequence_steps(db, campaign.id)]
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
+        return [
+            self._to_sequence_response(step)
+            for step in self.repository.list_sequence_steps(db, campaign.id)
+        ]
 
     def update_sequence_step(
         self,
@@ -304,8 +330,12 @@ class CampaignService:
         step_id: str,
         payload: SequenceStepUpdateRequest,
     ) -> SequenceStepResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
-        step = self.repository.get_sequence_step(db, campaign_id=campaign.id, step_public_id=step_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
+        step = self.repository.get_sequence_step(
+            db, campaign_id=campaign.id, step_public_id=step_id
+        )
         if step is None:
             raise NotFoundError("Sequence step was not found.")
         if payload.channel is not None:
@@ -336,7 +366,9 @@ class CampaignService:
         campaign_id: str,
         current_user: User,
     ) -> CampaignGenerateDraftsResponse:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         steps = self.repository.list_sequence_steps(db, campaign.id)
         if not steps:
             self.generate_sequence(db, workspace_id=workspace_id, campaign_id=campaign.public_id)
@@ -397,7 +429,9 @@ class CampaignService:
     def list_events(
         self, db: Session, *, workspace_id: int, campaign_id: str
     ) -> list[OutreachEventResponse]:
-        campaign = self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id)
+        campaign = self._get_campaign_or_raise(
+            db, workspace_id=workspace_id, campaign_id=campaign_id
+        )
         return self._event_responses(db, campaign.id)
 
     def _analysis_for_lead(

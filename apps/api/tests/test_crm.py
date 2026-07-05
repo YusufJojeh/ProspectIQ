@@ -82,7 +82,9 @@ def test_crm_default_pipeline_lead_deal_move_and_activity() -> None:
         deal = db.scalar(select(CrmDeal).where(CrmDeal.public_id == deal_id))
         assert deal is not None
         assert deal.stage_id is not None
-        assert db.scalar(select(CrmActivity).where(CrmActivity.public_id == activity_id)) is not None
+        assert (
+            db.scalar(select(CrmActivity).where(CrmActivity.public_id == activity_id)) is not None
+        )
 
 
 def test_crm_campaign_create_deals_and_workspace_scoping() -> None:

@@ -49,9 +49,7 @@ class SearchJobRepository:
     ) -> list[SearchJob]:
         statement = select(SearchJob).where(
             SearchJob.workspace_id == workspace_id,
-            SearchJob.status.in_(
-                [SearchJobStatus.QUEUED.value, SearchJobStatus.RUNNING.value]
-            ),
+            SearchJob.status.in_([SearchJobStatus.QUEUED.value, SearchJobStatus.RUNNING.value]),
             (
                 (SearchJob.started_at.is_not(None) & (SearchJob.started_at < cutoff))
                 | (SearchJob.started_at.is_(None) & (SearchJob.queued_at < cutoff))

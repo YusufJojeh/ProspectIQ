@@ -45,9 +45,7 @@ class EvidenceBuilder:
         records.extend(self._from_provider_facts(db, lead=lead))
         return records[:_MAX_EVIDENCE]
 
-    def _from_signals(
-        self, db: Session, *, workspace_id: int, lead: Lead
-    ) -> list[EvidenceRecord]:
+    def _from_signals(self, db: Session, *, workspace_id: int, lead: Lead) -> list[EvidenceRecord]:
         signals = self.signal_repository.list_for_lead(
             db, workspace_id=workspace_id, lead_id=lead.id
         )

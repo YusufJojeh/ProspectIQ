@@ -70,7 +70,9 @@ class CrmService:
     ) -> PipelineListResponse:
         self.ensure_default_pipeline(db, workspace_id=workspace_id, current_user=current_user)
         pipelines = self.repository.list_pipelines(db, workspace_id)
-        return PipelineListResponse(items=[self._to_pipeline_response(db, item) for item in pipelines])
+        return PipelineListResponse(
+            items=[self._to_pipeline_response(db, item) for item in pipelines]
+        )
 
     def create_pipeline(
         self,
@@ -91,7 +93,13 @@ class CrmService:
             ),
         )
         self._seed_default_stages(db, workspace_id=workspace_id, pipeline=pipeline)
-        self._record(db, workspace_id, "crm.pipeline_created", f"Created pipeline {pipeline.name}.", current_user)
+        self._record(
+            db,
+            workspace_id,
+            "crm.pipeline_created",
+            f"Created pipeline {pipeline.name}.",
+            current_user,
+        )
         return self._to_pipeline_response(db, pipeline)
 
     def get_pipeline(
@@ -126,7 +134,13 @@ class CrmService:
         if payload.is_default is not None:
             pipeline.is_default = payload.is_default
         self.repository.save_pipeline(db, pipeline)
-        self._record(db, workspace_id, "crm.pipeline_updated", f"Updated pipeline {pipeline.name}.", current_user)
+        self._record(
+            db,
+            workspace_id,
+            "crm.pipeline_updated",
+            f"Updated pipeline {pipeline.name}.",
+            current_user,
+        )
         return self._to_pipeline_response(db, pipeline)
 
     def create_stage(
@@ -154,7 +168,9 @@ class CrmService:
                 stage_type=payload.stage_type.value,
             ),
         )
-        self._record(db, workspace_id, "crm.stage_created", f"Created stage {payload.name}.", current_user)
+        self._record(
+            db, workspace_id, "crm.stage_created", f"Created stage {payload.name}.", current_user
+        )
         return self._to_pipeline_response(db, pipeline)
 
     def update_stage(
@@ -182,7 +198,9 @@ class CrmService:
         if payload.stage_type is not None:
             stage.stage_type = payload.stage_type.value
         saved = self.repository.save_stage(db, stage)
-        self._record(db, workspace_id, "crm.stage_updated", f"Updated stage {saved.name}.", current_user)
+        self._record(
+            db, workspace_id, "crm.stage_updated", f"Updated stage {saved.name}.", current_user
+        )
         return self._to_stage_response(db, saved, self.repository.stage_counts(db, [saved.id]))
 
     def reorder_stages(
@@ -238,7 +256,9 @@ class CrmService:
             campaign_id=campaign_db_id,
             status=status.value if status is not None else None,
         )
-        return DealListResponse(items=self._deal_responses(db, workspace_id=workspace_id, deals=deals))
+        return DealListResponse(
+            items=self._deal_responses(db, workspace_id=workspace_id, deals=deals)
+        )
 
     def create_deal(
         self,
@@ -256,7 +276,10 @@ class CrmService:
             if existing is not None:
                 raise ConflictError("Lead already has an open deal.")
         pipeline = self._resolve_pipeline_for_deal(
-            db, workspace_id=workspace_id, current_user=current_user, pipeline_id=payload.pipeline_id
+            db,
+            workspace_id=workspace_id,
+            current_user=current_user,
+            pipeline_id=payload.pipeline_id,
         )
         stage = self._resolve_stage_for_deal(
             db, workspace_id=workspace_id, pipeline=pipeline, stage_id=payload.stage_id
@@ -264,7 +287,9 @@ class CrmService:
         campaign = self._resolve_campaign(
             db, workspace_id=workspace_id, campaign_id=payload.campaign_id
         )
-        owner = self._resolve_owner(db, workspace_id=workspace_id, owner_public_id=payload.owner_user_id)
+        owner = self._resolve_owner(
+            db, workspace_id=workspace_id, owner_public_id=payload.owner_user_id
+        )
         deal = self.repository.add_deal(
             db,
             CrmDeal(
@@ -277,18 +302,20 @@ class CrmService:
                 title=payload.title or f"{lead.company_name} opportunity",
                 value_amount=self._money(payload.value_amount),
                 currency=payload.currency.upper(),
-                probability=payload.probability if payload.probability is not None else stage.probability,
+                probability=payload.probability
+                if payload.probability is not None
+                else stage.probability,
                 expected_close_date=payload.expected_close_date,
                 next_follow_up_at=payload.next_follow_up_at,
                 created_by_user_id=current_user.id,
             ),
         )
-        self._record(db, workspace_id, "crm.deal_created", f"Created deal {deal.public_id}.", current_user)
+        self._record(
+            db, workspace_id, "crm.deal_created", f"Created deal {deal.public_id}.", current_user
+        )
         return self._deal_responses(db, workspace_id=workspace_id, deals=[deal])[0]
 
-    def get_deal(
-        self, db: Session, *, workspace_id: int, deal_id: str
-    ) -> DealDetailResponse:
+    def get_deal(self, db: Session, *, workspace_id: int, deal_id: str) -> DealDetailResponse:
         deal = self._get_deal_or_raise(db, workspace_id=workspace_id, deal_id=deal_id)
         response = self._deal_responses(db, workspace_id=workspace_id, deals=[deal])[0]
         activities = self._activity_responses(db, deal_id=deal.id)
@@ -305,7 +332,9 @@ class CrmService:
     ) -> DealResponse:
         deal = self._get_deal_or_raise(db, workspace_id=workspace_id, deal_id=deal_id)
         if payload.stage_id is not None:
-            stage = self._get_stage_or_raise(db, workspace_id=workspace_id, stage_id=payload.stage_id)
+            stage = self._get_stage_or_raise(
+                db, workspace_id=workspace_id, stage_id=payload.stage_id
+            )
             if stage.pipeline_id != deal.pipeline_id:
                 raise NotFoundError("Stage was not found.")
             deal.stage_id = stage.id
@@ -332,7 +361,9 @@ class CrmService:
         if payload.next_follow_up_at is not None:
             deal.next_follow_up_at = payload.next_follow_up_at
         saved = self.repository.save_deal(db, deal)
-        self._record(db, workspace_id, "crm.deal_updated", f"Updated deal {saved.public_id}.", current_user)
+        self._record(
+            db, workspace_id, "crm.deal_updated", f"Updated deal {saved.public_id}.", current_user
+        )
         return self._deal_responses(db, workspace_id=workspace_id, deals=[saved])[0]
 
     def archive_deal(
@@ -341,7 +372,9 @@ class CrmService:
         deal = self._get_deal_or_raise(db, workspace_id=workspace_id, deal_id=deal_id)
         deal.status = DealStatus.ARCHIVED.value
         saved = self.repository.save_deal(db, deal)
-        self._record(db, workspace_id, "crm.deal_archived", f"Archived deal {saved.public_id}.", current_user)
+        self._record(
+            db, workspace_id, "crm.deal_archived", f"Archived deal {saved.public_id}.", current_user
+        )
         return DealActionResponse(
             status="archived",
             deal=self._deal_responses(db, workspace_id=workspace_id, deals=[saved])[0],
@@ -377,7 +410,9 @@ class CrmService:
             ),
             current_user=current_user,
         )
-        self._record(db, workspace_id, "crm.deal_moved", f"Moved deal {saved.public_id}.", current_user)
+        self._record(
+            db, workspace_id, "crm.deal_moved", f"Moved deal {saved.public_id}.", current_user
+        )
         return self._deal_responses(db, workspace_id=workspace_id, deals=[saved])[0]
 
     def mark_won(
@@ -439,7 +474,13 @@ class CrmService:
         if payload.activity_type == ActivityType.FOLLOW_UP and payload.due_at is not None:
             deal.next_follow_up_at = payload.due_at
         self.repository.save_deal(db, deal)
-        self._record(db, workspace_id, "crm.activity_created", f"Created activity {activity.public_id}.", current_user)
+        self._record(
+            db,
+            workspace_id,
+            "crm.activity_created",
+            f"Created activity {activity.public_id}.",
+            current_user,
+        )
         return self._activity_responses(db, deal_id=deal.id, activities=[activity])[0]
 
     def update_activity(
@@ -473,7 +514,13 @@ class CrmService:
         saved = self.repository.save_activity(db, activity)
         deal.last_activity_at = datetime.now(tz=UTC)
         self.repository.save_deal(db, deal)
-        self._record(db, workspace_id, "crm.activity_updated", f"Updated activity {saved.public_id}.", current_user)
+        self._record(
+            db,
+            workspace_id,
+            "crm.activity_updated",
+            f"Updated activity {saved.public_id}.",
+            current_user,
+        )
         return self._activity_responses(db, deal_id=deal.id, activities=[saved])[0]
 
     def complete_activity(
@@ -615,7 +662,13 @@ class CrmService:
             ),
             current_user=current_user,
         )
-        self._record(db, workspace_id, f"crm.deal_{status.value}", f"Marked deal {saved.public_id} {status.value}.", current_user)
+        self._record(
+            db,
+            workspace_id,
+            f"crm.deal_{status.value}",
+            f"Marked deal {saved.public_id} {status.value}.",
+            current_user,
+        )
         return self._deal_responses(db, workspace_id=workspace_id, deals=[saved])[0]
 
     def _deal_responses(
@@ -633,7 +686,9 @@ class CrmService:
         signal_summaries = self.signal_repository.summaries_for_leads(
             db, workspace_id=workspace_id, lead_ids=lead_ids
         )
-        owners = self._users_by_ids(db, [deal.owner_user_id for deal in deals if deal.owner_user_id])
+        owners = self._users_by_ids(
+            db, [deal.owner_user_id for deal in deals if deal.owner_user_id]
+        )
         next_activity_by_deal = self._next_activities(db, [deal.id for deal in deals])
         overdue_counts = self._overdue_counts(db, [deal.id for deal in deals])
 
@@ -666,7 +721,9 @@ class CrmService:
                     campaign_name=campaign.name if campaign is not None else None,
                     owner_user_id=owner.public_id if owner is not None else None,
                     owner_full_name=owner.full_name if owner is not None else None,
-                    value_amount=float(deal.value_amount) if deal.value_amount is not None else None,
+                    value_amount=float(deal.value_amount)
+                    if deal.value_amount is not None
+                    else None,
                     currency=deal.currency,
                     probability=deal.probability,
                     status=DealStatus(deal.status),
@@ -693,8 +750,12 @@ class CrmService:
         deal_id: int,
         activities: list[CrmActivity] | None = None,
     ) -> list[ActivityResponse]:
-        items = activities if activities is not None else self.repository.list_activities(db, deal_id)
-        actors = self._users_by_ids(db, [item.actor_user_id for item in items if item.actor_user_id])
+        items = (
+            activities if activities is not None else self.repository.list_activities(db, deal_id)
+        )
+        actors = self._users_by_ids(
+            db, [item.actor_user_id for item in items if item.actor_user_id]
+        )
         deal_public_id = db.scalar(select(CrmDeal.public_id).where(CrmDeal.id == deal_id)) or ""
         responses: list[ActivityResponse] = []
         for item in items:
@@ -804,7 +865,9 @@ class CrmService:
             raise NotFoundError("Lead was not found.")
         return lead
 
-    def _get_campaign_or_raise(self, db: Session, *, workspace_id: int, campaign_id: str) -> Campaign:
+    def _get_campaign_or_raise(
+        self, db: Session, *, workspace_id: int, campaign_id: str
+    ) -> Campaign:
         campaign = self.campaign_repository.get_by_public_id(
             db, workspace_id=workspace_id, campaign_public_id=campaign_id
         )
@@ -881,23 +944,41 @@ class CrmService:
         if pipeline_id is None:
             return None
         if pipeline_id == "default":
-            return self.ensure_default_pipeline(db, workspace_id=workspace_id, current_user=current_user).id
-        return self._get_pipeline_or_raise(db, workspace_id=workspace_id, pipeline_id=pipeline_id).id
+            return self.ensure_default_pipeline(
+                db, workspace_id=workspace_id, current_user=current_user
+            ).id
+        return self._get_pipeline_or_raise(
+            db, workspace_id=workspace_id, pipeline_id=pipeline_id
+        ).id
 
     def _optional_stage_db_id(
         self, db: Session, *, workspace_id: int, stage_id: str | None
     ) -> int | None:
-        return None if stage_id is None else self._get_stage_or_raise(db, workspace_id=workspace_id, stage_id=stage_id).id
+        return (
+            None
+            if stage_id is None
+            else self._get_stage_or_raise(db, workspace_id=workspace_id, stage_id=stage_id).id
+        )
 
     def _optional_lead_db_id(
         self, db: Session, *, workspace_id: int, lead_id: str | None
     ) -> int | None:
-        return None if lead_id is None else self._get_lead_or_raise(db, workspace_id=workspace_id, lead_id=lead_id).id
+        return (
+            None
+            if lead_id is None
+            else self._get_lead_or_raise(db, workspace_id=workspace_id, lead_id=lead_id).id
+        )
 
     def _optional_campaign_db_id(
         self, db: Session, *, workspace_id: int, campaign_id: str | None
     ) -> int | None:
-        return None if campaign_id is None else self._get_campaign_or_raise(db, workspace_id=workspace_id, campaign_id=campaign_id).id
+        return (
+            None
+            if campaign_id is None
+            else self._get_campaign_or_raise(
+                db, workspace_id=workspace_id, campaign_id=campaign_id
+            ).id
+        )
 
     def _users_by_ids(self, db: Session, ids: list[int | None]) -> dict[int, User]:
         clean_ids = [item for item in ids if item is not None]

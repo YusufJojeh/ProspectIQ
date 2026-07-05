@@ -82,7 +82,9 @@ class CrmDeal(Base):
     campaign_id: Mapped[int | None] = mapped_column(
         ForeignKey("campaigns.id"), index=True, nullable=True
     )
-    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), index=True, nullable=True
+    )
     title: Mapped[str] = mapped_column(String(180))
     value_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     currency: Mapped[str] = mapped_column(String(8), default="USD")
@@ -115,7 +117,9 @@ class CrmActivity(Base):
     note: Mapped[str | None] = mapped_column(Text(), nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
-    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), index=True, nullable=True
+    )
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))

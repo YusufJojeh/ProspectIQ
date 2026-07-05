@@ -48,8 +48,7 @@ def test_icp_profile_crud_and_match_api_are_workspace_scoped() -> None:
         )
         assert signals_response.status_code == 200
         assert any(
-            item["signal_type"] == "ready_for_outreach"
-            for item in signals_response.json()["items"]
+            item["signal_type"] == "ready_for_outreach" for item in signals_response.json()["items"]
         )
 
         match_response = client.post(

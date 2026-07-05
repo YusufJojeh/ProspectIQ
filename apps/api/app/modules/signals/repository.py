@@ -17,9 +17,7 @@ class LeadSignalSummary:
 
 
 class LeadSignalRepository:
-    def list_for_lead(
-        self, db: Session, *, workspace_id: int, lead_id: int
-    ) -> list[LeadSignal]:
+    def list_for_lead(self, db: Session, *, workspace_id: int, lead_id: int) -> list[LeadSignal]:
         return list(
             db.scalars(
                 select(LeadSignal)

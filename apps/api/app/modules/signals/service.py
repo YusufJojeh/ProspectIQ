@@ -61,9 +61,7 @@ class LeadSignalDetectorService:
     ) -> LeadSignalsResponse:
         lead = self._get_lead_or_raise(db, workspace_id, lead_public_id)
         facts = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
-        signals = self.recompute_for_lead(
-            db, workspace_id=workspace_id, lead=lead, facts=facts
-        )
+        signals = self.recompute_for_lead(db, workspace_id=workspace_id, lead=lead, facts=facts)
         scores = self.repository.list_scores_for_lead(
             db, workspace_id=workspace_id, lead_id=lead.id
         )
@@ -107,9 +105,7 @@ class LeadSignalDetectorService:
             scores=scores,
         )
 
-    def detect(
-        self, lead: Lead, facts: list[ProviderNormalizedFact]
-    ) -> list[DetectedSignal]:
+    def detect(self, lead: Lead, facts: list[ProviderNormalizedFact]) -> list[DetectedSignal]:
         signals: list[DetectedSignal] = []
         has_website = bool(
             lead.has_website
@@ -201,14 +197,20 @@ class LeadSignalDetectorService:
                 )
             )
 
-        if lead.data_confidence >= 0.6 and has_phone and (
-            local_visibility >= 0.55 or weak_website_strength >= 0.55
+        if (
+            lead.data_confidence >= 0.6
+            and has_phone
+            and (local_visibility >= 0.55 or weak_website_strength >= 0.55)
         ):
             signals.append(
                 DetectedSignal(
                     signal_type="ready_for_outreach",
                     signal_strength=round(
-                        min(1.0, (lead.data_confidence + local_visibility + (1.0 if has_phone else 0.0)) / 3),
+                        min(
+                            1.0,
+                            (lead.data_confidence + local_visibility + (1.0 if has_phone else 0.0))
+                            / 3,
+                        ),
                         2,
                     ),
                     evidence_text="Lead has enough confidence and contactability to support outreach.",
@@ -242,11 +244,11 @@ class LeadSignalDetectorService:
             for signal_type, items in grouped.items()
         ]
 
-    def _local_visibility_strength(
-        self, lead: Lead, facts: list[ProviderNormalizedFact]
-    ) -> float:
+    def _local_visibility_strength(self, lead: Lead, facts: list[ProviderNormalizedFact]) -> float:
         maps_fact = any(fact.source_type in {"maps_search", "maps_place"} for fact in facts)
-        knowledge_graph = any(bool(fact.facts_json.get("knowledge_graph_present")) for fact in facts)
+        knowledge_graph = any(
+            bool(fact.facts_json.get("knowledge_graph_present")) for fact in facts
+        )
         review_component = min(1.0, lead.review_count / 80)
         rating_component = min(1.0, (lead.rating or 0.0) / 5)
         source_component = 1.0 if maps_fact else 0.35
@@ -272,7 +274,10 @@ class LeadSignalDetectorService:
         ]
         if discoverability_values:
             return round(1.0 - max(discoverability_values), 2)
-        if lead.website_domain and lead.company_name.split()[0].casefold() in lead.website_domain.casefold():
+        if (
+            lead.website_domain
+            and lead.company_name.split()[0].casefold() in lead.website_domain.casefold()
+        ):
             return 0.25
         return 0.55
 

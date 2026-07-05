@@ -315,7 +315,9 @@ _MIN_REVIEWS_PATTERNS = (
     ),
     re.compile(r"\b(\d{1,6})\s*\+\s*reviews?\b", re.IGNORECASE),
     re.compile(r"\b(?:at\s+least|min(?:imum)?)\s+(\d{1,6})\s+reviews?\b", re.IGNORECASE),
-    re.compile(r"(\d{1,6})\s*\+\s*(?:\u0645\u0631\u0627\u062c\u0639\u0629|\u062a\u0642\u064a\u064a\u0645)"),
+    re.compile(
+        r"(\d{1,6})\s*\+\s*(?:\u0645\u0631\u0627\u062c\u0639\u0629|\u062a\u0642\u064a\u064a\u0645)"
+    ),
     re.compile(
         r"(\d{1,6})\s*(?:\u0645\u0631\u0627\u062c\u0639\u0629|\u062a\u0642\u064a\u064a\u0645)\s*"
         r"(?:\u0623\u0648\s+\u0623\u0643\u062b\u0631|\u0639\u0644\u0649\s+\u0627\u0644\u0623\u0642\u0644)"

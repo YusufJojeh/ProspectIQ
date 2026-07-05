@@ -89,7 +89,9 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(["campaign_id"], ["campaigns.id"]),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("public_id"),
-            sa.UniqueConstraint("campaign_id", "step_order", name="uq_sequence_steps_campaign_order"),
+            sa.UniqueConstraint(
+                "campaign_id", "step_order", name="uq_sequence_steps_campaign_order"
+            ),
         )
         op.create_index("ix_sequence_steps_campaign_id", "sequence_steps", ["campaign_id"])
         op.create_index(

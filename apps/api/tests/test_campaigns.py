@@ -149,15 +149,21 @@ def test_campaign_leads_sequence_drafts_and_events(monkeypatch) -> None:
         assert campaign is not None
         assert lead is not None
         assert (
-            db.scalar(select(func.count(SequenceStep.id)).where(SequenceStep.campaign_id == campaign.id))
+            db.scalar(
+                select(func.count(SequenceStep.id)).where(SequenceStep.campaign_id == campaign.id)
+            )
             == 3
         )
         assert (
-            db.scalar(select(func.count(CampaignLead.id)).where(CampaignLead.campaign_id == campaign.id))
+            db.scalar(
+                select(func.count(CampaignLead.id)).where(CampaignLead.campaign_id == campaign.id)
+            )
             == 1
         )
         assert (
-            db.scalar(select(func.count(OutreachMessage.id)).where(OutreachMessage.lead_id == lead.id))
+            db.scalar(
+                select(func.count(OutreachMessage.id)).where(OutreachMessage.lead_id == lead.id)
+            )
             == 3
         )
         assert (

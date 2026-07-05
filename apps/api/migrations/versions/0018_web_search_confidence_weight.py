@@ -48,9 +48,7 @@ def upgrade() -> None:
         # sum to 1.0 without this new Tavily-evidence dimension) stay valid.
         # New/updated scoring configs use ScoringWeights' rebalanced defaults.
         weights["web_search_confidence"] = 0.0
-        bind.execute(
-            table.update().where(table.c.id == row["id"]).values(weights_json=weights)
-        )
+        bind.execute(table.update().where(table.c.id == row["id"]).values(weights_json=weights))
 
 
 def downgrade() -> None:

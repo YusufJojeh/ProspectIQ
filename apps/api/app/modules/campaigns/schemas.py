@@ -34,13 +34,20 @@ class SequenceChannel(StrEnum):
 
 class CampaignCreateRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)]
-    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+    description: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None
+    ) = None
     icp_profile_id: str | None = None
 
 
 class CampaignUpdateRequest(BaseModel):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)] | None = None
-    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+    name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)]
+        | None
+    ) = None
+    description: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None
+    ) = None
     status: CampaignStatus | None = None
 
 
@@ -85,9 +92,16 @@ class SequenceStepResponse(BaseModel):
 class SequenceStepUpdateRequest(BaseModel):
     channel: SequenceChannel | None = None
     delay_days: int | None = Field(default=None, ge=0, le=365)
-    tone: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=32)] | None = None
-    language: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=8)] | None = None
-    template_text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=8000)] | None = None
+    tone: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=32)] | None
+    ) = None
+    language: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=8)] | None
+    ) = None
+    template_text: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=8000)]
+        | None
+    ) = None
 
     @field_validator("tone")
     @classmethod

@@ -289,11 +289,7 @@ class LeadIcpMatcherService:
         if preference == WebsitePreference.ANY:
             return 75.0
         has_website = bool(lead.has_website or lead.website_url or lead.website_domain)
-        matched = (
-            has_website
-            if preference == WebsitePreference.MUST_HAVE
-            else not has_website
-        )
+        matched = has_website if preference == WebsitePreference.MUST_HAVE else not has_website
         reasons["constraints"]["website_preference"] = matched
         return 100.0 if matched else 25.0
 

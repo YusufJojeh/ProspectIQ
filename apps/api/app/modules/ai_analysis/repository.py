@@ -92,9 +92,7 @@ class AIAnalysisRepository:
     def get_snapshot_by_id(self, db: Session, snapshot_id: int) -> AIAnalysisSnapshot | None:
         return db.scalar(select(AIAnalysisSnapshot).where(AIAnalysisSnapshot.id == snapshot_id))
 
-    def get_snapshot_by_public_id(
-        self, db: Session, public_id: str
-    ) -> AIAnalysisSnapshot | None:
+    def get_snapshot_by_public_id(self, db: Session, public_id: str) -> AIAnalysisSnapshot | None:
         return db.scalar(
             select(AIAnalysisSnapshot).where(AIAnalysisSnapshot.public_id == public_id)
         )

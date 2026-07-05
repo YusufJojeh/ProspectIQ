@@ -33,26 +33,40 @@ class ActivityType(StrEnum):
 
 class PipelineCreateRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)]
-    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+    description: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None
+    ) = None
 
 
 class PipelineUpdateRequest(BaseModel):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)] | None = None
-    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+    name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)]
+        | None
+    ) = None
+    description: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None
+    ) = None
     is_default: bool | None = None
 
 
 class StageCreateRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)]
     probability: int = Field(ge=0, le=100)
-    color: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=32)] = "slate"
+    color: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=32)] = (
+        "slate"
+    )
     stage_type: StageType = StageType.OPEN
 
 
 class StageUpdateRequest(BaseModel):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)] | None = None
+    name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)]
+        | None
+    ) = None
     probability: int | None = Field(default=None, ge=0, le=100)
-    color: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=32)] | None = None
+    color: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=32)] | None
+    ) = None
     stage_type: StageType | None = None
 
 
@@ -89,13 +103,18 @@ class PipelineListResponse(BaseModel):
 
 class DealCreateRequest(BaseModel):
     lead_id: str
-    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=180)] | None = None
+    title: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=180)]
+        | None
+    ) = None
     pipeline_id: str | None = None
     stage_id: str | None = None
     campaign_id: str | None = None
     owner_user_id: str | None = None
     value_amount: float | None = Field(default=None, ge=0)
-    currency: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=8)] = "USD"
+    currency: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=8)
+    ] = "USD"
     probability: int | None = Field(default=None, ge=0, le=100)
     expected_close_date: datetime | None = None
     next_follow_up_at: datetime | None = None
@@ -103,14 +122,21 @@ class DealCreateRequest(BaseModel):
 
 
 class DealUpdateRequest(BaseModel):
-    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=180)] | None = None
+    title: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=180)]
+        | None
+    ) = None
     stage_id: str | None = None
     owner_user_id: str | None = None
     value_amount: float | None = Field(default=None, ge=0)
-    currency: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=8)] | None = None
+    currency: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=8)] | None
+    ) = None
     probability: int | None = Field(default=None, ge=0, le=100)
     status: DealStatus | None = None
-    lost_reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = None
+    lost_reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = (
+        None
+    )
     expected_close_date: datetime | None = None
     next_follow_up_at: datetime | None = None
 
@@ -120,7 +146,9 @@ class DealMoveRequest(BaseModel):
 
 
 class DealLostRequest(BaseModel):
-    lost_reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = None
+    lost_reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = (
+        None
+    )
 
 
 class ActivityCreateRequest(BaseModel):
@@ -133,7 +161,10 @@ class ActivityCreateRequest(BaseModel):
 
 class ActivityUpdateRequest(BaseModel):
     activity_type: ActivityType | None = None
-    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=180)] | None = None
+    title: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=180)]
+        | None
+    ) = None
     note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)] | None = None
     due_at: datetime | None = None
     completed_at: datetime | None = None

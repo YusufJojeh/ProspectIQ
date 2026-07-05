@@ -553,7 +553,9 @@ def test_unscored_score_question_returns_deterministic_guard_without_llm() -> No
     service = AssistantService()
 
     with session_factory() as db:
-        workspace = db.scalar(select(Workspace).where(Workspace.public_id == seed.workspace_public_id))
+        workspace = db.scalar(
+            select(Workspace).where(Workspace.public_id == seed.workspace_public_id)
+        )
         assert workspace is not None
         lead = Lead(
             workspace_id=workspace.id,

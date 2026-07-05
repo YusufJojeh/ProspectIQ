@@ -75,9 +75,7 @@ class ScoringEngine:
                 breakdown=legacy_breakdown,
             )
 
-        signal_map = {
-            signal.signal_type: signal.signal_strength for signal in lead_signals or []
-        }
+        signal_map = {signal.signal_type: signal.signal_strength for signal in lead_signals or []}
         fit_score = self._fit_score(facts, icp_match)
         need_score = self._need_score(facts, signal_map)
         urgency_score = self._urgency_score(facts, signal_map)
@@ -90,9 +88,7 @@ class ScoringEngine:
             2,
         )
         qualified = bool(
-            qualified
-            and signal_map.get("low_rating", 0.0) < 0.9
-            and fit_score >= 35.0
+            qualified and signal_map.get("low_rating", 0.0) < 0.9 and fit_score >= 35.0
         )
         band = self._priority_band(
             final_priority_score=final_priority_score,
@@ -219,7 +215,9 @@ class ScoringEngine:
             signal_map.get("low_rating", 0.0) * 0.5,
         )
         footprint_need = max(facts.weak_website_signal, facts.digital_footprint_gap)
-        return round(max(0.0, min(100.0, ((signal_need * 0.65) + (footprint_need * 0.35)) * 100)), 2)
+        return round(
+            max(0.0, min(100.0, ((signal_need * 0.65) + (footprint_need * 0.35)) * 100)), 2
+        )
 
     def _urgency_score(self, facts: NormalizedLeadFacts, signal_map: dict[str, float]) -> float:
         values = [

@@ -6,6 +6,7 @@ Covers:
   - GET  /api/v2/results/{job_id} — paginated V2Lead response
   - GET  /api/v2/export/{job_id}?format=csv|json — file downloads
 """
+
 from __future__ import annotations
 
 import pytest
@@ -38,9 +39,7 @@ def _get_search_job_public_id(session_factory, seed) -> str:
             select(Workspace).where(Workspace.public_id == seed.workspace_public_id)
         )
         assert workspace is not None
-        job = db.scalar(
-            select(SearchJob).where(SearchJob.workspace_id == workspace.id)
-        )
+        job = db.scalar(select(SearchJob).where(SearchJob.workspace_id == workspace.id))
         assert job is not None
         return str(job.public_id)
 
@@ -64,6 +63,7 @@ def _get_provider_settings(session_factory, seed) -> ProviderSettings | None:
 def test_post_v2_search_lang_ar_sets_arabic_locale(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -99,6 +99,7 @@ def test_post_v2_search_lang_ar_sets_arabic_locale(monkeypatch: pytest.MonkeyPat
 def test_post_v2_search_lang_en_sets_english_locale(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -130,6 +131,7 @@ def test_post_v2_search_lang_en_sets_english_locale(monkeypatch: pytest.MonkeyPa
 def test_post_v2_search_auto_detect_arabic_header(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -164,6 +166,7 @@ def test_post_v2_search_auto_detect_arabic_header(monkeypatch: pytest.MonkeyPatc
 def test_post_v2_search_auto_detect_english_header(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -203,6 +206,7 @@ def test_post_v2_search_auto_detect_english_header(monkeypatch: pytest.MonkeyPat
 def test_get_v2_stream_terminal_job_returns_done_event(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -231,6 +235,7 @@ def test_get_v2_stream_terminal_job_returns_done_event(monkeypatch: pytest.Monke
 def test_get_v2_results_returns_v2_lead_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -271,6 +276,7 @@ def test_get_v2_results_returns_v2_lead_shape(monkeypatch: pytest.MonkeyPatch) -
 def test_get_v2_export_csv(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -292,6 +298,7 @@ def test_get_v2_export_csv(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_get_v2_export_json(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "stub")
     from app.core.config import clear_settings_cache
+
     clear_settings_cache()
 
     session_factory = _build_session_factory()
@@ -307,6 +314,7 @@ def test_get_v2_export_json(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert response.status_code == 200
     import json
+
     data = json.loads(response.text)
     assert "items" in data
     assert any(item.get("business_name") == "Acme Dental" for item in data["items"])

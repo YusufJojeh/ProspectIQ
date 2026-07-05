@@ -384,10 +384,25 @@ class AssistantService:
     def _is_qualified_leads_question(self, text: str) -> bool:
         """Detect if asking about qualified leads to contact."""
         text_lower = text.lower()
-        keywords_en = ["qualified leads", "which leads", "who should i contact",
-                      "prioritize", "first", "outreach", "reach out"]
-        keywords_ar = ["عملاء مؤهلين", "أي العملاء", "من أبدأ", "من أولا",
-                      "أولويات", "أول", "التواصل", "أتواصل"]
+        keywords_en = [
+            "qualified leads",
+            "which leads",
+            "who should i contact",
+            "prioritize",
+            "first",
+            "outreach",
+            "reach out",
+        ]
+        keywords_ar = [
+            "عملاء مؤهلين",
+            "أي العملاء",
+            "من أبدأ",
+            "من أولا",
+            "أولويات",
+            "أول",
+            "التواصل",
+            "أتواصل",
+        ]
 
         if any(kw in text_lower for kw in keywords_en):
             return True
@@ -398,8 +413,15 @@ class AssistantService:
     def _is_comparison_question(self, text: str) -> bool:
         """Detect if asking for a comparison between leads."""
         text_lower = text.lower()
-        keywords_en = ["compare", "comparison", "vs", "versus", "difference",
-                      "which is better", "rank"]
+        keywords_en = [
+            "compare",
+            "comparison",
+            "vs",
+            "versus",
+            "difference",
+            "which is better",
+            "rank",
+        ]
         keywords_ar = ["قارن", "مقارنة", "بين", "الفرق", "أيهما", "ترتيب"]
 
         if any(kw in text_lower for kw in keywords_en):
@@ -730,9 +752,7 @@ class AssistantService:
             )
             return
         if self._is_comparison_question(user_message):
-            yield self._build_comparison_response(
-                db, workspace_id=workspace_id, messages=messages
-            )
+            yield self._build_comparison_response(db, workspace_id=workspace_id, messages=messages)
             return
         yield self._build_workspace_response(
             db,
@@ -889,14 +909,16 @@ class AssistantService:
             for idx, (lead, score) in enumerate(qualified_leads[:10], 1):
                 score_text = f"{score.total_score:.0f}/100" if score else "—"
                 rating_text = f"{lead.rating:.1f}⭐" if lead.rating else "—"
-                lines.extend([
-                    f"{idx}. **{lead.company_name}**",
-                    f"   • الدرجة: {score_text}",
-                    f"   • التقييم: {rating_text} ({lead.review_count} مراجعة)",
-                    f"   • الفئة: {lead.category}",
-                    f"   • المدينة: {lead.city or '—'}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        f"{idx}. **{lead.company_name}**",
+                        f"   • الدرجة: {score_text}",
+                        f"   • التقييم: {rating_text} ({lead.review_count} مراجعة)",
+                        f"   • الفئة: {lead.category}",
+                        f"   • المدينة: {lead.city or '—'}",
+                        "",
+                    ]
+                )
             return "\n".join(lines)
         else:
             lines = [
@@ -908,14 +930,16 @@ class AssistantService:
             for idx, (lead, score) in enumerate(qualified_leads[:10], 1):
                 score_text = f"{score.total_score:.0f}/100" if score else "—"
                 rating_text = f"{lead.rating:.1f}⭐" if lead.rating else "—"
-                lines.extend([
-                    f"{idx}. **{lead.company_name}**",
-                    f"   • Score: {score_text}",
-                    f"   • Rating: {rating_text} ({lead.review_count} reviews)",
-                    f"   • Category: {lead.category}",
-                    f"   • City: {lead.city or '—'}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        f"{idx}. **{lead.company_name}**",
+                        f"   • Score: {score_text}",
+                        f"   • Rating: {rating_text} ({lead.review_count} reviews)",
+                        f"   • Category: {lead.category}",
+                        f"   • City: {lead.city or '—'}",
+                        "",
+                    ]
+                )
             return "\n".join(lines)
 
     def _build_comparison_response(
@@ -989,15 +1013,9 @@ class AssistantService:
         user_need = self._latest_user_message(messages)
         prefers_arabic = self._prefers_arabic(user_need)
         search_line = (
-            "_Augmented with live web search results._"
-            if search_context.used_search
-            else ""
+            "_Augmented with live web search results._" if search_context.used_search else ""
         )
-        search_line_ar = (
-            "_تم تعزيزه بنتائج البحث الحي._"
-            if search_context.used_search
-            else ""
-        )
+        search_line_ar = "_تم تعزيزه بنتائج البحث الحي._" if search_context.used_search else ""
 
         leads, total = self.leads_repository.list_paginated(
             db,
@@ -1040,9 +1058,7 @@ class AssistantService:
 
         top_lead = leads[0]
         top_score = latest_scores.get(top_lead.id)
-        top_score_text = (
-            f"{top_score.total_score:.0f}/100" if top_score is not None else "unscored"
-        )
+        top_score_text = f"{top_score.total_score:.0f}/100" if top_score is not None else "unscored"
         top_band_text = top_score.band if top_score is not None else "unscored"
         qualified_text = (
             "qualified"
@@ -1094,9 +1110,21 @@ class AssistantService:
 
             # Calculate additional insights for top lead
             has_website_ar = "✓ نعم" if top_lead.has_website else "✗ لا"
-            confidence_icon = "🟢" if top_lead.data_confidence >= 0.85 else "🟡" if top_lead.data_confidence >= 0.70 else "🔴"
+            confidence_icon = (
+                "🟢"
+                if top_lead.data_confidence >= 0.85
+                else "🟡"
+                if top_lead.data_confidence >= 0.70
+                else "🔴"
+            )
             qualification_icon = "✓" if (top_score and top_score.qualified) else "○"
-            band_emoji = "⭐⭐⭐" if top_band_text == "high" else "⭐⭐" if top_band_text == "medium" else "⭐"
+            band_emoji = (
+                "⭐⭐⭐"
+                if top_band_text == "high"
+                else "⭐⭐"
+                if top_band_text == "medium"
+                else "⭐"
+            )
 
             # Build action recommendations
             action_items_ar = []
@@ -1156,14 +1184,24 @@ class AssistantService:
 
         # English response with enhanced formatting
         has_website_en = "✓ Yes" if top_lead.has_website else "✗ No"
-        confidence_icon = "🟢" if top_lead.data_confidence >= 0.85 else "🟡" if top_lead.data_confidence >= 0.70 else "🔴"
+        confidence_icon = (
+            "🟢"
+            if top_lead.data_confidence >= 0.85
+            else "🟡"
+            if top_lead.data_confidence >= 0.70
+            else "🔴"
+        )
         qualification_icon = "✓" if (top_score and top_score.qualified) else "○"
-        band_emoji = "⭐⭐⭐" if top_band_text == "high" else "⭐⭐" if top_band_text == "medium" else "⭐"
+        band_emoji = (
+            "⭐⭐⭐" if top_band_text == "high" else "⭐⭐" if top_band_text == "medium" else "⭐"
+        )
 
         # Build action recommendations
         action_items_en = []
         if top_lead.has_website:
-            action_items_en.append("• Visit the official website to understand their current services")
+            action_items_en.append(
+                "• Visit the official website to understand their current services"
+            )
         if top_score and top_score.qualified:
             action_items_en.append("• Start with a personalized outreach draft")
         else:

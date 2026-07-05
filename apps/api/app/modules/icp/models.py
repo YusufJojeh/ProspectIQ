@@ -32,9 +32,7 @@ class IcpProfile(Base):
     max_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     min_reviews: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_reviews: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    website_preference: Mapped[str] = mapped_column(
-        String(32), default=WebsitePreference.ANY.value
-    )
+    website_preference: Mapped[str] = mapped_column(String(32), default=WebsitePreference.ANY.value)
     required_signals: Mapped[list[str]] = mapped_column(JSON(), default=list)
     excluded_keywords: Mapped[list[str]] = mapped_column(JSON(), default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -60,4 +58,6 @@ class LeadIcpMatch(Base):
     fit_score: Mapped[float] = mapped_column(Float)
     matched: Mapped[bool] = mapped_column(Boolean, default=True)
     match_reasons_json: Mapped[dict[str, Any]] = mapped_column(JSON(), default=dict)
-    calculated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(), default=lambda: datetime.now(tz=UTC)
+    )

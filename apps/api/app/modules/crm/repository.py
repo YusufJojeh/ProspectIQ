@@ -60,9 +60,7 @@ class CrmRepository:
             )
         )
 
-    def get_stage(
-        self, db: Session, *, workspace_id: int, stage_public_id: str
-    ) -> CrmStage | None:
+    def get_stage(self, db: Session, *, workspace_id: int, stage_public_id: str) -> CrmStage | None:
         return db.scalar(
             select(CrmStage).where(
                 CrmStage.workspace_id == workspace_id,
@@ -115,7 +113,9 @@ class CrmRepository:
             )
         )
 
-    def get_open_deal_for_lead(self, db: Session, *, workspace_id: int, lead_id: int) -> CrmDeal | None:
+    def get_open_deal_for_lead(
+        self, db: Session, *, workspace_id: int, lead_id: int
+    ) -> CrmDeal | None:
         return db.scalar(
             select(CrmDeal)
             .where(

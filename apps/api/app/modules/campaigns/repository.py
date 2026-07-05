@@ -109,7 +109,9 @@ class CampaignRepository:
             )
         )
 
-    def replace_sequence_steps(self, db: Session, campaign_id: int, steps: list[SequenceStep]) -> None:
+    def replace_sequence_steps(
+        self, db: Session, campaign_id: int, steps: list[SequenceStep]
+    ) -> None:
         db.execute(delete(SequenceStep).where(SequenceStep.campaign_id == campaign_id))
         db.add_all(steps)
         db.commit()
@@ -127,7 +129,9 @@ class CampaignRepository:
         db.refresh(event)
         return event
 
-    def list_events(self, db: Session, campaign_id: int) -> list[tuple[OutreachEvent, str | None, str | None]]:
+    def list_events(
+        self, db: Session, campaign_id: int
+    ) -> list[tuple[OutreachEvent, str | None, str | None]]:
         statement = (
             select(OutreachEvent, Lead.public_id, OutreachMessage.public_id)
             .outerjoin(Lead, Lead.id == OutreachEvent.lead_id)
@@ -140,7 +144,9 @@ class CampaignRepository:
             for event, lead_public_id, message_public_id in db.execute(statement).all()
         ]
 
-    def counts_for_campaigns(self, db: Session, campaign_ids: list[int]) -> dict[int, tuple[int, int]]:
+    def counts_for_campaigns(
+        self, db: Session, campaign_ids: list[int]
+    ) -> dict[int, tuple[int, int]]:
         if not campaign_ids:
             return {}
         lead_rows = db.execute(

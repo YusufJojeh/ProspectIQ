@@ -48,4 +48,6 @@ class LeadSignalScore(Base):
     score: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float] = mapped_column(Float, default=0.7)
     evidence_count: Mapped[int] = mapped_column(Integer, default=1)
-    calculated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(), default=lambda: datetime.now(tz=UTC)
+    )

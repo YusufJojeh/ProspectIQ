@@ -58,9 +58,7 @@ def _extended_version_table_impl(
         schema=version_table_schema,
     )
     if version_table_pk:
-        table.append_constraint(
-            PrimaryKeyConstraint("version_num", name=f"{version_table}_pkc")
-        )
+        table.append_constraint(PrimaryKeyConstraint("version_num", name=f"{version_table}_pkc"))
     return table
 
 
@@ -104,7 +102,9 @@ def run_migrations_online() -> None:
                 ),
                 None,
             )
-            current_length = getattr(version_column.get("type"), "length", None) if version_column else None
+            current_length = (
+                getattr(version_column.get("type"), "length", None) if version_column else None
+            )
             if current_length is not None and current_length < ALEMBIC_VERSION_NUM_LENGTH:
                 connection.execute(
                     text(

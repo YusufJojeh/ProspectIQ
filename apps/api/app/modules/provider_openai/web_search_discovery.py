@@ -119,9 +119,7 @@ class OpenAIWebSearchDiscovery:
             criteria.append(f"at least {min_reviews} reviews")
         elif max_reviews is not None:
             criteria.append(f"at most {max_reviews} reviews")
-        criteria_line = (
-            f" Prefer businesses with {', and '.join(criteria)}." if criteria else ""
-        )
+        criteria_line = f" Prefer businesses with {', and '.join(criteria)}." if criteria else ""
         language_line = (
             " The query is in Arabic; search Arabic-language sources and return company "
             "names in their original language."

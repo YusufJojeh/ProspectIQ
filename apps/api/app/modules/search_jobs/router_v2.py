@@ -7,6 +7,7 @@ without modifying any existing files.  The only net-new behaviour is:
   - Mapping internal progress-bus stage names to the v2 stage vocabulary.
   - Exposing leads in the compact V2Lead shape expected by apps/frontend.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -201,9 +202,7 @@ async def stream_v2_progress(
         finally:
             unregister(job_id)
 
-    return StreamingResponse(
-        _live_stream(), media_type="text/event-stream", headers=_SSE_HEADERS
-    )
+    return StreamingResponse(_live_stream(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @router.get("/results/{job_id}", response_model=V2ResultsResponse)

@@ -51,11 +51,7 @@ def upgrade() -> None:
                 changed = True
 
         if changed:
-            bind.execute(
-                table.update()
-                .where(table.c.id == row["id"])
-                .values(weights_json=weights)
-            )
+            bind.execute(table.update().where(table.c.id == row["id"]).values(weights_json=weights))
 
 
 def downgrade() -> None:

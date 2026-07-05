@@ -78,9 +78,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("public_id"),
         )
-        op.create_index(
-            op.f("ix_ai_feedback_workspace_id"), "ai_feedback", ["workspace_id"]
-        )
+        op.create_index(op.f("ix_ai_feedback_workspace_id"), "ai_feedback", ["workspace_id"])
         op.create_index(
             op.f("ix_ai_feedback_ai_analysis_snapshot_id"),
             "ai_feedback",
