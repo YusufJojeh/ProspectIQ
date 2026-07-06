@@ -17,7 +17,11 @@ from app.modules.provider_serpapi.models import (
     ProviderNormalizedFact,
     ProviderRawPayload,
 )
-from app.modules.provider_serpapi.schemas import PlaceLookupKey
+from app.modules.provider_serpapi.schemas import (
+    LeadCandidate,
+    LeadIdentityCandidate,
+    PlaceLookupKey,
+)
 from app.modules.scoring.models import LeadScore
 from app.modules.search_jobs.models import SearchJob
 from app.modules.users.models import User, Workspace
@@ -41,11 +45,13 @@ class _FakeProviderService:
         self,
         *,
         search_payload: dict,
+        search_status: str = ProviderFetchStatus.OK.value,
         web_payload: dict | None = None,
         web_status: str = ProviderFetchStatus.OK.value,
         enrich_top_n: int = 0,
     ) -> None:
         self.search_payload = search_payload
+        self.search_status = search_status
         self.web_payload = web_payload or {}
         self.web_status = web_status
         self._enrich_top_n = enrich_top_n
@@ -73,7 +79,7 @@ class _FakeProviderService:
             search_job_id=search_job_id,
             mode="maps_search",
             payload=self.search_payload,
-            status=ProviderFetchStatus.OK.value,
+            status=self.search_status,
             attempt=attempt,
         )
 
@@ -154,6 +160,28 @@ class _FakeProviderService:
         )
         db.commit()
         return fetch, payload
+
+
+class _FakeOpenAIDiscovery:
+    def __init__(self, candidates: list[LeadCandidate]) -> None:
+        self.candidates = candidates
+
+    def is_available(self) -> bool:
+        return True
+
+    def discover(
+        self,
+        *,
+        business_type: str,
+        city: str,
+        region: str | None,
+        max_results: int,
+        min_rating: float | None,
+        max_rating: float | None,
+        min_reviews: int | None,
+        max_reviews: int | None,
+    ) -> list[LeadCandidate]:
+        return self.candidates[:max_results]
 
 
 class _FakeTavilyService:
@@ -388,6 +416,78 @@ def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failur
         assert job.provider_error_count == 1
         assert db.scalar(select(func.count(ProviderNormalizedFact.id))) == 1
         assert db.scalar(select(func.count(LeadScore.id))) == 1
+
+
+def test_orchestrator_completes_with_scores_when_serpapi_rate_limited_and_openai_fallback_has_leads(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DISCOVERY_MODE", "single_path")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(
+        search_payload={"error": "Too Many Requests"},
+        search_status=ProviderFetchStatus.RATE_LIMITED.value,
+    )
+    fallback = _FakeOpenAIDiscovery(
+        [
+            LeadCandidate(
+                company_name="Fallback Dental",
+                category="Dentist",
+                address="Besiktas, Istanbul",
+                city="Istanbul",
+                phone="+90 555 123 4567",
+                website_url="https://fallback-dental.example",
+                website_domain="fallback-dental.example",
+                rating=4.6,
+                review_count=18,
+                confidence=0.5,
+                completeness=0.8,
+                facts={
+                    "source_engine": "openai",
+                    "source_mode": "web_search_discovery",
+                    "discovery_provider": "openai_web_search",
+                },
+                identities=[
+                    LeadIdentityCandidate(
+                        identity_type="website_domain",
+                        identity_value="fallback-dental.example",
+                    )
+                ],
+            )
+        ]
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        provider_service=provider,
+        openai_discovery=fallback,
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.PARTIALLY_COMPLETED.value
+        assert job.provider_error_count == 1
+        assert job.leads_upserted == 1
+
+        fetches = db.scalars(select(ProviderFetch).order_by(ProviderFetch.id)).all()
+        assert [fetch.status for fetch in fetches] == [
+            ProviderFetchStatus.RATE_LIMITED.value,
+            ProviderFetchStatus.OK.value,
+        ]
+        assert fetches[0].http_status == 429
+
+        lead = db.scalar(select(Lead).where(Lead.search_job_id == job.id))
+        assert lead is not None
+        assert lead.company_name == "Fallback Dental"
+        assert db.scalar(select(func.count(ProviderNormalizedFact.id))) == 1
+
+        score = db.scalar(select(LeadScore).where(LeadScore.lead_id == lead.id))
+        assert score is not None
+        assert 0 <= score.total_score <= 100
+
+    clear_settings_cache()
 
 
 def test_orchestrator_marks_job_failed_when_live_provider_is_unconfigured(monkeypatch) -> None:

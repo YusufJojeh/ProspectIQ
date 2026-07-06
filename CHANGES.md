@@ -1,5 +1,18 @@
 # CHANGES
 
+## [Fix] Scoring Weights and Fallback Discovery Completion - 2026-07-07
+
+### Fixed
+
+- Added migration `0019_repair_scoring_weight_totals.py` to repair persisted scoring configs whose weight totals are invalid, using the current canonical eight-dimension scoring weights.
+- Added regression coverage for SerpAPI `rate_limited` discovery followed by OpenAI fallback, ensuring fallback leads still receive evidence and real scores and the search job finishes as `partially_completed`.
+- Added tests for canonical scoring weight totals and valid custom scoring config preservation.
+
+### Validation
+
+- Passed: `ruff check app tests migrations`, `ruff format --check app tests migrations`, `mypy app`, `pytest -q` with MySQL default URL override, and `alembic upgrade head --sql` with MySQL dialect URL override.
+- Local demo fallback search passed with SerpAPI `rate_limited`/429, OpenAI fallback `ok`/200, status `partially_completed`, one lead, one evidence row, and one score.
+
 ## [Hardening] Tavily Agentic Provider Polish - 2026-07-05
 
 ### Added

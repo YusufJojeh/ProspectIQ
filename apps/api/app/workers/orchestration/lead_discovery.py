@@ -20,6 +20,7 @@ from app.modules.icp.service import LeadIcpMatcherService
 from app.modules.leads.models import Lead
 from app.modules.provider_openai.web_search_discovery import OpenAIWebSearchDiscovery
 from app.modules.provider_serpapi.demo_service import DemoSerpApiService
+from app.modules.provider_serpapi.exceptions import ProviderConfigError
 from app.modules.provider_serpapi.models import (
     ProviderFetch,
     ProviderNormalizedFact,
@@ -1213,7 +1214,11 @@ class LeadDiscoveryOrchestrator:
         elif runtime == "blocked" or not settings.has_tavily_configured:
             return None
         else:
-            self.tavily_service = TavilyService()
+            try:
+                self.tavily_service = TavilyService()
+            except ProviderConfigError as exc:
+                logger.warning("discovery.tavily.skipped reason=%s", exc.detail)
+                return None
         return self.tavily_service
 
     def _can_use_serpapi_provider(self) -> bool:

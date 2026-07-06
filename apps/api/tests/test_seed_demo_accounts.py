@@ -12,7 +12,7 @@ from app.modules.auth.permissions import get_role_permissions
 from app.modules.auth.schemas import LoginRequest
 from app.modules.auth.service import AuthService
 from app.modules.leads.models import Lead
-from app.modules.scoring.models import ScoringConfigVersion
+from app.modules.scoring.models import ScoringConfigVersion, WorkspaceScoringActive
 from app.modules.scoring.schemas import ScoringWeights
 from app.modules.search_jobs.models import SearchJob
 from app.modules.signals.models import LeadSignal
@@ -88,7 +88,20 @@ def test_demo_seed_creates_deterministic_accounts_with_expected_roles_and_auth()
         scoring_versions = db.scalars(select(ScoringConfigVersion)).all()
         assert scoring_versions
         for version in scoring_versions:
-            ScoringWeights.model_validate(version.weights_json)
+            weights = ScoringWeights.model_validate(version.weights_json)
+            assert sum(weights.model_dump().values()) == 1.0
+        active_versions = db.scalars(
+            select(ScoringConfigVersion)
+            .join(
+                WorkspaceScoringActive,
+                WorkspaceScoringActive.active_scoring_config_version_id == ScoringConfigVersion.id,
+            )
+            .where(WorkspaceScoringActive.workspace_id == ScoringConfigVersion.workspace_id)
+        ).all()
+        assert active_versions
+        for version in active_versions:
+            weights = ScoringWeights.model_validate(version.weights_json)
+            assert sum(weights.model_dump().values()) == 1.0
         assert int(db.scalar(select(func.count(LeadSignal.id))) or 0) > 0
         assert int(db.scalar(select(func.count(AIAnalysisEvidence.id))) or 0) > 0
 
