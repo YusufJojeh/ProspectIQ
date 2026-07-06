@@ -68,6 +68,11 @@ const UsagePage = lazy(async () => {
   const module = await import("@/features/billing/routes/usage-page");
   return { default: module.UsagePage };
 });
+const ProviderHealthPage = lazy(async () => {
+  const module =
+    await import("@/features/provider-health/routes/provider-health-page");
+  return { default: module.ProviderHealthPage };
+});
 const AiAnalysisPage = lazy(async () => {
   const module = await import("@/features/ai-analysis/routes/ai-analysis-page");
   return { default: module.AiAnalysisPage };
@@ -476,6 +481,14 @@ function buildRouter() {
               element: lazyPage(SettingsPage, {
                 title: i18n.t("routeLoading.settingsTitle"),
                 description: i18n.t("routeLoading.settingsDescription"),
+                compact: true,
+              }),
+            },
+            {
+              path: "provider-health",
+              element: lazyPage(ProviderHealthPage, {
+                title: i18n.t("routeLoading.providerHealthTitle"),
+                description: i18n.t("routeLoading.providerHealthDescription"),
                 compact: true,
               }),
             },

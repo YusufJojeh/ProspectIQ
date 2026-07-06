@@ -89,6 +89,18 @@ type SearchJobResponse = {
   leads_upserted: number;
   enriched_count: number;
   provider_error_count: number;
+  provider_statuses: SearchJobProviderStatusResponse[];
+};
+
+type SearchJobProviderStatusResponse = {
+  provider: string;
+  engine: string;
+  mode: string;
+  status: string;
+  http_status: number | null;
+  attempt: number;
+  started_at: string;
+  finished_at: string | null;
 };
 
 type LeadRecord = {
@@ -597,6 +609,38 @@ function createState(): MockState {
       leads_upserted: 2,
       enriched_count: 2,
       provider_error_count: 0,
+      provider_statuses: [
+        {
+          provider: "tavily",
+          engine: "tavily",
+          mode: "web_search",
+          status: "ok",
+          http_status: 200,
+          attempt: 1,
+          started_at: iso(3),
+          finished_at: iso(4),
+        },
+        {
+          provider: "serpapi",
+          engine: "google_maps",
+          mode: "maps_search",
+          status: "rate_limited",
+          http_status: 429,
+          attempt: 1,
+          started_at: iso(4),
+          finished_at: iso(5),
+        },
+        {
+          provider: "openai",
+          engine: "openai",
+          mode: "web_search_discovery",
+          status: "ok",
+          http_status: 200,
+          attempt: 1,
+          started_at: iso(5),
+          finished_at: iso(6),
+        },
+      ],
     },
   ];
 
@@ -1832,6 +1876,7 @@ async function handleApiRoute(route: Route, state: MockState) {
       leads_upserted: 0,
       enriched_count: 0,
       provider_error_count: 0,
+      provider_statuses: [],
     };
     state.searchJobs.unshift(job);
     addAudit(

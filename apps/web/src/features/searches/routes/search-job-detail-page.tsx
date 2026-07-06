@@ -34,6 +34,7 @@ import {
 } from "@/lib/i18n-labels";
 import { formatDate, searchJobTone } from "@/lib/presenters";
 import { Progress } from "@/components/ui/progress";
+import type { BadgeTone } from "@/components/ui/badge";
 
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running"]);
 
@@ -218,6 +219,60 @@ export function SearchJobDetailPage() {
         />
       </section>
 
+      <Card className="rounded-[1.5rem] border-border bg-card/95">
+        <CardHeader>
+          <CardTitle>{t("searches.providerStatusTitle")}</CardTitle>
+          <CardDescription>
+            {t("searches.providerStatusDescription")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {job.provider_statuses?.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {job.provider_statuses.map((providerStatus) => (
+                <div
+                  key={`${providerStatus.provider}-${providerStatus.engine}-${providerStatus.mode}-${providerStatus.started_at}`}
+                  className="rounded-2xl border border-border bg-muted/20 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold capitalize text-foreground">
+                        {providerStatus.provider}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {providerStatus.engine} / {providerStatus.mode}
+                      </p>
+                    </div>
+                    <Badge tone={providerStatusTone(providerStatus.status)}>
+                      {providerStatus.status}
+                    </Badge>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {t("searches.httpStatus")}:{" "}
+                      <strong className="text-foreground">
+                        {providerStatus.http_status ?? "-"}
+                      </strong>
+                    </span>
+                    <span>
+                      {t("searches.attempt")}:{" "}
+                      <strong className="text-foreground">
+                        {providerStatus.attempt}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title={t("searches.noProviderStatuses")}
+              description={t("searches.noProviderStatusesDescription")}
+            />
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-2">
         <Card className="rounded-[1.5rem] border-border bg-card/95">
           <CardHeader>
@@ -348,4 +403,12 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>
   );
+}
+
+function providerStatusTone(status: string): BadgeTone {
+  if (status === "ok") return "success";
+  if (status === "rate_limited") return "warning";
+  if (status === "timeout") return "caution";
+  if (status === "error") return "error";
+  return "neutral";
 }

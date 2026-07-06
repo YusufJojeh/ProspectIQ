@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   MessageSquareText,
   Radar,
+  RadioTower,
   ScrollText,
   Send,
   Megaphone,
@@ -81,6 +82,12 @@ const GOVERN: NavItem[] = [
   { labelKey: "nav.billing", href: appPaths.billing, icon: ShieldCheck },
   { labelKey: "nav.invoices", href: appPaths.invoices, icon: ScrollText },
   { labelKey: "nav.usage", href: appPaths.usage, icon: FileDown },
+  {
+    labelKey: "nav.providerHealth",
+    href: appPaths.providerHealth,
+    icon: RadioTower,
+    roles: ["account_owner", "admin"],
+  },
   {
     labelKey: "nav.auditLogs",
     href: appPaths.auditLogs,

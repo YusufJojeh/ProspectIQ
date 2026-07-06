@@ -29,6 +29,7 @@ export const appPaths = {
   billing: "/app/billing",
   invoices: "/app/invoices",
   usage: "/app/usage",
+  providerHealth: "/app/provider-health",
   leadDetail: (leadId: string) => `/app/leads/${leadId}`,
   campaignDetail: (campaignId: string) => `/app/campaigns/${campaignId}`,
   dealDetail: (dealId: string) => `/app/crm/deals/${dealId}`,

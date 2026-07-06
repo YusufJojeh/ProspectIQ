@@ -118,6 +118,18 @@ export interface SearchJobResponse {
   leads_upserted: number;
   enriched_count: number;
   provider_error_count: number;
+  provider_statuses: SearchJobProviderStatusResponse[];
+}
+
+export interface SearchJobProviderStatusResponse {
+  provider: string;
+  engine: string;
+  mode: string;
+  status: string;
+  http_status: number | null;
+  attempt: number;
+  started_at: string;
+  finished_at: string | null;
 }
 
 export interface SearchJobListResponse {
@@ -777,6 +789,7 @@ export interface RecentFailedJobResponse {
 
 export interface RecentProviderFailureResponse {
   public_id: string;
+  provider: string;
   engine: string;
   mode: string;
   status: string;
@@ -798,6 +811,9 @@ export interface OperationalHealthResponse {
   tavily_rate_limit_rpm: number;
   tavily_live_max_calls: number;
   discovery_runtime: string;
+  discovery_execution_mode: string;
+  discovery_kill_switch: boolean;
+  discovery_multi_engine_enabled: boolean;
   current_ai_runtime: string;
   analysis_runtime: string;
   analysis_fallback_runtime: string | null;
