@@ -1,5 +1,26 @@
 # CHANGES
 
+## [Demo] Multi-Provider Discovery and Frontend Coverage - 2026-07-07
+
+### Added
+
+- Wired `openai_web` into normal multi-provider discovery planning alongside `tavily_web`, `google_maps_search`, and `google_web`.
+- Added safe aliases for demo engine lists: `serpapi_maps`, `serpapi_web`, `openai`, and `openai_fallback`.
+- Added provider status metadata to search job API responses and surfaced it on search job detail pages.
+- Added a workspace Provider Health page with sidebar navigation, role guard, loading/error/empty states, and sanitized provider diagnostics.
+- Added frontend coverage notes in `docs/frontend-coverage-and-demo.md`.
+
+### Fixed
+
+- Provider failures are isolated per discovery adapter so SerpAPI 429 is recorded as `rate_limited` without killing jobs when Tavily or OpenAI produce leads.
+- OpenAI fallback evidence now uses the provider source label `openai_web`.
+- Active scoring config regression coverage validates all active scoring weights sum to exactly `1.0`.
+
+### Validation
+
+- Initial frontend gates passed after each feature group: `npx tsc -b --pretty false` and `npm run build`.
+- Focused backend discovery/scoring regression suite passed: 31 tests.
+
 ## [Fix] Scoring Weights and Fallback Discovery Completion - 2026-07-07
 
 ### Fixed
