@@ -447,8 +447,24 @@ class Settings(BaseSettings):
 
     @property
     def enabled_discovery_engines(self) -> list[str]:
+        aliases = {
+            "serpapi_maps": "google_maps_search",
+            "serpapi_map": "google_maps_search",
+            "serpapi_web": "google_web",
+            "serpapi_search": "google_web",
+            "google_maps": "google_maps_search",
+            "openai": "openai_web",
+            "openai_fallback": "openai_web",
+        }
         values = [item.strip() for item in self.discovery_enabled_engines.split(",")]
-        return [item for item in values if item]
+        normalized: list[str] = []
+        for value in values:
+            if not value:
+                continue
+            engine = aliases.get(value, value)
+            if engine not in normalized:
+                normalized.append(engine)
+        return normalized
 
     @property
     def enrichers(self) -> list[str]:

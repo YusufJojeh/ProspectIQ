@@ -36,14 +36,22 @@ def test_discovery_runtime_is_blocked_without_serpapi_key(monkeypatch) -> None:
 
 
 def test_discovery_engine_list_alias_and_effective_mode(monkeypatch) -> None:
-    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "google_maps_search,google_web")
+    monkeypatch.setenv(
+        "DISCOVERY_ENGINE_LIST",
+        "tavily_web,serpapi_maps,serpapi_web,openai_web",
+    )
     monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
     monkeypatch.setenv("DISCOVERY_MULTI_ENGINE_ENABLED", "false")
     clear_settings_cache()
 
     settings = Settings()
 
-    assert settings.enabled_discovery_engines == ["google_maps_search", "google_web"]
+    assert settings.enabled_discovery_engines == [
+        "tavily_web",
+        "google_maps_search",
+        "google_web",
+        "openai_web",
+    ]
     assert settings.effective_discovery_mode == "multi_query_single_engine"
 
 

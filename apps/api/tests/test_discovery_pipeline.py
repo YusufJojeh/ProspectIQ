@@ -93,6 +93,25 @@ def test_engine_execution_planner_includes_tavily_when_enabled() -> None:
     assert [task.adapter_name for task in tasks] == ["google_maps_search", "tavily_web"]
 
 
+def test_engine_execution_planner_includes_openai_web_when_enabled() -> None:
+    planner = EngineExecutionPlanner()
+    variants = [QueryVariant(key="original", text="crm software saudi arabia", language="en")]
+    tasks = planner.plan(
+        mode="multi_engine_multi_query",
+        enabled_engines=["tavily_web", "google_maps_search", "google_web", "openai_web"],
+        query_variants=variants,
+        max_calls_per_job=4,
+        max_concurrency=4,
+    )
+
+    assert [task.adapter_name for task in tasks] == [
+        "tavily_web",
+        "google_maps_search",
+        "google_web",
+        "openai_web",
+    ]
+
+
 def test_merge_dedupe_rank_is_deterministic() -> None:
     merger = ResultMerger()
     deduper = CrossSourceDeduper()

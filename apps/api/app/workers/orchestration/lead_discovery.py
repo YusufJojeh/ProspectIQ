@@ -286,7 +286,7 @@ class LeadDiscoveryOrchestrator:
                 db,
                 job=job,
                 candidate=candidate,
-                source_type="openai_web_search",
+                source_type="openai_web",
                 provider_fetch_id=fetch.id,
                 priority=25,
                 allow_source_promotion=True,
@@ -335,6 +335,43 @@ class LeadDiscoveryOrchestrator:
         db.commit()
         db.refresh(fetch)
         return fetch
+
+    def _discover_openai_candidates(
+        self,
+        db: Session,
+        job: SearchJob,
+        *,
+        task: Any,
+    ) -> list[LeadCandidate]:
+        if not self.openai_discovery.is_available():
+            raise ServiceUnavailableError(
+                detail="OpenAI web discovery is unavailable because OPENAI_API_KEY is not configured."
+            )
+        candidates = self.openai_discovery.discover(
+            business_type=task.query_variant.text,
+            city=job.city,
+            region=job.region,
+            max_results=job.max_results,
+            min_rating=job.min_rating,
+            max_rating=job.max_rating,
+            min_reviews=job.min_reviews,
+            max_reviews=job.max_reviews,
+        )
+        if not candidates:
+            logger.warning("discovery.openai_web.empty search_job_id=%s", job.id)
+            return []
+
+        fetch = self._create_openai_fetch(db, job, candidate_count=len(candidates))
+        for item in candidates:
+            item.facts["provider_fetch_id"] = fetch.id
+            item.facts["query_variant"] = task.query_variant.key
+            item.facts["source_engine"] = "openai"
+            item.facts["source_mode"] = "web_search_discovery"
+            item.facts["source_type"] = "openai_web"
+            item.facts["source_priority"] = 25
+            item.facts["adapter_name"] = task.adapter_name
+            item.facts["execution_stage"] = task.stage
+        return candidates
 
     def _discover_leads_single_path(self, db: Session, job: SearchJob) -> list[int]:
         provider_service = self._get_provider_service()
@@ -433,6 +470,25 @@ class LeadDiscoveryOrchestrator:
                 skipped_budget += 1
                 continue
 
+            if task.adapter_name == "openai_web":
+                try:
+                    candidate_batches.append(self._discover_openai_candidates(db, job, task=task))
+                    dispatched += 1
+                    circuit.mark_success(task.adapter_name)
+                except Exception:
+                    circuit.mark_failure(task.adapter_name)
+                    opened = circuit.open_if_threshold(
+                        task.adapter_name,
+                        threshold=settings.discovery_circuit_breaker_failure_threshold,
+                    )
+                    if opened:
+                        logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
+                    if task.adapter_name not in failed_adapters:
+                        failed_adapters.add(task.adapter_name)
+                        job.provider_error_count += 1
+                    self.search_job_repository.save(db, job)
+                continue
+
             try:
                 fetch, payload = self._execute_discovery_task(
                     db=db,
@@ -449,10 +505,7 @@ class LeadDiscoveryOrchestrator:
                 )
                 if opened:
                     logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
-                if (
-                    task.adapter_name == "google_maps_search"
-                    and task.adapter_name not in failed_adapters
-                ):
+                if task.adapter_name not in failed_adapters:
                     failed_adapters.add(task.adapter_name)
                     job.provider_error_count += 1
                 self.search_job_repository.save(db, job)
@@ -469,10 +522,7 @@ class LeadDiscoveryOrchestrator:
                 )
                 if opened:
                     logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
-                if (
-                    task.adapter_name == "google_maps_search"
-                    and task.adapter_name not in failed_adapters
-                ):
+                if task.adapter_name not in failed_adapters:
                     failed_adapters.add(task.adapter_name)
                     job.provider_error_count += 1
                 self.search_job_repository.save(db, job)

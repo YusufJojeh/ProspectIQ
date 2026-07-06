@@ -1,14 +1,20 @@
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.billing.service import BillingService
+from app.modules.provider_serpapi.models import ProviderFetch
 from app.modules.search_jobs.models import SearchJob, SearchRequest
 from app.modules.search_jobs.repository import SearchJobRepository
-from app.modules.search_jobs.schemas import SearchJobCreateRequest, SearchJobResponse
+from app.modules.search_jobs.schemas import (
+    SearchJobCreateRequest,
+    SearchJobProviderStatusResponse,
+    SearchJobResponse,
+)
 from app.shared.enums.jobs import SearchJobStatus, WebsitePreference
 
 
@@ -124,12 +130,19 @@ class SearchJobService:
 
     def assert_discovery_runtime_available(self) -> None:
         settings = get_settings()
-        if settings.discovery_runtime == "blocked":
+        has_openai_web_fallback = (
+            settings.discovery_openai_fallback_enabled and settings.has_openai_configured
+        )
+        if (
+            settings.discovery_runtime == "blocked"
+            and settings.tavily_runtime == "blocked"
+            and not has_openai_web_fallback
+        ):
             raise ServiceUnavailableError(
-                "Lead discovery is unavailable because SERPAPI_API_KEY is not configured."
+                "Lead discovery is unavailable because no discovery provider is configured."
             )
 
-    def to_response(self, job: SearchJob) -> SearchJobResponse:
+    def to_response(self, job: SearchJob, db: Session | None = None) -> SearchJobResponse:
         settings = get_settings()
         return SearchJobResponse(
             public_id=job.public_id,
@@ -153,4 +166,30 @@ class SearchJobService:
             leads_upserted=job.leads_upserted,
             enriched_count=job.enriched_count,
             provider_error_count=job.provider_error_count,
+            provider_statuses=self._provider_statuses(db, job) if db is not None else [],
         )
+
+    def _provider_statuses(
+        self, db: Session, job: SearchJob
+    ) -> list[SearchJobProviderStatusResponse]:
+        fetches = db.scalars(
+            select(ProviderFetch)
+            .where(
+                ProviderFetch.workspace_id == job.workspace_id,
+                ProviderFetch.search_job_id == job.id,
+            )
+            .order_by(ProviderFetch.started_at.asc(), ProviderFetch.id.asc())
+        ).all()
+        return [
+            SearchJobProviderStatusResponse(
+                provider=fetch.provider,
+                engine=fetch.engine,
+                mode=fetch.mode,
+                status=fetch.status,
+                http_status=fetch.http_status,
+                attempt=fetch.attempt,
+                started_at=fetch.started_at,
+                finished_at=fetch.finished_at,
+            )
+            for fetch in fetches
+        ]

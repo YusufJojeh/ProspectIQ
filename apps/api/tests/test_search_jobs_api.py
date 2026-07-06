@@ -176,6 +176,10 @@ def test_create_search_job_endpoint_rejects_invalid_filter_ranges(monkeypatch) -
 def test_create_search_job_endpoint_returns_503_when_discovery_is_blocked(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "")
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")
+    monkeypatch.setenv("TAVILY_API_KEY", "")
+    monkeypatch.setenv("TAVILY_RUNTIME_MODE", "blocked")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("DISCOVERY_OPENAI_FALLBACK_ENABLED", "false")
     clear_settings_cache()
     session_factory = _build_session_factory()
     _seed_workspace_admin(session_factory)

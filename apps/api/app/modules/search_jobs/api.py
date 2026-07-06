@@ -80,7 +80,7 @@ def create_search_job(
         requested_by_user_id=current_user.id,
     )
     background_tasks.add_task(LeadDiscoveryOrchestrator().run, job.public_id)
-    return service.to_response(job)
+    return service.to_response(job, db)
 
 
 @router.post("/from-prompt", response_model=SearchJobResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -104,7 +104,7 @@ async def create_search_job_from_prompt(
         requested_by_user_id=current_user.id,
     )
     background_tasks.add_task(LeadDiscoveryOrchestrator().run, job.public_id)
-    return service.to_response(job)
+    return service.to_response(job, db)
 
 
 @router.get("/{job_id}", response_model=SearchJobResponse)
@@ -120,7 +120,7 @@ def get_search_job(
     for requeued_job in requeued_jobs:
         background_tasks.add_task(LeadDiscoveryOrchestrator().run, requeued_job.public_id)
     job = service.get_by_public_id(db, workspace_id, job_id)
-    return service.to_response(job)
+    return service.to_response(job, db)
 
 
 _SSE_HEADERS = {
@@ -188,4 +188,4 @@ def list_search_jobs(
     for requeued_job in requeued_jobs:
         background_tasks.add_task(LeadDiscoveryOrchestrator().run, requeued_job.public_id)
     items = service.repository.list_for_workspace(db, workspace_id)
-    return SearchJobListResponse(items=[service.to_response(item) for item in items])
+    return SearchJobListResponse(items=[service.to_response(item, db) for item in items])

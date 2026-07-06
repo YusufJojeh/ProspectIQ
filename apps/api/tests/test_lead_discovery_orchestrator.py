@@ -338,7 +338,10 @@ def _seed_job(session_factory: sessionmaker[Session]) -> str:
         return job.public_id
 
 
-def test_orchestrator_persists_leads_evidence_and_scores() -> None:
+def test_orchestrator_persists_leads_evidence_and_scores(monkeypatch) -> None:
+    monkeypatch.setenv("DISCOVERY_MODE", "single_path")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "google_maps_search,google_web")
+    clear_settings_cache()
     session_factory = _build_session_factory()
     job_public_id = _seed_job(session_factory)
     provider = _FakeProviderService(
@@ -382,7 +385,12 @@ def test_orchestrator_persists_leads_evidence_and_scores() -> None:
         assert db.scalar(select(func.count(LeadScore.id))) == 1
 
 
-def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failure() -> None:
+def test_orchestrator_marks_job_partially_completed_on_secondary_provider_failure(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DISCOVERY_MODE", "single_path")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "google_maps_search,google_web")
+    clear_settings_cache()
     session_factory = _build_session_factory()
     job_public_id = _seed_job(session_factory)
     provider = _FakeProviderService(
@@ -493,6 +501,10 @@ def test_orchestrator_completes_with_scores_when_serpapi_rate_limited_and_openai
 def test_orchestrator_marks_job_failed_when_live_provider_is_unconfigured(monkeypatch) -> None:
     monkeypatch.setenv("SERPAPI_API_KEY", "")
     monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "blocked")
+    monkeypatch.setenv("DISCOVERY_MODE", "single_path")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "google_maps_search,google_web")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("DISCOVERY_OPENAI_FALLBACK_ENABLED", "false")
     clear_settings_cache()
     session_factory = _build_session_factory()
     job_public_id = _seed_job(session_factory)
@@ -856,6 +868,207 @@ def test_pipeline_mode_can_run_tavily_without_serpapi(monkeypatch) -> None:
 
     assert tavily.web_queries == ["Dentist Istanbul official"]
     assert tavily.extract_urls_seen == ["https://acmedental.example"]
+    clear_settings_cache()
+
+
+def test_multi_provider_pipeline_records_serpapi_rate_limit_and_scores_tavily_openai_leads(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "tavily_web,serpapi_maps,openai_web")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "3")
+    monkeypatch.setenv("DISCOVERY_MAX_CONCURRENCY", "3")
+    monkeypatch.setenv("TAVILY_LIVE_MAX_CALLS", "1")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(
+        search_payload={"error": "Too Many Requests"},
+        search_status=ProviderFetchStatus.RATE_LIMITED.value,
+    )
+    tavily = _FakeTavilyService(
+        search_payload={
+            "results": [
+                {
+                    "title": "Tavily CRM - Official Website",
+                    "url": "https://tavily-crm.example",
+                    "content": "CRM implementation and sales automation for GCC teams.",
+                    "score": 0.94,
+                }
+            ]
+        }
+    )
+    fallback = _FakeOpenAIDiscovery(
+        [
+            LeadCandidate(
+                company_name="OpenAI ERP",
+                category="ERP software",
+                city="Riyadh",
+                website_url="https://openai-erp.example",
+                website_domain="openai-erp.example",
+                confidence=0.6,
+                completeness=0.75,
+                facts={
+                    "source_engine": "openai",
+                    "source_mode": "web_search_discovery",
+                    "discovery_provider": "openai_web_search",
+                },
+                identities=[
+                    LeadIdentityCandidate(
+                        identity_type="website_domain",
+                        identity_value="openai-erp.example",
+                    )
+                ],
+            )
+        ]
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        provider_service=provider,
+        tavily_service=tavily,
+        openai_discovery=fallback,
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.PARTIALLY_COMPLETED.value
+        assert job.provider_error_count == 1
+        assert job.leads_upserted == 2
+        assert db.scalar(select(func.count(LeadScore.id))) == 2
+
+        fetches = db.scalars(select(ProviderFetch).order_by(ProviderFetch.id)).all()
+        assert {(fetch.provider, fetch.status) for fetch in fetches} >= {
+            ("tavily", ProviderFetchStatus.OK.value),
+            ("serpapi", ProviderFetchStatus.RATE_LIMITED.value),
+            ("openai", ProviderFetchStatus.OK.value),
+        }
+
+        source_types = set(db.scalars(select(ProviderNormalizedFact.source_type)).all())
+        assert {"tavily_search", "openai_web"}.issubset(source_types)
+
+    clear_settings_cache()
+
+
+def test_multi_provider_pipeline_completed_when_selected_providers_succeed(monkeypatch) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "tavily_web,openai_web")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "2")
+    monkeypatch.setenv("DISCOVERY_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("TAVILY_LIVE_MAX_CALLS", "1")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    tavily = _FakeTavilyService(
+        search_payload={
+            "results": [
+                {
+                    "title": "Acme CRM - Official Website",
+                    "url": "https://acme-crm.example",
+                    "content": "CRM and lead management software.",
+                    "score": 0.9,
+                }
+            ]
+        }
+    )
+    fallback = _FakeOpenAIDiscovery(
+        [
+            LeadCandidate(
+                company_name="Beta Automation",
+                category="Business automation",
+                city="Dubai",
+                website_url="https://beta-automation.example",
+                website_domain="beta-automation.example",
+                confidence=0.62,
+                completeness=0.78,
+                identities=[
+                    LeadIdentityCandidate(
+                        identity_type="website_domain",
+                        identity_value="beta-automation.example",
+                    )
+                ],
+            )
+        ]
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        tavily_service=tavily,
+        openai_discovery=fallback,
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        assert job.provider_error_count == 0
+        assert job.leads_upserted == 2
+        assert db.scalar(select(func.count(LeadScore.id))) == 2
+
+    clear_settings_cache()
+
+
+def test_multi_provider_pipeline_dedupes_same_domain_across_tavily_and_openai(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "tavily_web,openai_web")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "2")
+    monkeypatch.setenv("DISCOVERY_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("TAVILY_LIVE_MAX_CALLS", "1")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    tavily = _FakeTavilyService(
+        search_payload={
+            "results": [
+                {
+                    "title": "Unified CRM - Official Website",
+                    "url": "https://unified-crm.example",
+                    "content": "CRM software for sales teams.",
+                    "score": 0.9,
+                }
+            ]
+        }
+    )
+    fallback = _FakeOpenAIDiscovery(
+        [
+            LeadCandidate(
+                company_name="Unified CRM",
+                category="CRM software",
+                city="Doha",
+                website_url="https://unified-crm.example",
+                website_domain="unified-crm.example",
+                confidence=0.7,
+                completeness=0.85,
+                identities=[
+                    LeadIdentityCandidate(
+                        identity_type="website_domain",
+                        identity_value="unified-crm.example",
+                    )
+                ],
+            )
+        ]
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        tavily_service=tavily,
+        openai_discovery=fallback,
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        assert job.leads_upserted == 1
+        assert db.scalar(select(func.count(Lead.id))) == 1
+        assert db.scalar(select(func.count(LeadScore.id))) == 1
+
     clear_settings_cache()
 
 

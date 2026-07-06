@@ -162,7 +162,7 @@ class EngineExecutionPlanner:
             adapters = ["google_maps_search"]
             variants = query_variants
         else:
-            allowed = {"google_maps_search", "google_web", "tavily_web"}
+            allowed = {"google_maps_search", "google_web", "tavily_web", "openai_web"}
             adapters = [engine for engine in enabled_engines if engine in allowed] or [
                 "google_maps_search"
             ]

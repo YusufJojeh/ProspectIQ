@@ -39,6 +39,17 @@ class SearchJobCreateRequest(BaseModel):
         return self
 
 
+class SearchJobProviderStatusResponse(BaseModel):
+    provider: str
+    engine: str
+    mode: str
+    status: str
+    http_status: int | None
+    attempt: int
+    started_at: datetime
+    finished_at: datetime | None
+
+
 class SearchJobResponse(BaseModel):
     public_id: str
     discovery_runtime: str
@@ -61,6 +72,7 @@ class SearchJobResponse(BaseModel):
     leads_upserted: int
     enriched_count: int
     provider_error_count: int
+    provider_statuses: list[SearchJobProviderStatusResponse] = Field(default_factory=list)
 
 
 class SearchJobListResponse(BaseModel):

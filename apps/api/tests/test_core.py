@@ -2,17 +2,22 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.config import clear_settings_cache, get_settings
+from app.core.config import Settings, clear_settings_cache, get_settings
 from app.core.database import get_db, get_session_factory, reset_database_state
 from app.core.logging import SecretRedactionFilter
 
 
-def test_settings_load_defaults() -> None:
-    clear_settings_cache()
-    settings = get_settings()
+def test_settings_load_defaults(monkeypatch) -> None:
+    # Defaults must be asserted without dotenv/env influence so the test does
+    # not depend on the developer's local .env contents.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    settings = Settings(_env_file=None)
 
     assert settings.api_v1_prefix == "/api/v1"
     assert settings.database_url.startswith("mysql+pymysql://")
+
+    clear_settings_cache()
+    assert get_settings().api_v1_prefix == "/api/v1"
 
 
 def test_settings_load_from_environment(monkeypatch) -> None:
