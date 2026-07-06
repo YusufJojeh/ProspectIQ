@@ -19,10 +19,12 @@ export const routes = {
   platformAdmin: "/app/admin",
   auditLogs: "/app/audit-logs",
   exports: "/app/exports",
+  providerHealth: "/app/provider-health",
   settings: "/app/settings",
   team: "/app/team",
   billing: "/app/billing",
   invoices: "/app/invoices",
   usage: "/app/usage",
   searchJobLeads: `/app/leads?search_job_id=${MOCK_IDS.seedJobId}`,
+  searchJobDetail: `/app/searches/jobs/${MOCK_IDS.seedJobId}`,
 } as const;

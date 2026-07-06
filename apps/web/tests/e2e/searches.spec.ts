@@ -95,3 +95,21 @@ test("searches page supports job inspection, clone, rerun, and lead navigation",
     await expectStableScreenshot(page.locator("main"), "searches-route.png");
   }
 });
+
+test("search job detail shows provider statuses without raw diagnostics", async ({
+  page,
+}) => {
+  await gotoPath(page, routes.searchJobDetail);
+
+  await expect(page.getByText(/provider status/i)).toBeVisible();
+  await expect(page.getByText("tavily", { exact: true })).toBeVisible();
+  await expect(page.getByText("serpapi", { exact: true })).toBeVisible();
+  await expect(page.getByText("openai", { exact: true })).toBeVisible();
+  await expect(page.getByText(/rate_limited/i)).toBeVisible();
+  await expect(page.getByText("429", { exact: true })).toBeVisible();
+
+  const mainBody = page.locator("main");
+  await expect(mainBody).not.toContainText(/api[_ -]?key/i);
+  await expect(mainBody).not.toContainText(/traceback/i);
+  await expect(mainBody).not.toContainText(/stack trace/i);
+});

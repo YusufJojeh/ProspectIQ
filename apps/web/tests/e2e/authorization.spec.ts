@@ -22,8 +22,14 @@ test("member cannot access admin-only governance routes", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "Billing", exact: true }),
   ).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: "Provider Health", exact: true }),
+  ).toHaveCount(0);
 
   await gotoPath(page, routes.admin);
+  await expect(page.getByText(/access restricted/i)).toBeVisible();
+
+  await gotoPath(page, routes.providerHealth);
   await expect(page.getByText(/access restricted/i)).toBeVisible();
 
   await gotoPath(page, routes.team);

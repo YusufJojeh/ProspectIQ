@@ -49,6 +49,11 @@ const governanceRoutes = [
     headingSelector: "text",
   },
   {
+    path: routes.providerHealth,
+    heading: /provider health/i,
+    headingSelector: "text",
+  },
+  {
     path: routes.auditLogs,
     heading: /every change, every actor/i,
     headingSelector: "text",
@@ -100,6 +105,10 @@ for (const route of governanceRoutes) {
       await expect(
         page.getByText(/usage is scoped to the current workspace/i),
       ).toBeVisible();
+    } else if (route.path === routes.providerHealth) {
+      await expect(page.getByText("Tavily", { exact: true })).toBeVisible();
+      await expect(page.getByText("SerpAPI", { exact: true })).toBeVisible();
+      await expect(page.getByText("OpenAI", { exact: true })).toBeVisible();
     } else if (route.path === routes.auditLogs) {
       await expect(page.getByText(/\d+ \/ \d+ events/i)).toBeVisible();
     } else if (route.path === routes.exports) {
