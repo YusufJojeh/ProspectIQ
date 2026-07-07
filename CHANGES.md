@@ -1,11 +1,28 @@
 # CHANGES
 
-## [Demo] Multi-Provider Discovery and Frontend Coverage - 2026-07-07
+## [Live] Multi-Provider Validation Pass - 2026-07-07
+
+### Added
+
+- `docs/live-provider-validation.md`: operator walkthrough for running Tavily + SerpAPI + OpenAI together in one live discovery job, including engine alias table and guardrails.
+- Provider Health entry in the mobile bottom navigation (admin/account_owner only) for parity with the desktop sidebar.
+
+### Fixed
+
+- Duplicate React keys on the search-job provider-status cards and Provider Health recent-failure rows when multiple fetches share a start timestamp (e.g. several `maps_place` enrichments in the same second).
+- `test_settings_load_defaults` no longer depends on the developer's local `.env` contents (asserts pydantic defaults via `_env_file=None`).
+
+### Validation
+
+- Live end-to-end product run (`from-prompt` GCC ERP/CRM query): job completed with Tavily search+extract, SerpAPI maps/web + 5 place enrichments, and OpenAI web discovery all `ok`; 19 leads persisted with scores and mixed-provider evidence; outreach draft and CRM deal created against a live lead.
+- Full gates: ruff check/format, mypy, pytest, `alembic upgrade head --sql`, eslint, tsc, vitest (28), `npm run build`, Playwright e2e, secret scan, `git diff --check`.
+
+## [Feature] Multi-Provider Discovery and Frontend Coverage - 2026-07-07
 
 ### Added
 
 - Wired `openai_web` into normal multi-provider discovery planning alongside `tavily_web`, `google_maps_search`, and `google_web`.
-- Added safe aliases for demo engine lists: `serpapi_maps`, `serpapi_web`, `openai`, and `openai_fallback`.
+- Added operator-facing engine list aliases: `serpapi_maps`, `serpapi_web`, `openai`, and `openai_fallback`.
 - Added provider status metadata to search job API responses and surfaced it on search job detail pages.
 - Added a workspace Provider Health page with sidebar navigation, role guard, loading/error/empty states, and sanitized provider diagnostics.
 - Added frontend coverage notes in `docs/frontend-coverage-and-demo.md`.
