@@ -100,12 +100,14 @@ export function ProviderHealthPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/20 px-4 py-3 text-sm">
-                <RadioTower className="size-4 text-muted-foreground" />
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-border bg-muted/20 px-4 py-3 text-sm">
+                <RadioTower className="size-4 shrink-0 text-muted-foreground" />
                 <span className="text-muted-foreground">
                   {t("providerHealth.runtime")}:
                 </span>
-                <span className="font-semibold text-foreground">{provider.status}</span>
+                <span className="font-semibold text-foreground break-all">
+                  {provider.status}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -178,9 +180,9 @@ export function ProviderHealthPage() {
         <CardContent>
           {health.recent_provider_failures.length ? (
             <div className="space-y-3">
-              {health.recent_provider_failures.map((failure) => (
+              {health.recent_provider_failures.map((failure, index) => (
                 <div
-                  key={`${failure.provider}-${failure.engine}-${failure.started_at}`}
+                  key={`${failure.provider}-${failure.engine}-${failure.started_at}-${index}`}
                   className="grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 md:grid-cols-[1fr_auto]"
                 >
                   <div>

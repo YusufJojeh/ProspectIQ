@@ -2,6 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Radar,
+  RadioTower,
   Users,
   Sparkles,
   Send,
@@ -98,6 +99,13 @@ const ITEMS = [
     shortLabelKey: "nav.usage",
     href: appPaths.usage,
     icon: FileDown,
+  },
+  {
+    labelKey: "nav.providerHealth",
+    shortLabelKey: "nav.providerHealth",
+    href: appPaths.providerHealth,
+    icon: RadioTower,
+    roles: ["account_owner", "admin"] as UserRole[],
   },
   {
     labelKey: "nav.exports",

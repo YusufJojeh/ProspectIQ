@@ -229,9 +229,9 @@ export function SearchJobDetailPage() {
         <CardContent>
           {job.provider_statuses?.length ? (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {job.provider_statuses.map((providerStatus) => (
+              {job.provider_statuses.map((providerStatus, index) => (
                 <div
-                  key={`${providerStatus.provider}-${providerStatus.engine}-${providerStatus.mode}-${providerStatus.started_at}`}
+                  key={`${providerStatus.provider}-${providerStatus.engine}-${providerStatus.mode}-${providerStatus.started_at}-${index}`}
                   className="rounded-2xl border border-border bg-muted/20 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
