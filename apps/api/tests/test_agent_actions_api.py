@@ -30,8 +30,12 @@ def test_agent_run_lifecycle_via_api_pauses_approves_and_resumes(monkeypatch) ->
         )
         assert create_response.status_code == 201
         run_payload = create_response.json()
-        assert run_payload["status"] == "waiting_for_approval"
+        # The request returns once the run is committed; the loop runs as a
+        # background task, which TestClient finishes before returning.
+        assert run_payload["status"] == "running"
         run_id = run_payload["run_id"]
+        parked = client.get(f"/api/v1/agent/runs/{run_id}", headers=headers).json()
+        assert parked["status"] == "waiting_for_approval"
 
         events_response = client.get(f"/api/v1/agent/runs/{run_id}/events", headers=headers)
         assert events_response.status_code == 200

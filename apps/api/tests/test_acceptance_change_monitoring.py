@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from agent_api_helpers import start_agent_run
 from agent_harness import (
     Decision,
     Transcript,
@@ -162,7 +163,7 @@ class _Scenario:
     def run(self) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         with _override_client(self.session_factory) as client:
             headers = {"Authorization": f"Bearer {_login(client, self.seed)}"}
-            run = client.post(
+            run = start_agent_run(client,
                 "/api/v1/agent/runs",
                 json={"goal": _GOAL, "lead_id": self.seed.lead_public_id, "profile": "sales_copilot"},
                 headers=headers,

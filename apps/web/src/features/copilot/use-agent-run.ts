@@ -286,8 +286,13 @@ export function useAgentRun(): UseAgentRun {
             : await rejectAgentAction(actionId, reason ? { reason } : {});
         if (gen !== generation.current) return;
         dispatch({ type: "action_synced", action });
-        await syncFromServer(runId, gen);
+        const run = await syncFromServer(runId, gen);
         if (action.status === "executed") invalidateLeadData();
+        // The server resumes the run in the background after the last pending
+        // decision; follow it live instead of waiting for the next snapshot.
+        if (run && !isTerminalRunStatus(run.status) && run.status !== "waiting_for_approval") {
+          void runStreamLoop(runId, gen);
+        }
       } catch (error) {
         if (gen !== generation.current) return;
         dispatch({ type: "decision_settled", actionId });
@@ -300,7 +305,7 @@ export function useAgentRun(): UseAgentRun {
         }
       }
     },
-    [invalidateLeadData, syncFromServer],
+    [invalidateLeadData, runStreamLoop, syncFromServer],
   );
 
   const approve = useCallback((actionId: string) => decide(actionId, "approve"), [decide]);

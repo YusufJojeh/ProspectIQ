@@ -156,6 +156,38 @@ describe("useAgentRun", () => {
     expect(server.streamUrls).toHaveLength(1);
   });
 
+  it("follows a run the server resumes in the background after approval", async () => {
+    server.streamBodies.push(
+      frame(1, "agent_started") + frame(2, "action_proposed") + frame(3, "waiting_for_approval"),
+    );
+    server.streamBodies.push(frame(4, "agent_resumed") + frame(5, "agent_completed"));
+    server.runStatus = "waiting_for_approval";
+    const fetchMock = installFetch(server);
+    const routed = fetchMock.getMockImplementation();
+    // Approval answers while the resumed run is still working; it finishes on the stream.
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await routed!(input, init);
+      const path = new URL(String(input), "http://localhost").pathname;
+      if (path.endsWith("/approve")) server.runStatus = "running";
+      if (path.endsWith("/stream") && server.streamUrls.length === 2) server.runStatus = "completed";
+      return response;
+    });
+
+    const { result } = renderHook(() => useAgentRun(), { wrapper });
+    await act(async () => {
+      await result.current.start({ goal: "Why?" });
+    });
+    await waitFor(() => expect(result.current.state.phase).toBe("waiting_for_approval"));
+
+    await act(async () => {
+      await result.current.approve("aact_1");
+    });
+
+    await waitFor(() => expect(result.current.state.phase).toBe("completed"));
+    expect(server.streamUrls).toHaveLength(2);
+    expect(server.streamUrls[1]).toContain("after_seq=3");
+  });
+
   it("reconnects from the last seen sequence when the stream closes while the run is still active", async () => {
     server.streamBodies.push(frame(1, "agent_started") + frame(2, "tool_requested", { tool_name: "get_lead_context" }));
     server.streamBodies.push(frame(3, "agent_completed"));

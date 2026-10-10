@@ -10,7 +10,8 @@ from typing import Any, Protocol
 
 import httpx
 from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings, get_settings
 from app.core.errors import ConflictError, NotFoundError
@@ -303,6 +304,31 @@ class AgentRuntime:
         goal: str,
         profile_key: str | None = None,
     ) -> AgentRun:
+        """Create the run and drive it inline until it pauses or ends."""
+        run = self.prepare_start(
+            db,
+            workspace_id=workspace_id,
+            lead=lead,
+            current_user=current_user,
+            goal=goal,
+            profile_key=profile_key,
+        )
+        if run.status != "running":
+            return run
+        return self._loop(db, run=run, lead=lead, current_user=current_user, settings=get_settings())
+
+    def prepare_start(
+        self,
+        db: Session,
+        *,
+        workspace_id: int,
+        lead: Lead | None,
+        current_user: User,
+        goal: str,
+        profile_key: str | None = None,
+    ) -> AgentRun:
+        """Create and commit a run ready for `_loop` (status `running`), or a
+        failed one when the runtime is blocked. Does not call the model."""
         settings = get_settings()
         profile = get_profile(profile_key)
         # The model is chosen here, before the run exists, by a pure
@@ -360,7 +386,53 @@ class AgentRuntime:
         self.repository.add_message(
             db, agent_run_id=run.id, workspace_id=workspace_id, role="user", content=goal
         )
-        return self._loop(db, run=run, lead=lead, current_user=current_user, settings=settings)
+        return run
+
+    def continue_in_background(
+        self,
+        session_factory: sessionmaker[Session],
+        *,
+        workspace_id: int,
+        run_id: int,
+        user_id: int,
+    ) -> None:
+        """Drive a prepared run to its next pause or end on a fresh session.
+
+        Scheduled as a background task after the request that prepared the
+        run has returned, so the SSE stream carries each event as it is
+        committed instead of replaying a run that already finished.
+        """
+        with session_factory() as db:
+            run = self.repository.get_run_by_id(db, workspace_id=workspace_id, run_id=run_id)
+            if run is None or run.status != "running":
+                return
+            user = db.get(User, user_id)
+            if user is None or user.workspace_id != workspace_id:
+                self._fail_run(
+                    db, run, code="agent_user_unavailable", message="The run's user no longer exists."
+                )
+                return
+            try:
+                self._loop(
+                    db,
+                    run=run,
+                    lead=self._run_lead(db, run),
+                    current_user=user,
+                    settings=get_settings(),
+                )
+            except Exception:
+                logger.exception("agent_run.background_failed run=%s", run.public_id)
+                db.rollback()
+                current = self.repository.get_run_by_id(
+                    db, workspace_id=workspace_id, run_id=run_id
+                )
+                if current is not None and current.status == "running":
+                    self._fail_run(
+                        db,
+                        current,
+                        code="agent_runtime_error",
+                        message="The agent stopped unexpectedly.",
+                    )
 
     def resume(self, db: Session, *, workspace_id: int, run_id: str, current_user: User) -> AgentRun:
         run = self.repository.get_run_by_public_id(db, workspace_id=workspace_id, run_id=run_id)
@@ -380,16 +452,47 @@ class AgentRuntime:
         finalizes a decision. If the run is waiting_for_approval and no
         other actions for it are still pending, the SAME run resumes here.
         """
+        run = self.prepare_resume_after_action(db, workspace_id=workspace_id, run_id=run_id)
+        if run is None:
+            return None
+        return self._loop(
+            db,
+            run=run,
+            lead=self._run_lead(db, run),
+            current_user=current_user,
+            settings=get_settings(),
+        )
+
+    def prepare_resume_after_action(
+        self, db: Session, *, workspace_id: int, run_id: int
+    ) -> AgentRun | None:
+        """Move a parked run back to `running` once its last pending action is
+        decided, without calling the model. None when it should not resume."""
         run = self.repository.get_run_by_id(db, workspace_id=workspace_id, run_id=run_id)
         if run is None or run.status != "waiting_for_approval":
             return None
         if self.repository.list_pending_actions_for_run(db, run.id):
             return None
-        return self._resume_from_actions(db, run=run, current_user=current_user)
+        return self._prepare_resume(db, run=run)
+
+    def _run_lead(self, db: Session, run: AgentRun) -> Lead | None:
+        if run.lead_id is None:
+            return None
+        return self.leads_repository.get_by_id_for_workspace(
+            db, workspace_id=run.workspace_id, lead_id=run.lead_id
+        )
 
     def _resume_from_actions(self, db: Session, *, run: AgentRun, current_user: User) -> AgentRun:
-        from sqlalchemy import select
+        run = self._prepare_resume(db, run=run)
+        return self._loop(
+            db,
+            run=run,
+            lead=self._run_lead(db, run),
+            current_user=current_user,
+            settings=get_settings(),
+        )
 
+    def _prepare_resume(self, db: Session, *, run: AgentRun) -> AgentRun:
         from app.modules.agents.models import AgentAction
 
         last_action = db.scalar(
@@ -425,16 +528,7 @@ class AgentRuntime:
         self.repository.add_event(
             db, agent_run_id=run.id, workspace_id=run.workspace_id, run_public_id=run.public_id, event_type=events.AGENT_RESUMED
         )
-        lead = (
-            self.leads_repository.get_by_id_for_workspace(
-                db, workspace_id=run.workspace_id, lead_id=run.lead_id
-            )
-            if run.lead_id is not None
-            else None
-        )
-        return self._loop(
-            db, run=run, lead=lead, current_user=current_user, settings=get_settings()
-        )
+        return run
 
     def cancel(self, db: Session, *, workspace_id: int, run_id: str) -> AgentRun:
         run = self.repository.get_run_by_public_id(db, workspace_id=workspace_id, run_id=run_id)
@@ -492,6 +586,8 @@ class AgentRuntime:
                 _forget_read_signatures(seen_signatures)
 
         while True:
+            if self._was_cancelled(db, run):
+                return run
             if run.step_count >= settings.agent_max_steps:
                 return self._finish_with_note(
                     db, run, "Run stopped: step budget exhausted.", budget="max_steps"
@@ -538,6 +634,9 @@ class AgentRuntime:
                         f"Last provider error: {exc}"
                     ),
                 )
+            if self._was_cancelled(db, run):
+                # Cancelled while the model was working: act on nothing it returned.
+                return run
             run.step_count += 1
             run.model_call_count += 1
             run.input_tokens += turn.input_tokens
@@ -584,6 +683,15 @@ class AgentRuntime:
                     )
             else:
                 consecutive_failures = 0
+
+    def _was_cancelled(self, db: Session, run: AgentRun) -> bool:
+        """Read the committed status, so a cancel from another request stops a
+        run executing in the background between steps."""
+        status = db.scalar(select(AgentRun.status).where(AgentRun.id == run.id))
+        if status != "cancelled":
+            return False
+        run.status = "cancelled"
+        return True
 
     # -- Cost, budgets and fallback ---------------------------------------
 

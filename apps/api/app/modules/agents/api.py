@@ -3,9 +3,9 @@ import queue
 import time
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -90,9 +90,31 @@ def _action_to_response(db: Session, action: AgentAction) -> AgentActionResponse
     )
 
 
+def _schedule_loop(
+    background_tasks: BackgroundTasks, db: Session, run: AgentRun, current_user: User
+) -> None:
+    """Run the agent loop after the response is sent.
+
+    The loop gets its own session on the request's engine: the request
+    session is closed by then, and reusing the bind keeps the task on
+    whatever database the request was served from.
+    """
+    session_factory = sessionmaker(
+        bind=db.get_bind(), autoflush=False, expire_on_commit=False, class_=Session
+    )
+    background_tasks.add_task(
+        _runtime.continue_in_background,
+        session_factory,
+        workspace_id=run.workspace_id,
+        run_id=run.id,
+        user_id=current_user.id,
+    )
+
+
 @router.post("/runs", response_model=AgentRunResponse, status_code=status.HTTP_201_CREATED)
 def create_run(
     payload: AgentRunCreateRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
     current_user: User = Depends(get_current_user),
@@ -104,7 +126,8 @@ def create_run(
         )
         if lead is None:
             raise NotFoundError("Lead was not found.")
-    run = _runtime.start(
+    # Returns as soon as the run is committed; progress arrives on the stream.
+    run = _runtime.prepare_start(
         db,
         workspace_id=workspace_id,
         lead=lead,
@@ -112,6 +135,8 @@ def create_run(
         goal=payload.goal,
         profile_key=payload.profile,
     )
+    if run.status == "running":
+        _schedule_loop(background_tasks, db, run, current_user)
     response = _run_to_response(run)
     response.lead_id = payload.lead_id
     return response
@@ -326,6 +351,16 @@ def list_actions(
     )
 
 
+def _resume_in_background(
+    background_tasks: BackgroundTasks, db: Session, action: AgentAction, current_user: User
+) -> None:
+    run = _runtime.prepare_resume_after_action(
+        db, workspace_id=action.workspace_id, run_id=action.agent_run_id
+    )
+    if run is not None:
+        _schedule_loop(background_tasks, db, run, current_user)
+
+
 def _get_action_or_raise(db: Session, *, workspace_id: int, action_id: str) -> AgentAction:
     action = _repository.get_action_by_public_id(db, workspace_id=workspace_id, action_id=action_id)
     if action is None:
@@ -346,6 +381,7 @@ def get_action(
 @router.post("/actions/{action_id}/approve", response_model=AgentActionResponse)
 def approve_action(
     action_id: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
     current_user: User = Depends(get_current_user),
@@ -356,9 +392,7 @@ def approve_action(
     action = _action_gate.approve(
         db, workspace_id=workspace_id, action_id=action_id, current_user=current_user
     )
-    _runtime.resume_after_action(
-        db, workspace_id=workspace_id, run_id=action.agent_run_id, current_user=current_user
-    )
+    _resume_in_background(background_tasks, db, action, current_user)
     db.refresh(action)
     return _action_to_response(db, action)
 
@@ -366,6 +400,7 @@ def approve_action(
 @router.post("/actions/{action_id}/reject", response_model=AgentActionResponse)
 def reject_action(
     action_id: str,
+    background_tasks: BackgroundTasks,
     payload: AgentActionRejectRequest,
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
@@ -381,9 +416,7 @@ def reject_action(
         current_user=current_user,
         reason=payload.reason,
     )
-    _runtime.resume_after_action(
-        db, workspace_id=workspace_id, run_id=action.agent_run_id, current_user=current_user
-    )
+    _resume_in_background(background_tasks, db, action, current_user)
     db.refresh(action)
     return _action_to_response(db, action)
 

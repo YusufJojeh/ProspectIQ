@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 import pytest
+from agent_api_helpers import start_agent_run
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from test_agent_runtime import _make_workspace_lead_user
@@ -125,7 +126,7 @@ def _run(session_factory: Any, seed: Any, *, goal: str = "Look at this lead.") -
     with _override_client(session_factory) as client:
         token = _login(client, seed)
         return dict(
-            client.post(
+            start_agent_run(client,
                 "/api/v1/agent/runs",
                 json={"goal": goal, "lead_id": seed.lead_public_id},
                 headers={"Authorization": f"Bearer {token}"},

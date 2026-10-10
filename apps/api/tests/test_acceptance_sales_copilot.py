@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 import pytest
+from agent_api_helpers import start_agent_run
 from test_agent_behavior_evals import _REAL_HTTPX_CLIENT, _env, _FakeResponse, _seed_knowledge
 from test_workspace_e2e import _build_session_factory, _login, _override_client, _seed_workspace
 
@@ -148,7 +149,7 @@ def test_main_acceptance_scenario_pauses_executes_on_approval_and_resumes_same_r
 
     with _override_client(session_factory) as client:
         headers = {"Authorization": f"Bearer {_login(client, seed)}"}
-        run = client.post(
+        run = start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": _GOAL, "lead_id": seed.lead_public_id, "profile": "sales_copilot"},
             headers=headers,

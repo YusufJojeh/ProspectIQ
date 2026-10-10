@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 import pytest
+from agent_api_helpers import start_agent_run
 from test_knowledge_rag import _collection, _document
 from test_workspace_e2e import _build_session_factory, _login, _override_client, _seed_workspace
 
@@ -185,7 +186,7 @@ def _start(session_factory: Any, seed: Any, *, goal: str, profile: str = "resear
     with _override_client(session_factory) as client:
         token = _login(client, seed)
         headers = {"Authorization": f"Bearer {token}"}
-        run = client.post(
+        run = start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": goal, "lead_id": seed.lead_public_id, "profile": profile},
             headers=headers,

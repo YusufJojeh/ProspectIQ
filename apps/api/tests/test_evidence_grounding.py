@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from agent_api_helpers import start_agent_run
 from agent_harness import Decision, Transcript, TranscriptProvider, add_fact
 from sqlalchemy import select
 from test_agent_behavior_evals import _env
@@ -41,12 +42,12 @@ def _setup(monkeypatch: pytest.MonkeyPatch, decide: Any) -> tuple[Any, Any, Tran
 def _run(session_factory: Any, seed: Any, goal: str = "What do we know?") -> dict[str, Any]:
     with _override_client(session_factory) as client:
         headers = {"Authorization": f"Bearer {_login(client, seed)}"}
-        response = client.post(
+        response = start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": goal, "lead_id": seed.lead_public_id, "profile": "research"},
             headers=headers,
         )
-        assert response.status_code == 201
+        assert response.status_code == 200
         payload: dict[str, Any] = response.json()
         return payload
 
@@ -177,7 +178,7 @@ def test_evidence_seen_before_a_pause_survives_same_run_resume(
 
     with _override_client(session_factory) as client:
         headers = {"Authorization": f"Bearer {_login(client, seed)}"}
-        run = client.post(
+        run = start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": "Review and note.", "lead_id": seed.lead_public_id, "profile": "research"},
             headers=headers,

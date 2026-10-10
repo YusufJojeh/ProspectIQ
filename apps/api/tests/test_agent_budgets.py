@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 import pytest
+from agent_api_helpers import start_agent_run
 from test_workspace_e2e import _build_session_factory, _login, _override_client, _seed_workspace
 
 import app.modules.agents.runtime as runtime_module
@@ -128,7 +129,7 @@ def _run_agent(session_factory: Any, seed: Any) -> dict[str, Any]:
         token = _login(client, seed)
         headers = {"Authorization": f"Bearer {token}"}
         return dict(
-            client.post(
+            start_agent_run(client,
                 "/api/v1/agent/runs",
                 json={"goal": "Keep looking at this lead.", "lead_id": seed.lead_public_id},
                 headers=headers,

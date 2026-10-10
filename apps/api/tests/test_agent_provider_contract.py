@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 import pytest
+from agent_api_helpers import start_agent_run
 from test_workspace_e2e import _build_session_factory, _login, _override_client, _seed_workspace
 
 import app.modules.agents.runtime as runtime_module
@@ -162,7 +163,7 @@ def test_runtime_follows_the_providers_dynamic_tool_choices(
     with _override_client(session_factory) as client:
         token = _login(client, seed)
         headers = {"Authorization": f"Bearer {token}"}
-        run = client.post(
+        run = start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": "Analyse and summarise.", "lead_id": seed.lead_public_id},
             headers=headers,
@@ -198,7 +199,7 @@ def test_provider_sees_growing_message_history_and_the_registry_tool_schemas(
     with _override_client(session_factory) as client:
         token = _login(client, seed)
         headers = {"Authorization": f"Bearer {token}"}
-        client.post(
+        start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": "Analyse and summarise.", "lead_id": seed.lead_public_id},
             headers=headers,
@@ -244,7 +245,7 @@ def test_unknown_tool_from_provider_is_rejected_not_executed(
     with _override_client(session_factory) as client:
         token = _login(client, seed)
         headers = {"Authorization": f"Bearer {token}"}
-        run = client.post(
+        run = start_agent_run(client,
             "/api/v1/agent/runs",
             json={"goal": "Try something unsupported.", "lead_id": seed.lead_public_id},
             headers=headers,

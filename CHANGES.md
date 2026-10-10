@@ -1,5 +1,25 @@
 # CHANGES
 
+## [Copilot] Agent runs stream live from a background task - 2026-10-10
+
+### Changed
+- `POST /api/v1/agent/runs` returns as soon as the run is committed (`status: running`). The agent loop then runs as a FastAPI background task, on its own session bound to the request's engine, so `GET /runs/{id}/stream` delivers each event as it happens instead of replaying a finished run. On a local server with the stub model, POST answered in 0.03 s and events arrived step by step after that.
+- Approve and reject work the same way: the last decision moves the run back to `running` and the loop continues in the background. `useAgentRun` re-opens the stream from the last seq it saw when the snapshot after a decision shows the run working again.
+- `AgentRuntime` has new `prepare_start` / `prepare_resume_after_action` / `continue_in_background`. `start` and `resume_after_action` still run the loop inline for callers that want that.
+
+### Fixed
+- Cancel now stops a working run: the loop reads the committed status before each step and again after each model call.
+- If the background loop raises, the run is marked `failed` (`agent_runtime_error`, with a generic message) instead of staying `running`.
+
+### Added
+- Tests:
+  - `tests/test_agent_background_runs.py` (POST returns before the model is called, the loop runs to the first pause, cancel before and during the loop, crash handling)
+  - `tests/agent_api_helpers.start_agent_run` for API tests that need the settled run
+  - a hook test that follows a run resumed in the background
+
+### Known limitations
+- A run whose process dies mid-loop (deploy, crash) stays `running`. Recovering it needs a durable queue or a sweeper.
+
 ## [Copilot] Standalone Sales Copilot page - 2026-10-10
 
 ### Added
@@ -9,9 +29,6 @@
 - Tests:
   - `tests/test_agent_workspace_run_tools.py`
   - `tests/e2e/copilot-page.spec.ts` (workspace run sends no lead; picking a lead binds it; clearing a lead unbinds it)
-
-### Known limitations
-- The agent loop still runs inside `POST /agent/runs`, so the SSE stream replays the run's events after it finishes instead of showing progress live.
 
 ## [Search UX] Job progress SSE now runs on the shared EventBroker - 2026-10-08
 
