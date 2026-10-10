@@ -11,6 +11,7 @@ export const routes = {
   leadDetail: `/app/leads/${MOCK_IDS.primaryLeadId}`,
   aiAnalysis: "/app/ai-analysis",
   assistant: "/app/assistant",
+  copilot: "/app/copilot",
   outreach: "/app/outreach",
   // Workspace-level admin dashboard (RequireRole: account_owner/admin).
   // Not to be confused with `/app/admin`, which is the separate

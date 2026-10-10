@@ -125,7 +125,9 @@
     "settingsTitle": "Loading settings",
     "settingsDescription": "Preparing operational configuration and audit views.",
     "auditLogsTitle": "Loading audit logs",
-    "auditLogsDescription": "Fetching tamper-evident event history."
+    "auditLogsDescription": "Fetching tamper-evident event history.",
+    "copilotTitle": "Loading Sales Copilot",
+    "copilotDescription": "Preparing the copilot workspace."
   },
   "command": {
     "placeholder": "Search leads, jobs, evidence, or run an action...",
@@ -156,7 +158,8 @@
     "exports": "Exports",
     "settings": "Settings",
     "operate": "Operate",
-    "govern": "Govern"
+    "govern": "Govern",
+    "copilot": "Copilot"
   },
   "mobileNav": {
     "home": "Home",
@@ -2241,6 +2244,29 @@
       "generic": "Something went wrong. Try again.",
       "network": "Could not reach the server. Check your connection.",
       "runFailed": "The run stopped before it could finish. You can ask again."
+    },
+    "workspaceDescription": "Ask about your offer, case studies and sales playbook. Pick a lead to have the copilot read its evidence and propose changes for your approval.",
+    "workspaceSuggestions": {
+      "services": "What services do we offer, and who are they best for?",
+      "caseStudies": "Which case studies should I mention to a dental clinic?",
+      "objections": "How should I handle \"it's too expensive\"?",
+      "playbook": "Summarize our discovery-call playbook"
+    },
+    "page": {
+      "title": "Sales Copilot",
+      "description": "An AI agent that researches leads, drafts outreach and proposes CRM changes. Nothing is saved or sent without your approval.",
+      "contextTitle": "Lead context",
+      "contextDescription": "Choose a lead to ground answers in its evidence, or leave it empty to ask about your sales knowledge.",
+      "workspaceMode": "No lead selected. The copilot will answer from your sales knowledge only.",
+      "pickLead": "Pick a lead",
+      "switchLead": "Switch to another lead",
+      "searchPlaceholder": "Search leads by name…",
+      "leadResults": "Matching leads",
+      "noLeads": "No leads match this search.",
+      "openLead": "Open lead",
+      "clearLead": "Clear",
+      "leadUnavailable": "This lead could not be loaded",
+      "leadsUnavailable": "Leads could not be loaded"
     }
   },
   "evidenceGraph": {

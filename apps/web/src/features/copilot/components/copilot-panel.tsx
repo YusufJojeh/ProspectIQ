@@ -19,6 +19,8 @@ import { ActivityList } from "./activity-list";
 import { FinalAnswerView, type EvidenceLabel } from "./final-answer";
 
 const SUGGESTION_KEYS = ["summarize", "outreach", "nextStep", "fit"] as const;
+/** Questions a run with no lead can answer from the sales knowledge base alone. */
+const WORKSPACE_SUGGESTION_KEYS = ["services", "caseStudies", "objections", "playbook"] as const;
 const GOAL_MAX_LENGTH = 2000;
 
 const PHASE_KEY: Record<CopilotPhase, string> = {
@@ -34,11 +36,12 @@ const PHASE_KEY: Record<CopilotPhase, string> = {
 };
 
 interface CopilotPanelProps {
-  leadId: string;
-  leadName: string;
+  /** Bind runs to this lead. Without one the copilot answers from sales knowledge only. */
+  leadId?: string | null;
+  leadName?: string;
 }
 
-export function CopilotPanel({ leadId, leadName }: CopilotPanelProps) {
+export function CopilotPanel({ leadId = null, leadName }: CopilotPanelProps) {
   const { t } = useTranslation();
   const { user } = useAuthSession();
   const { state, start, cancel, approve, reject, reset } = useAgentRun();
@@ -49,9 +52,9 @@ export function CopilotPanel({ leadId, leadName }: CopilotPanelProps) {
   const busy = isBusy(state.phase);
   const graphQuery = useQuery({
     queryKey: ["lead", leadId, "evidence-graph"],
-    queryFn: () => getLeadEvidenceGraph(leadId),
+    queryFn: () => getLeadEvidenceGraph(leadId ?? ""),
     // Only needed to label the citations in a finished answer.
-    enabled: state.phase === "completed",
+    enabled: leadId !== null && state.phase === "completed",
   });
 
   const evidenceIndex = useMemo(() => {
@@ -76,6 +79,9 @@ export function CopilotPanel({ leadId, leadName }: CopilotPanelProps) {
   const allActions = state.actionOrder.map((id) => state.actions[id]);
   const decidedActions = allActions.filter((action) => action.status !== "pending");
   const deciding = Object.keys(state.decisions).length > 0;
+  const suggestionKeys = leadId
+    ? SUGGESTION_KEYS.map((key) => `copilot.suggestions.${key}`)
+    : WORKSPACE_SUGGESTION_KEYS.map((key) => `copilot.workspaceSuggestions.${key}`);
   const showLoadingSkeleton = state.phase === "starting" && state.activity.length === 0;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -104,7 +110,9 @@ export function CopilotPanel({ leadId, leadName }: CopilotPanelProps) {
             </Badge>
           ) : null}
         </div>
-        <CardDescription>{t("copilot.description", { lead: leadName })}</CardDescription>
+        <CardDescription>
+          {leadId ? t("copilot.description", { lead: leadName }) : t("copilot.workspaceDescription")}
+        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
@@ -143,7 +151,7 @@ export function CopilotPanel({ leadId, leadName }: CopilotPanelProps) {
           </div>
           {state.phase === "idle" ? (
             <div className="flex flex-wrap gap-2" role="list" aria-label={t("copilot.suggestionsLabel")}>
-              {SUGGESTION_KEYS.map((key) => (
+              {suggestionKeys.map((key) => (
                 <Button
                   key={key}
                   type="button"
@@ -151,9 +159,9 @@ export function CopilotPanel({ leadId, leadName }: CopilotPanelProps) {
                   variant="outline"
                   role="listitem"
                   className="h-auto whitespace-normal bg-transparent py-1.5 text-start"
-                  onClick={() => ask(t(`copilot.suggestions.${key}`))}
+                  onClick={() => ask(t(key))}
                 >
-                  {t(`copilot.suggestions.${key}`)}
+                  {t(key)}
                 </Button>
               ))}
             </div>

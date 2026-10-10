@@ -17,6 +17,7 @@ import {
   Sparkles,
   Send,
   BookOpen,
+  Bot,
   Megaphone,
   ShieldCheck,
   ScrollText,
@@ -96,6 +97,10 @@ export function CommandMenu() {
           <CommandItem onSelect={() => go(appPaths.aiAnalysis)}>
             <Sparkles className="size-4" />
             {t("nav.aiAnalysis")}
+          </CommandItem>
+          <CommandItem onSelect={() => go(appPaths.copilot)}>
+            <Bot className="size-4" />
+            {t("nav.copilot")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.outreach)}>
             <Send className="size-4" />

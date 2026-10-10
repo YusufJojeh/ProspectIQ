@@ -1,5 +1,18 @@
 # CHANGES
 
+## [Copilot] Standalone Sales Copilot page - 2026-10-10
+
+### Added
+- `/app/copilot` (`features/copilot/routes/copilot-page.tsx`): the copilot used to live only inside lead detail, with no nav entry. It now has its own page, linked from the sidebar, the mobile nav and the command menu. A "Lead context" card lets you search for a lead and pick one, which stores it as `?leadId=` so the link can be shared, or clear it. With no lead picked, the copilot works in workspace mode.
+- Workspace mode: `CopilotPanel` takes an optional `leadId`. Without one it shows workspace suggestions (services, case studies, objections, playbook) and skips the evidence-graph query.
+- `runtime.tools_for_run`: a run with no lead is offered only RAG tools, minus `match_capabilities_to_lead`. The model is never handed lead read/write tools that would fail with "no lead bound".
+- Tests:
+  - `tests/test_agent_workspace_run_tools.py`
+  - `tests/e2e/copilot-page.spec.ts` (workspace run sends no lead; picking a lead binds it; clearing a lead unbinds it)
+
+### Known limitations
+- The agent loop still runs inside `POST /agent/runs`, so the SSE stream replays the run's events after it finishes instead of showing progress live.
+
 ## [Search UX] Job progress SSE now runs on the shared EventBroker - 2026-10-08
 
 ### Changed

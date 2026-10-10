@@ -27,6 +27,7 @@ from app.modules.agents.tool_registry import (
     RESEARCH,
     TOOL_REGISTRY,
     WRITE_PROPOSAL,
+    ToolDefinition,
     openai_tools_for,
     validate_arguments,
 )
@@ -170,6 +171,23 @@ class _OpenAIAgentCaller:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
         )
+
+
+_LEAD_BOUND_RAG_TOOLS = frozenset({"match_capabilities_to_lead"})
+
+
+def tools_for_run(profile: AgentProfile, *, role: str, has_lead: bool) -> list[ToolDefinition]:
+    """Tools described to the model for one run.
+
+    A workspace-level run (no lead bound) can only consult the sales knowledge
+    base: every lead tool would fail, so it is never offered.
+    """
+    tools = tools_for(profile, role=role)
+    if has_lead:
+        return tools
+    return [
+        tool for tool in tools if tool.tool_type == RAG and tool.name not in _LEAD_BOUND_RAG_TOOLS
+    ]
 
 
 class _StubAgentCaller:
@@ -458,7 +476,9 @@ class AgentRuntime:
         profile = get_profile(run.profile)
         # The provider only ever sees tools this profile AND this user's role
         # both allow, so an unavailable tool is never described to the model.
-        tool_defs = openai_tools_for(tools_for(profile, role=current_user.role))
+        tool_defs = openai_tools_for(
+            tools_for_run(profile, role=current_user.role, has_lead=lead is not None)
+        )
         started_at = time.monotonic()
         consecutive_failures = 0
         # Rebuilt in order so the same invalidation rule holds after a resume.

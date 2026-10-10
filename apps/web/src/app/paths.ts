@@ -8,6 +8,7 @@ export const appPaths = {
   leads: "/app/leads",
   aiAnalysis: "/app/ai-analysis",
   assistant: "/app/assistant",
+  copilot: "/app/copilot",
   outreach: "/app/outreach",
   knowledge: "/app/knowledge",
   campaigns: "/app/campaigns",

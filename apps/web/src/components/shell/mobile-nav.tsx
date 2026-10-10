@@ -7,6 +7,7 @@ import {
   Sparkles,
   Send,
   BookOpen,
+  Bot,
   Megaphone,
   ShieldCheck,
   ScrollText,
@@ -44,6 +45,12 @@ const ITEMS = [
     shortLabelKey: "mobileNav.ai",
     href: appPaths.aiAnalysis,
     icon: Sparkles,
+  },
+  {
+    labelKey: "nav.copilot",
+    shortLabelKey: "nav.copilot",
+    href: appPaths.copilot,
+    icon: Bot,
   },
   {
     labelKey: "nav.outreach",
