@@ -143,6 +143,8 @@ def create_run(
 
 
 def _get_run_or_raise(db: Session, *, workspace_id: int, run_id: str) -> AgentRun:
+    # Reads are where a run orphaned by a restart is noticed, as search jobs are.
+    _runtime.sweep_abandoned_runs(db, workspace_id=workspace_id)
     run = _repository.get_run_by_public_id(db, workspace_id=workspace_id, run_id=run_id)
     if run is None:
         raise NotFoundError("Agent run was not found.")
@@ -328,6 +330,7 @@ def list_actions(
     db: Session = Depends(get_db),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> AgentActionListResponse:
+    _runtime.sweep_abandoned_runs(db, workspace_id=workspace_id)
     agent_run_id: int | None = None
     if run_id is not None:
         run = _repository.get_run_by_public_id(db, workspace_id=workspace_id, run_id=run_id)

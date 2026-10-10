@@ -1,5 +1,17 @@
 # CHANGES
 
+## [Copilot] Abandoned agent runs are swept instead of staying `running` - 2026-10-10
+
+### Fixed
+- A run whose background loop died (restart, deploy, crash) stayed `running` forever. `AgentRuntime.sweep_abandoned_runs` now fails any `running` run whose row has not changed within the stale window (`error_code: agent_run_abandoned`, with a message asking the user to try again) and emits `agent_failed` so open streams close.
+- The window is `AGENT_STALE_RUN_SECONDS` (default 600) but never less than `AGENT_MAX_RUNTIME_SECONDS + 300`. The loop saves the run after every step, so a live run never goes stale.
+- Each run is failed with a conditional `UPDATE ... WHERE status = 'running' AND updated_at < cutoff`, so a run that progressed in the meantime is not overwritten. Runs parked at `waiting_for_approval` are never swept.
+- The sweep runs lazily for the caller's workspace on `GET /agent/runs/{id}`, the run stream and `GET /agent/actions`. Search jobs recover the same way, and these are the only paths that read agent runs. Swept runs are failed, not retried, because replaying a half-finished agent could repeat paid search and crawl calls.
+- The loop now stops when its run is no longer `running` (cancelled or swept), so a slow loop that was swept cannot overwrite the failure.
+
+### Added
+- `tests/test_agent_run_sweeper.py`.
+
 ## [Copilot] Agent runs stream live from a background task - 2026-10-10
 
 ### Changed
@@ -16,9 +28,6 @@
   - `tests/test_agent_background_runs.py` (POST returns before the model is called, the loop runs to the first pause, cancel before and during the loop, crash handling)
   - `tests/agent_api_helpers.start_agent_run` for API tests that need the settled run
   - a hook test that follows a run resumed in the background
-
-### Known limitations
-- A run whose process dies mid-loop (deploy, crash) stays `running`. Recovering it needs a durable queue or a sweeper.
 
 ## [Copilot] Standalone Sales Copilot page - 2026-10-10
 

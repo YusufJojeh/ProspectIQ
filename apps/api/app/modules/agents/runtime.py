@@ -10,7 +10,7 @@ from typing import Any, Protocol
 
 import httpx
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings, get_settings
@@ -586,7 +586,7 @@ class AgentRuntime:
                 _forget_read_signatures(seen_signatures)
 
         while True:
-            if self._was_cancelled(db, run):
+            if self._was_stopped(db, run):
                 return run
             if run.step_count >= settings.agent_max_steps:
                 return self._finish_with_note(
@@ -634,8 +634,8 @@ class AgentRuntime:
                         f"Last provider error: {exc}"
                     ),
                 )
-            if self._was_cancelled(db, run):
-                # Cancelled while the model was working: act on nothing it returned.
+            if self._was_stopped(db, run):
+                # Cancelled or swept while the model was working: act on nothing it returned.
                 return run
             run.step_count += 1
             run.model_call_count += 1
@@ -684,14 +684,74 @@ class AgentRuntime:
             else:
                 consecutive_failures = 0
 
-    def _was_cancelled(self, db: Session, run: AgentRun) -> bool:
-        """Read the committed status, so a cancel from another request stops a
-        run executing in the background between steps."""
+    def _was_stopped(self, db: Session, run: AgentRun) -> bool:
+        """Read the committed status, so a cancel from another request, or the
+        abandoned-run sweeper, stops a run executing in the background between
+        steps instead of being overwritten by it."""
         status = db.scalar(select(AgentRun.status).where(AgentRun.id == run.id))
-        if status != "cancelled":
+        if status is None or status == "running":
             return False
-        run.status = "cancelled"
+        run.status = status
         return True
+
+    def sweep_abandoned_runs(self, db: Session, *, workspace_id: int | None = None) -> int:
+        """Fail `running` runs whose background loop is gone.
+
+        The loop saves the run after every step, so a live run's `updated_at`
+        stays fresh; one untouched for longer than the stale window lost its
+        loop to a restart or crash. Each run is failed by a conditional
+        UPDATE, so a run that progressed in the meantime is never clobbered,
+        and an `agent_failed` event closes any stream still following it.
+        The run is not retried: replaying a half-finished agent could repeat
+        paid provider calls, and the user can simply ask again.
+        """
+        settings = get_settings()
+        stale_after = max(
+            settings.agent_stale_run_seconds, settings.agent_max_runtime_seconds + 300
+        )
+        now = datetime.now(tz=UTC)
+        cutoff = now - timedelta(seconds=stale_after)
+        query = select(AgentRun.id, AgentRun.workspace_id, AgentRun.public_id).where(
+            AgentRun.status == "running", AgentRun.updated_at < cutoff
+        )
+        if workspace_id is not None:
+            query = query.where(AgentRun.workspace_id == workspace_id)
+        candidates = db.execute(query).all()
+
+        swept = 0
+        for run_id, run_workspace_id, run_public_id in candidates:
+            result = db.execute(
+                update(AgentRun)
+                .where(
+                    AgentRun.id == run_id,
+                    AgentRun.status == "running",
+                    AgentRun.updated_at < cutoff,
+                )
+                .values(
+                    status="failed",
+                    error_code="agent_run_abandoned",
+                    error_message=(
+                        "The run stopped before it finished, most likely because the "
+                        "server restarted. Ask the question again to start a new run."
+                    ),
+                    completed_at=now,
+                    updated_at=now,
+                )
+            )
+            db.commit()
+            if getattr(result, "rowcount", 0) != 1:
+                continue
+            swept += 1
+            logger.warning("agent_run.abandoned_swept run=%s", run_public_id)
+            self.repository.add_event(
+                db,
+                agent_run_id=run_id,
+                workspace_id=run_workspace_id,
+                run_public_id=run_public_id,
+                event_type=events.AGENT_FAILED,
+                payload={"error_code": "agent_run_abandoned"},
+            )
+        return swept
 
     # -- Cost, budgets and fallback ---------------------------------------
 

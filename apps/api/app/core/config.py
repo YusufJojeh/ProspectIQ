@@ -170,6 +170,10 @@ class Settings(BaseSettings):
     #: recorded, never unlimited.
     agent_max_model_fallbacks: int = Field(default=1, ge=0, le=3)
     agent_max_runtime_seconds: int = Field(default=90, ge=10, le=600)
+    #: A `running` run whose row has not changed for this long has lost its
+    #: background loop (process restart, crash) and is failed by the sweeper.
+    #: Never below the runtime budget plus slack; see AgentRuntime.sweep_abandoned_runs.
+    agent_stale_run_seconds: int = Field(default=600, ge=120, le=7200)
     agent_max_tool_result_bytes: int = Field(default=16384, ge=1024, le=131072)
     agent_max_sources: int = Field(default=20, ge=1, le=100)
     agent_max_consecutive_tool_failures: int = Field(default=3, ge=1, le=10)
