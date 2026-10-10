@@ -97,6 +97,14 @@ const CopilotPage = lazy(async () => {
   const module = await import("@/features/copilot/routes/copilot-page");
   return { default: module.CopilotPage };
 });
+const ProposalsPage = lazy(async () => {
+  const module = await import("@/features/proposals/routes/proposals-page");
+  return { default: module.ProposalsPage };
+});
+const ProposalPage = lazy(async () => {
+  const module = await import("@/features/proposals/routes/proposal-page");
+  return { default: module.ProposalPage };
+});
 const KnowledgePage = lazy(async () => {
   const module = await import("@/features/knowledge/routes/knowledge-page");
   return { default: module.KnowledgePage };
@@ -333,6 +341,22 @@ function buildRouter() {
           element: lazyPage(OutreachPage, {
             title: i18n.t("routeLoading.outreachTitle"),
             description: i18n.t("routeLoading.outreachDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "proposals",
+          element: lazyPage(ProposalsPage, {
+            title: i18n.t("routeLoading.proposalsTitle"),
+            description: i18n.t("routeLoading.proposalsDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "proposals/:proposalId",
+          element: lazyPage(ProposalPage, {
+            title: i18n.t("routeLoading.proposalTitle"),
+            description: i18n.t("routeLoading.proposalDescription"),
             compact: true,
           }),
         },

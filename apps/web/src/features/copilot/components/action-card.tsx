@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ShieldAlert, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, FileText, ShieldAlert, X } from "lucide-react";
+
+import { appPaths } from "@/app/paths";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentAction } from "@/types/agent";
 
-import { actionStatusPresentation, buildActionView, isSendTool } from "../action-preview";
+import {
+  actionStatusPresentation,
+  buildActionView,
+  createdProposalId,
+  isSendTool,
+} from "../action-preview";
 
 interface ActionCardProps {
   action: AgentAction;
@@ -41,6 +49,7 @@ export function ActionCard({
   const pending = action.status === "pending";
   const busy = deciding !== null;
   const headingId = `action-${action.action_id}-title`;
+  const proposalId = createdProposalId(action);
 
   return (
     <article
@@ -81,12 +90,21 @@ export function ActionCard({
             <div key={row.labelKey} className={row.block ? "space-y-1" : "flex flex-wrap gap-x-2"}>
               <dt className="text-muted-foreground">{t(row.labelKey, { defaultValue: "" })}</dt>
               <dd className={row.block ? "whitespace-pre-line rounded-lg bg-muted/30 p-2.5" : "font-medium"}>
-                {row.value}
+                {row.translate ? t(row.value, { defaultValue: "" }) : row.value}
               </dd>
             </div>
           ))}
         </dl>
       )}
+
+      {proposalId ? (
+        <Button asChild size="sm" variant="outline" className="mt-3 bg-transparent">
+          <Link to={appPaths.proposalDetail(proposalId)}>
+            <FileText className="size-3.5" aria-hidden />
+            {t("copilot.actions.openProposal")}
+          </Link>
+        </Button>
+      ) : null}
 
       {isSendTool(action.tool_name) ? (
         <p className="mt-3 text-xs text-muted-foreground">{t("copilot.actions.sendDisabled")}</p>

@@ -199,6 +199,7 @@ export function toolActivityKey(toolName: string | null): string {
   if (toolName === "update_lead_stage") return "copilot.activity.proposingStage";
   if (toolName === "update_lead_tags") return "copilot.activity.proposingTags";
   if (toolName === "request_deep_research") return "copilot.activity.proposingResearch";
+  if (toolName === "draft_proposal") return "copilot.activity.proposingProposal";
   if (toolName.startsWith("send_")) return "copilot.activity.proposingSend";
   return "copilot.activity.working";
 }

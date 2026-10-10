@@ -18,6 +18,7 @@ import {
   Send,
   BookOpen,
   Bot,
+  FileSignature,
   Megaphone,
   ShieldCheck,
   ScrollText,
@@ -105,6 +106,10 @@ export function CommandMenu() {
           <CommandItem onSelect={() => go(appPaths.outreach)}>
             <Send className="size-4" />
             {t("nav.outreach")}
+          </CommandItem>
+          <CommandItem onSelect={() => go(appPaths.proposals)}>
+            <FileSignature className="size-4" />
+            {t("nav.proposals")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.knowledge)}>
             <BookOpen className="size-4" />

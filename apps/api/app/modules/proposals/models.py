@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+from typing import Any
+
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base
+from app.shared.utils.identifiers import new_public_id
+
+
+class Proposal(Base):
+    """A priced proposal / quotation for one lead, in one brand's layout.
+
+    Money is stored in minor units inside `milestones`; totals, deposit and
+    shares are always derived from those amounts and never stored, so a
+    document can never show a total that disagrees with its own lines.
+    """
+
+    __tablename__ = "proposals"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "number", name="uq_proposals_workspace_number"),
+        Index("ix_proposals_workspace_status", "workspace_id", "status"),
+        Index("ix_proposals_lead_created_at", "lead_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(24), unique=True, default=lambda: new_public_id("prop")
+    )
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
+    number: Mapped[str] = mapped_column(String(32))
+    brand_key: Mapped[str] = mapped_column(String(32))
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    title: Mapped[str] = mapped_column(String(255), default="")
+    client_company: Mapped[str] = mapped_column(String(255), default="")
+    client_contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    client_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    client_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    issue_date: Mapped[date] = mapped_column(Date())
+    valid_until: Mapped[date] = mapped_column(Date())
+    outcome: Mapped[str] = mapped_column(Text(), default="")
+    milestones: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    commercial_notes: Mapped[str] = mapped_column(Text(), default="")
+    validity_notes: Mapped[str] = mapped_column(Text(), default="")
+    sender_contact: Mapped[str] = mapped_column(String(255), default="")
+    #: Where the prices came from, when the copilot drafted it: the cited
+    #: pricing guidance, shown to the approver and kept for audit.
+    pricing_basis: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    source_agent_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))

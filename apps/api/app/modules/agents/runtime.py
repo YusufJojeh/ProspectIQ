@@ -567,6 +567,7 @@ class AgentRuntime:
         executor = AgentToolExecutor(
             db, workspace_id=run.workspace_id, lead=lead, current_user=current_user
         )
+        executor.run_public_id = run.public_id
         profile = get_profile(run.profile)
         # The provider only ever sees tools this profile AND this user's role
         # both allow, so an unavailable tool is never described to the model.

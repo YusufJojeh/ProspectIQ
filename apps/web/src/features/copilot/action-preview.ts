@@ -4,6 +4,8 @@ export interface PreviewRow {
   /** i18n key under `copilot.preview.fields.*`. */
   labelKey: string;
   value: string;
+  /** When set, the value is an i18n key rather than display text. */
+  translate?: boolean;
   /** Long free text renders as a block instead of an inline value. */
   block?: boolean;
 }
@@ -32,6 +34,7 @@ const TITLE_BY_TOOL: Record<string, string> = {
   update_lead_stage: "copilot.actions.stage",
   update_lead_tags: "copilot.actions.tags",
   request_deep_research: "copilot.actions.research",
+  draft_proposal: "copilot.actions.proposal",
   send_email: "copilot.actions.sendEmail",
   send_whatsapp: "copilot.actions.sendWhatsapp",
   send_linkedin_message: "copilot.actions.sendLinkedin",
@@ -62,7 +65,10 @@ function camelKey(field: string): string {
 }
 
 /** Fields whose values are long prose. */
-const BLOCK_FIELDS = new Set(["note", "body", "message"]);
+const BLOCK_FIELDS = new Set(["note", "body", "message", "milestones", "pricing_basis"]);
+
+/** Fields whose value is an enum the UI translates (`copilot.preview.values.<field>.<value>`). */
+const TRANSLATED_FIELDS = new Set(["pricing_status"]);
 
 /**
  * Builds the approver-facing view of an action preview. Every value is
@@ -77,11 +83,17 @@ export function buildActionView(action: AgentAction): ActionView {
   if (!draft) {
     for (const [field, raw] of Object.entries(preview)) {
       if (HIDDEN_FIELDS.has(field)) continue;
-      const value = scalar(raw);
+      // A list shown as a block reads one item per line.
+      const value =
+        BLOCK_FIELDS.has(field) && Array.isArray(raw)
+          ? scalar(raw.filter((item): item is string => typeof item === "string").join("\n"))
+          : scalar(raw);
       if (value === null) continue;
+      const translated = TRANSLATED_FIELDS.has(field);
       rows.push({
         labelKey: `copilot.preview.fields.${camelKey(field)}`,
-        value,
+        value: translated ? `copilot.preview.values.${camelKey(field)}.${value}` : value,
+        ...(translated ? { translate: true } : {}),
         ...(BLOCK_FIELDS.has(field) ? { block: true } : {}),
       });
     }
@@ -94,6 +106,13 @@ export function buildActionView(action: AgentAction): ActionView {
     irreversible: preview.irreversible === true,
     deliveryNote: typeof preview.delivery === "string" ? preview.delivery : null,
   };
+}
+
+/** The proposal a completed `draft_proposal` action created, if any. */
+export function createdProposalId(action: AgentAction): string | null {
+  if (action.tool_name !== "draft_proposal" || action.status !== "executed") return null;
+  const id = action.result?.proposal_id;
+  return typeof id === "string" && id !== "" ? id : null;
 }
 
 export function isSendTool(toolName: string): boolean {

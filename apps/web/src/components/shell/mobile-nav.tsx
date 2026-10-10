@@ -8,6 +8,7 @@ import {
   Send,
   BookOpen,
   Bot,
+  FileSignature,
   Megaphone,
   ShieldCheck,
   ScrollText,
@@ -57,6 +58,12 @@ const ITEMS = [
     shortLabelKey: "nav.outreach",
     href: appPaths.outreach,
     icon: Send,
+  },
+  {
+    labelKey: "nav.proposals",
+    shortLabelKey: "nav.proposals",
+    href: appPaths.proposals,
+    icon: FileSignature,
   },
   {
     labelKey: "nav.knowledge",

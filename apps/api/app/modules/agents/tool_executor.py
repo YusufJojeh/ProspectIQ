@@ -38,6 +38,9 @@ from app.modules.outreach.send_gateway import (
     SendRequest,
 )
 from app.modules.outreach.service import OutreachGenerationService
+from app.modules.proposals.brands import get_brand
+from app.modules.proposals.pricing import ground_milestone_amounts
+from app.modules.proposals.service import ProposalService
 from app.modules.research.agent_loop import ResearchAgentLoop
 from app.modules.research.repository import ResearchRepository
 from app.modules.research.tools import ResearchToolExecutor
@@ -116,6 +119,10 @@ class AgentToolExecutor:
         # the run never read is a claim the model supplied from memory.
         self.retrieved_grounding: list[str] = []
         self.rag_queries_performed = 0
+        #: Set by the runtime so drafted documents can name the run that
+        #: produced them.
+        self.run_public_id: str | None = None
+        self.proposal_service = ProposalService()
 
     @property
     def searches_performed(self) -> int:
@@ -350,6 +357,7 @@ class AgentToolExecutor:
             "update_lead_stage": self._preview_update_lead_stage,
             "update_lead_tags": self._preview_update_lead_tags,
             "request_deep_research": self._preview_request_deep_research,
+            "draft_proposal": self._preview_draft_proposal,
             "send_email": partial(self._preview_send, "send_email"),
             "send_whatsapp": partial(self._preview_send, "send_whatsapp"),
             "send_linkedin_message": partial(self._preview_send, "send_linkedin_message"),
@@ -435,6 +443,64 @@ class AgentToolExecutor:
         payload = {"depth": depth}
         preview = {"lead_id": self.lead.public_id, "depth": depth}
         return preview, payload, "research_run", self.lead.public_id
+
+    def _preview_draft_proposal(
+        self, arguments: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any], str, str]:
+        """Prices are the one thing in a proposal a model must not invent.
+
+        Each amount is kept only if it is backed by pricing this run actually
+        retrieved; anything else reaches the draft unpriced, and the document
+        cannot be marked ready until a person prices it.
+        """
+        assert self.lead is not None
+        brand = get_brand(str(arguments.get("brand") or ""))
+        if brand is None:
+            raise ApiError("Unknown proposal brand.")
+        currency = str(arguments.get("currency") or brand.default_currency).strip().upper()
+        if len(currency) != 3 or not currency.isalpha():
+            raise ApiError("currency must be a 3-letter ISO code such as USD.")
+        raw_lines = [item for item in arguments.get("milestones") or [] if isinstance(item, dict)]
+        grounding = ground_milestone_amounts(
+            [item.get("amount") for item in raw_lines], self.retrieved_grounding
+        )
+        milestones: list[dict[str, Any]] = [
+            {
+                "title": str(item.get("title") or "").strip(),
+                "description": str(item.get("description") or "").strip(),
+                "amount_minor": amount,
+            }
+            for item, amount in zip(raw_lines, grounding.amounts_minor, strict=True)
+        ]
+        payload = {
+            "brand": brand.key,
+            "language": arguments.get("language") or "en",
+            "title": str(arguments["title"]).strip(),
+            "outcome": str(arguments.get("outcome") or "").strip() or None,
+            "currency": currency,
+            "validity_days": arguments.get("validity_days") or brand.validity_days,
+            "milestones": milestones,
+            "commercial_notes": str(arguments.get("commercial_notes") or "").strip() or None,
+            "pricing_basis": str(arguments.get("pricing_basis") or "").strip() or None,
+            "source_agent_run_id": self.run_public_id,
+        }
+        total_minor = sum(amount or 0 for amount in grounding.amounts_minor)
+        preview = {
+            "lead_id": self.lead.public_id,
+            "brand": brand.name,
+            "title": payload["title"],
+            "client_company": self.lead.company_name,
+            "currency": currency,
+            "milestones": [
+                f"{line['title']} — "
+                + (f"{currency} {amount / 100:,.2f}" if amount is not None else "unpriced")
+                for line, amount in zip(milestones, grounding.amounts_minor, strict=True)
+            ],
+            "total": f"{currency} {total_minor / 100:,.2f}",
+            "pricing_status": grounding.status,
+            "pricing_basis": payload["pricing_basis"],
+        }
+        return preview, payload, "proposal", self.lead.public_id
 
     def _get_lead_notes(self, _arguments: dict[str, Any]) -> dict[str, Any]:
         assert self.lead is not None
@@ -607,6 +673,7 @@ class AgentToolExecutor:
             "update_lead_stage": self._execute_update_lead_stage,
             "update_lead_tags": self._execute_update_lead_tags,
             "request_deep_research": self._execute_request_deep_research,
+            "draft_proposal": self._execute_draft_proposal,
             "send_email": self._execute_send,
             "send_whatsapp": self._execute_send,
             "send_linkedin_message": self._execute_send,
@@ -799,6 +866,37 @@ class AgentToolExecutor:
         lead.enrichments = enrichments
         self.leads_repository.save(self.db, lead)
         return {"lead_id": lead.public_id, "tags": new_tags}
+
+    def _execute_draft_proposal(self, payload: dict[str, Any]) -> dict[str, Any]:
+        assert self.lead is not None
+        brand = get_brand(str(payload.get("brand") or ""))
+        if brand is None:
+            raise ApiError("Unknown proposal brand.")
+        proposal = self.proposal_service.create(
+            self.db,
+            workspace_id=self.workspace_id,
+            lead=self.lead,
+            brand=brand,
+            current_user=self.current_user,
+            language=str(payload.get("language") or "en"),
+            title=payload.get("title"),
+            outcome=payload.get("outcome"),
+            currency=payload.get("currency"),
+            validity_days=payload.get("validity_days"),
+            milestones=list(payload.get("milestones") or []),
+            commercial_notes=payload.get("commercial_notes"),
+            pricing_basis=payload.get("pricing_basis"),
+            source_agent_run_id=payload.get("source_agent_run_id"),
+        )
+        response = self.proposal_service.to_response(self.db, proposal)
+        return {
+            "proposal_id": response.public_id,
+            "number": response.number,
+            "status": response.status,
+            "total_minor": response.totals.total_minor,
+            "currency": response.currency,
+            "readiness_issues": response.readiness.issues,
+        }
 
     def _execute_request_deep_research(self, payload: dict[str, Any]) -> dict[str, Any]:
         assert self.lead is not None

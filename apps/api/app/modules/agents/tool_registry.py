@@ -5,6 +5,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.modules.knowledge.constants import COLLECTION_TYPES
+from app.modules.proposals.brands import BRAND_KEYS
 
 # --- The single authoritative tool registry -----------------------------
 #
@@ -370,6 +371,58 @@ WRITE_TOOLS: tuple[ToolDefinition, ...] = (
         risk_level=MEDIUM,
         requires_approval=True,
         resource_type="outreach_message",
+        required_permissions=(PERM_OUTREACH_WRITE,),
+        allowed_profiles=(PROFILE_RESEARCH, PROFILE_SALES_COPILOT, PROFILE_ADMIN_ASSISTANT),
+    ),
+    ToolDefinition(
+        name="draft_proposal",
+        description=(
+            "Draft a priced proposal / quotation for this lead in one of the workspace's "
+            "branded layouts. Call search_sales_knowledge for pricing_guidance, "
+            "past_proposals and proposal_templates FIRST: an amount is kept only when it "
+            "appears in pricing you retrieved this run (a package total split across "
+            "milestones counts), otherwise the line is left unpriced for the salesperson. "
+            "Amounts are in major units (1500 = 1,500.00). Requires human approval; it "
+            "creates a draft the salesperson reviews, prices and exports -- nothing is sent."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "brand": {"type": "string", "enum": list(BRAND_KEYS)},
+                "title": {"type": "string", "minLength": 1, "maxLength": 200},
+                "outcome": {"type": "string", "maxLength": 2000},
+                "currency": {"type": "string", "minLength": 3, "maxLength": 3},
+                "language": {"type": "string", "enum": ["en", "ar"]},
+                "validity_days": {"type": "integer", "minimum": 7, "maximum": 90},
+                "milestones": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "minLength": 1, "maxLength": 200},
+                            "description": {"type": "string", "maxLength": 600},
+                            "amount": {"type": "number", "minimum": 0, "maximum": 10000000000},
+                        },
+                        "required": ["title"],
+                        "additionalProperties": False,
+                    },
+                },
+                "commercial_notes": {"type": "string", "maxLength": 2000},
+                "pricing_basis": {
+                    "type": "string",
+                    "description": "Quote the retrieved pricing guidance the amounts come from.",
+                    "maxLength": 1000,
+                },
+            },
+            "required": ["brand", "title", "milestones"],
+            "additionalProperties": False,
+        },
+        tool_type=WRITE_PROPOSAL,
+        risk_level=MEDIUM,
+        requires_approval=True,
+        resource_type="proposal",
         required_permissions=(PERM_OUTREACH_WRITE,),
         allowed_profiles=(PROFILE_RESEARCH, PROFILE_SALES_COPILOT, PROFILE_ADMIN_ASSISTANT),
     ),

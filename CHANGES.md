@@ -1,5 +1,44 @@
 # CHANGES
 
+## [Proposals] Send-ready proposals and quotations, drafted by the Sales Copilot - 2026-10-11
+
+### Added
+- **Proposals module** (`app/modules/proposals`, migration `0027_proposals`):
+  - Branded proposal/quotation documents use the two client-operations kits' layout. Brand presets are `yusuf_jojeh` (YJ-Q numbers) and `hexaterminal` (HXT-Q numbers), each with its own colours, mark, signer, footer and default milestones, commercial notes and validity.
+  - Money is stored as integer minor units. The deposit, remaining amount and total are always derived from the milestones and never stored.
+  - Numbers are allocated per workspace and year, e.g. `YJ-Q-2026-001`. The workspace and number pair is unique, and creation retries if two proposals are created at the same moment.
+  - Statuses: `draft → ready → sent → accepted/declined`.
+    - `ready` requires the server-side checklist to pass: project name, client company, a valid client email, an outcome, at least one milestone, every milestone named and priced, valid dates that have not expired, and no `[template]` placeholders left in the text.
+    - Editing a ready proposal moves it back to draft. A sent proposal is locked.
+    - `sent` records that a person sent it. Nothing is emailed by the system.
+  - Every status change writes an audit log entry.
+- **Endpoints** under `/api/v1/proposals`, with existing auth and workspace scoping. Reads need `leads:view`; writes need `outreach:manage`.
+  - `GET /brands`
+  - `GET ?lead_id=`
+  - `POST`
+  - `GET/PATCH /{id}`
+  - `POST /{id}/ready`
+  - `POST /{id}/sent`
+  - `POST /{id}/decision`
+- **Copilot `draft_proposal` tool**:
+  - The tool needs approval and is available to the research, sales_copilot and admin profiles.
+  - Prices are grounded: the model's amount for a milestone is kept only if that amount, or the total of all milestones, appears in the knowledge excerpts retrieved during the run (pricing guidance, past proposals). Any other amount is dropped and the line is marked unpriced, so the copilot cannot invent prices.
+  - The approval card shows each milestone, the total and whether the pricing is grounded, partial or needs pricing.
+  - Once approved, the card links to the created proposal.
+  - The sales copilot profile is told to retrieve pricing before drafting.
+- **Web** (`features/proposals`):
+  - The Proposals page and nav entry, with a status filter.
+  - A proposals card on lead detail, with brand choice and a "New proposal" button.
+  - An editor built with RHF and Zod. The A4 preview updates as you type, in English or Arabic (RTL), for both brands.
+  - The readiness checklist.
+  - Download PDF uses the browser's print dialog with print styles for an A4 page.
+  - Copy cover email.
+  - Mark sent, which asks for confirmation.
+  - Accept and Decline.
+- Tests:
+  - `tests/test_proposals.py` (26 tests): document rules, price grounding, the lifecycle API, workspace isolation, and the copilot drafting with grounded prices but unable to invent them.
+  - `money.test.ts` and `form.test.ts`.
+
 ## [Copilot] Abandoned agent runs are swept instead of staying `running` - 2026-10-10
 
 ### Fixed

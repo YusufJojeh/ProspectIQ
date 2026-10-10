@@ -127,7 +127,11 @@
     "auditLogsTitle": "Loading audit logs",
     "auditLogsDescription": "Fetching tamper-evident event history.",
     "copilotTitle": "Loading Sales Copilot",
-    "copilotDescription": "Preparing the copilot workspace."
+    "copilotDescription": "Preparing the copilot workspace.",
+    "proposalsTitle": "Loading proposals",
+    "proposalsDescription": "Fetching your quotations.",
+    "proposalTitle": "Loading proposal",
+    "proposalDescription": "Preparing the document preview."
   },
   "command": {
     "placeholder": "Search leads, jobs, evidence, or run an action...",
@@ -159,7 +163,8 @@
     "settings": "Settings",
     "operate": "Operate",
     "govern": "Govern",
-    "copilot": "Copilot"
+    "copilot": "Copilot",
+    "proposals": "Proposals"
   },
   "mobileNav": {
     "home": "Home",
@@ -2153,7 +2158,8 @@
       "completed": "Finished",
       "failed": "The run stopped unexpectedly",
       "cancelled": "Stopped",
-      "budgetReached": "Reached a usage limit"
+      "budgetReached": "Reached a usage limit",
+      "proposingProposal": "Drafting a proposal for review"
     },
     "approvals": {
       "title": "Waiting for your approval",
@@ -2182,7 +2188,9 @@
       "irreversible": "This cannot be undone once applied.",
       "sendDisabled": "Sending is turned off in this workspace. Approving records the attempt but nothing is transmitted.",
       "failedNote": "The change could not be applied. Nothing was changed.",
-      "noPermission": "Your role can view this change but not approve it."
+      "noPermission": "Your role can view this change but not approve it.",
+      "proposal": "Draft a proposal",
+      "openProposal": "Open proposal"
     },
     "preview": {
       "current": "Current",
@@ -2200,7 +2208,21 @@
         "destination": "To",
         "subject": "Subject",
         "body": "Message",
-        "message": "Message"
+        "message": "Message",
+        "brand": "Brand",
+        "clientCompany": "Client",
+        "currency": "Currency",
+        "milestones": "Milestones",
+        "total": "Total",
+        "pricingStatus": "Pricing",
+        "pricingBasis": "Pricing source"
+      },
+      "values": {
+        "pricingStatus": {
+          "grounded": "Every price comes from your pricing guidance",
+          "partial": "Some lines are unpriced — you will price them in the editor",
+          "needs_pricing": "No pricing found — you will price every line in the editor"
+        }
       }
     },
     "status": {
@@ -2481,5 +2503,120 @@
       "archived": "Removed from answers.",
       "collectionCreated": "Collection created."
     }
+  },
+  "proposals": {
+    "title": "Proposals",
+    "eyebrow": "Proposal & quotation",
+    "description": "Branded, priced proposals for your leads — drafted by you or the Sales Copilot, checked before they go out.",
+    "detailDescription": "{{number}} · {{company}}",
+    "loadError": "Could not load proposals",
+    "openLead": "Open lead",
+    "editorTitle": "Proposal details",
+    "editorDescription": "Edit any field — the preview updates as you type. Prices are entered per milestone.",
+    "lockedDescription": "This proposal has been sent and is now locked.",
+    "sections": {
+      "client": "Client",
+      "milestones": "Milestones & pricing"
+    },
+    "fields": {
+      "brand": "Brand",
+      "language": "Document language",
+      "title": "Project name",
+      "clientCompany": "Client company",
+      "contactName": "Decision maker",
+      "clientEmail": "Client email",
+      "location": "City / country",
+      "currency": "Currency",
+      "issueDate": "Date",
+      "validUntil": "Valid until",
+      "outcome": "Outcome",
+      "milestoneTitle": "Milestone {{index}}",
+      "milestoneDescription": "Scope",
+      "amount": "Amount",
+      "commercialNotes": "Commercial notes",
+      "validityNotes": "Validity & exclusions",
+      "senderContact": "Footer contact"
+    },
+    "languages": {
+      "en": "English",
+      "ar": "Arabic"
+    },
+    "amountPlaceholder": "e.g. 1,500",
+    "addMilestone": "Add milestone",
+    "removeMilestone": "Remove milestone {{index}}",
+    "noMilestones": "No milestones yet. Add at least one priced milestone.",
+    "deposit": "Deposit",
+    "remaining": "Remaining",
+    "total": "Total",
+    "saving": "Saving…",
+    "saved": "Proposal saved",
+    "discardChanges": "Discard changes",
+    "fixFormErrors": "Fix the highlighted fields first.",
+    "sendTitle": "Send",
+    "sendHint": {
+      "draft": "Mark it ready once the checklist is clear, then download the PDF and send it from your email.",
+      "ready": "Ready to send. Download the PDF, attach it to your email, then mark it sent.",
+      "sent": "Sent. Record the client's decision when you hear back.",
+      "accepted": "Accepted by the client.",
+      "declined": "Declined by the client."
+    },
+    "markReady": "Mark ready",
+    "checking": "Checking…",
+    "markedReady": "Proposal is ready to send",
+    "downloadPdf": "Download PDF",
+    "copyCoverEmail": "Copy cover email",
+    "coverCopied": "Cover email copied",
+    "copyFailed": "Could not copy to the clipboard",
+    "markSent": "Mark sent",
+    "markedSent": "Proposal marked as sent",
+    "markAccepted": "Accepted",
+    "markDeclined": "Declined",
+    "saveBeforeExport": "Save your changes before exporting or sending.",
+    "confirmSentTitle": "Mark this proposal as sent?",
+    "confirmSentDescription": "Do this after you have emailed {{number}} to the client. A sent proposal is locked and can no longer be edited.",
+    "previewLabel": "Document preview",
+    "pricingBasis": "Prices based on",
+    "readyToSend": "Ready to send",
+    "notReady_one": "{{count}} thing to fix before sending",
+    "notReady_other": "{{count}} things to fix before sending",
+    "recheckAfterSave": "Unsaved changes — the checklist updates when you save.",
+    "issues": {
+      "missing_title": "Add a project name.",
+      "missing_client_company": "Add the client company.",
+      "missing_client_email": "Add the client's email address.",
+      "invalid_client_email": "The client email address is not valid.",
+      "missing_outcome": "Describe the outcome the client is buying.",
+      "no_milestones": "Add at least one milestone.",
+      "milestone_missing_title": "Every milestone needs a name.",
+      "milestone_missing_amount": "Price every milestone — unpriced lines are never filled in for you.",
+      "invalid_validity": "The validity date must be after the proposal date.",
+      "expired": "The validity date has passed. Extend it before sending.",
+      "placeholder_text": "Replace the [bracketed] template placeholders."
+    },
+    "errors": {
+      "invalid": "Check this value.",
+      "invalidAmount": "Enter an amount like 1500 or 1,500.50.",
+      "validityBeforeIssue": "Must be after the proposal date."
+    },
+    "status": {
+      "draft": "Draft",
+      "ready": "Ready",
+      "sent": "Sent",
+      "accepted": "Accepted",
+      "declined": "Declined"
+    },
+    "filterLabel": "Filter by status",
+    "filterAll": "All",
+    "emptyTitle": "No proposals yet",
+    "emptyDescription": "Create one from a lead, or ask the Sales Copilot to draft it from your pricing guidance.",
+    "pickLead": "Choose a lead",
+    "askCopilot": "Ask the copilot",
+    "untitled": "Untitled proposal",
+    "unpriced": "Not priced",
+    "complete": "Complete",
+    "newProposal": "New proposal",
+    "creating": "Creating…",
+    "leadCardTitle": "Proposals",
+    "leadCardDescription": "Priced quotations for this lead in your branded layout."
   }
 }

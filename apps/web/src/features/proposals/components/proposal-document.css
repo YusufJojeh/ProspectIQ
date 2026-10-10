@@ -1,0 +1,341 @@
+/*
+ * The "Proposal & Quotation" page of the client operations kits, scoped
+ * under .pq-doc. Brand tokens arrive as CSS variables on the element, so
+ * one stylesheet renders every brand preset.
+ */
+.pq-doc {
+  --pq-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --pq-font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  display: flex;
+  flex-direction: column;
+  padding: 18mm 17mm 9mm;
+  background: var(--pq-paper);
+  color: var(--pq-ink);
+  font-family: var(--pq-font-sans);
+  text-align: start;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.pq-doc *,
+.pq-doc *::before,
+.pq-doc *::after {
+  box-sizing: border-box;
+}
+.pq-doc h2,
+.pq-doc h3,
+.pq-doc p {
+  margin: 0;
+}
+.pq-doc h2 {
+  font-size: 20px;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  margin-bottom: 7px;
+  font-weight: 700;
+}
+.pq-doc h3 {
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+  font-weight: 700;
+}
+.pq-doc p {
+  font-size: 10.2px;
+  line-height: 1.55;
+  margin-bottom: 8px;
+  white-space: pre-line;
+}
+.pq-doc .pq-small {
+  font-size: 8.4px;
+  line-height: 1.45;
+}
+.pq-doc .pq-micro {
+  font-size: 7.4px;
+  line-height: 1.4;
+}
+.pq-doc .pq-muted {
+  color: var(--pq-muted);
+}
+.pq-doc .pq-mono {
+  font-family: var(--pq-font-mono);
+}
+.pq-doc .pq-section {
+  margin-top: 16px;
+}
+.pq-doc .pq-section.pq-tight {
+  margin-top: 10px;
+}
+.pq-doc .pq-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.pq-doc .pq-grid-head {
+  grid-template-columns: 1.2fr 0.8fr;
+}
+
+.pq-doc .pq-brandbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.pq-doc .pq-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pq-doc .pq-mark {
+  width: 34px;
+  height: 34px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  font: 800 11px/1 var(--pq-font-mono);
+  color: var(--pq-accent);
+  flex-shrink: 0;
+}
+.pq-doc .pq-mark span {
+  position: relative;
+  z-index: 1;
+}
+/* Yusuf Jojeh kit: outlined square with an underline and a dot. */
+.pq-doc .pq-mark-square {
+  border: 1px solid var(--pq-accent);
+  border-radius: 3px;
+}
+.pq-doc .pq-mark-square::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 4px;
+  height: 2px;
+  background: var(--pq-accent);
+  opacity: 0.9;
+}
+.pq-doc .pq-mark-square::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  right: 4px;
+  top: 4px;
+  background: var(--pq-accent-2);
+  border-radius: 50%;
+}
+.pq-doc .pq-mark-square span {
+  letter-spacing: 0.02em;
+  transform: translateY(-1px);
+}
+/* HexaTerminal kit: filled hexagon ring. */
+.pq-doc .pq-mark-hex {
+  font-weight: 700;
+  font-size: 12px;
+}
+.pq-doc .pq-mark-hex::before,
+.pq-doc .pq-mark-hex::after {
+  content: "";
+  position: absolute;
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
+}
+.pq-doc .pq-mark-hex::before {
+  inset: 1px;
+  background: var(--pq-accent);
+}
+.pq-doc .pq-mark-hex::after {
+  inset: 3px;
+  background: var(--pq-bg);
+}
+.pq-doc .pq-mark-hex span {
+  letter-spacing: -1px;
+}
+.pq-doc .pq-wordmark {
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pq-doc .pq-wordmark small {
+  display: block;
+  margin-top: 2px;
+  font: 500 7.5px/1.3 var(--pq-font-mono);
+  color: var(--pq-muted);
+  letter-spacing: 0.08em;
+}
+.pq-doc .pq-doc-code {
+  font: 600 9.5px/1.4 var(--pq-font-mono);
+  color: var(--pq-muted);
+  text-align: end;
+}
+.pq-doc .pq-accent-line {
+  height: 2px;
+  margin-top: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--pq-accent) 0 18%,
+    var(--pq-accent-2) 18% 26%,
+    transparent 26% 100%
+  );
+}
+.pq-doc[dir="rtl"] .pq-accent-line {
+  background: linear-gradient(
+    270deg,
+    var(--pq-accent) 0 18%,
+    var(--pq-accent-2) 18% 26%,
+    transparent 26% 100%
+  );
+}
+.pq-doc .pq-eyebrow {
+  font: 650 9px/1.2 var(--pq-font-mono);
+  color: var(--pq-accent);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.pq-doc .pq-kv {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 4px 12px;
+  font-size: 9.2px;
+  line-height: 1.45;
+  align-content: start;
+}
+.pq-doc .pq-kv b {
+  font: 600 7.8px/1.45 var(--pq-font-mono);
+  color: var(--pq-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pq-doc .pq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.2px;
+}
+.pq-doc .pq-table th {
+  text-align: start;
+  font: 650 7.7px/1.3 var(--pq-font-mono);
+  color: var(--pq-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--pq-line);
+  padding: 6px;
+}
+.pq-doc .pq-table td {
+  border-bottom: 1px solid var(--pq-line);
+  padding: 7px 6px;
+  vertical-align: top;
+  line-height: 1.35;
+}
+.pq-doc .pq-table .pq-num {
+  text-align: end;
+  font-family: var(--pq-font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pq-doc .pq-unpriced {
+  color: var(--pq-accent);
+  font-style: italic;
+}
+.pq-doc .pq-totals {
+  width: 48%;
+  margin-inline-start: auto;
+  margin-top: 10px;
+}
+.pq-doc .pq-totals .pq-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  font-size: 9px;
+  border-bottom: 1px solid var(--pq-line);
+}
+.pq-doc .pq-totals .pq-row strong {
+  font: 700 10px/1 var(--pq-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.pq-doc .pq-totals .pq-grand {
+  margin-top: 7px;
+  border: 0;
+  padding: 10px 11px;
+  background: var(--pq-ink);
+  color: #fff;
+  border-radius: calc(var(--pq-radius) + 2px);
+}
+
+.pq-doc .pq-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 18px;
+}
+.pq-doc .pq-signature {
+  padding-top: 26px;
+  border-bottom: 1px solid var(--pq-ink);
+  margin-bottom: 4px;
+}
+.pq-doc .pq-spacer {
+  flex: 1;
+  min-height: 12px;
+}
+.pq-doc .pq-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  font: 500 7.4px/1.2 var(--pq-font-mono);
+  color: var(--pq-muted);
+}
+
+/* On screen the A4 page is scaled to its container by .pq-scaler. */
+.pq-scaler-frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+.pq-scaler {
+  transform-origin: top left;
+  width: 210mm;
+}
+[dir="rtl"] .pq-scaler {
+  transform-origin: top right;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .pq-print-root,
+  .pq-print-root * {
+    visibility: visible !important;
+  }
+  .pq-scaler-frame {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .pq-scaler {
+    transform: none !important;
+  }
+  .pq-print-root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    box-shadow: none !important;
+  }
+}

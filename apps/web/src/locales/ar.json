@@ -127,7 +127,11 @@
     "auditLogsTitle": "جارٍ تحميل سجلات التدقيق",
     "auditLogsDescription": "جارٍ جلب سجل الأحداث القابل للتدقيق.",
     "copilotTitle": "جارٍ تحميل مساعد المبيعات",
-    "copilotDescription": "جارٍ تجهيز مساحة المساعد."
+    "copilotDescription": "جارٍ تجهيز مساحة المساعد.",
+    "proposalsTitle": "جارٍ تحميل العروض",
+    "proposalsDescription": "جارٍ جلب عروض الأسعار.",
+    "proposalTitle": "جارٍ تحميل العرض",
+    "proposalDescription": "جارٍ تجهيز معاينة المستند."
   },
   "command": {
     "placeholder": "ابحث في العملاء والمهام والأدلة أو نفّذ إجراءً...",
@@ -159,7 +163,8 @@
     "govern": "الحوكمة",
     "campaigns": "الحملات",
     "crm": "إدارة الصفقات",
-    "copilot": "المساعد الذكي"
+    "copilot": "المساعد الذكي",
+    "proposals": "العروض"
   },
   "mobileNav": {
     "home": "الرئيسية",
@@ -2161,7 +2166,8 @@
       "completed": "اكتمل",
       "failed": "توقف التشغيل بشكل غير متوقع",
       "cancelled": "تم الإيقاف",
-      "budgetReached": "تم بلوغ حد الاستخدام"
+      "budgetReached": "تم بلوغ حد الاستخدام",
+      "proposingProposal": "جارٍ إعداد عرض للمراجعة"
     },
     "approvals": {
       "title": "بانتظار موافقتك",
@@ -2190,7 +2196,9 @@
       "irreversible": "لا يمكن التراجع عن هذا بعد تطبيقه.",
       "sendDisabled": "الإرسال متوقف في مساحة العمل هذه. الموافقة تسجّل المحاولة فقط ولا يُرسل شيء.",
       "failedNote": "تعذّر تطبيق التغيير. لم يتغير شيء.",
-      "noPermission": "دورك يتيح عرض هذا التغيير دون الموافقة عليه."
+      "noPermission": "دورك يتيح عرض هذا التغيير دون الموافقة عليه.",
+      "proposal": "إعداد عرض سعر",
+      "openProposal": "فتح العرض"
     },
     "preview": {
       "current": "الحالي",
@@ -2208,7 +2216,21 @@
         "destination": "إلى",
         "subject": "الموضوع",
         "body": "الرسالة",
-        "message": "الرسالة"
+        "message": "الرسالة",
+        "brand": "العلامة",
+        "clientCompany": "العميل",
+        "currency": "العملة",
+        "milestones": "المراحل",
+        "total": "الإجمالي",
+        "pricingStatus": "التسعير",
+        "pricingBasis": "مصدر الأسعار"
+      },
+      "values": {
+        "pricingStatus": {
+          "grounded": "كل الأسعار مأخوذة من إرشادات التسعير لديك",
+          "partial": "بعض البنود غير مُسعّرة — ستسعّرها في المحرر",
+          "needs_pricing": "لم يُعثر على تسعير — ستسعّر كل البنود في المحرر"
+        }
       }
     },
     "status": {
@@ -2509,5 +2531,124 @@
       "archived": "أُزيل من الإجابات.",
       "collectionCreated": "أُنشئت المجموعة."
     }
+  },
+  "proposals": {
+    "title": "العروض",
+    "eyebrow": "عرض فني ومالي",
+    "description": "عروض أسعار مُسعّرة وبهوية علامتك لعملائك المحتملين — تُعدّها أنت أو مساعد المبيعات، وتُراجَع قبل إرسالها.",
+    "detailDescription": "{{number}} · {{company}}",
+    "loadError": "تعذّر تحميل العروض",
+    "openLead": "فتح العميل المحتمل",
+    "editorTitle": "تفاصيل العرض",
+    "editorDescription": "عدّل أي حقل وستتحدّث المعاينة فوراً. تُدخل الأسعار لكل مرحلة.",
+    "lockedDescription": "تم إرسال هذا العرض وأصبح مقفلاً.",
+    "sections": {
+      "client": "العميل",
+      "milestones": "المراحل والتسعير"
+    },
+    "fields": {
+      "brand": "العلامة",
+      "language": "لغة المستند",
+      "title": "اسم المشروع",
+      "clientCompany": "شركة العميل",
+      "contactName": "صاحب القرار",
+      "clientEmail": "بريد العميل",
+      "location": "المدينة / الدولة",
+      "currency": "العملة",
+      "issueDate": "التاريخ",
+      "validUntil": "صالح حتى",
+      "outcome": "النتيجة المتوقعة",
+      "milestoneTitle": "المرحلة {{index}}",
+      "milestoneDescription": "النطاق",
+      "amount": "المبلغ",
+      "commercialNotes": "ملاحظات تجارية",
+      "validityNotes": "الصلاحية والاستثناءات",
+      "senderContact": "بيانات التواصل في التذييل"
+    },
+    "languages": {
+      "en": "الإنجليزية",
+      "ar": "العربية"
+    },
+    "amountPlaceholder": "مثال: 1,500",
+    "addMilestone": "إضافة مرحلة",
+    "removeMilestone": "حذف المرحلة {{index}}",
+    "noMilestones": "لا توجد مراحل بعد. أضف مرحلة مُسعّرة واحدة على الأقل.",
+    "deposit": "الدفعة المقدمة",
+    "remaining": "المتبقي",
+    "total": "الإجمالي",
+    "saving": "جارٍ الحفظ…",
+    "saved": "تم حفظ العرض",
+    "discardChanges": "تجاهل التغييرات",
+    "fixFormErrors": "صحّح الحقول المحددة أولاً.",
+    "sendTitle": "الإرسال",
+    "sendHint": {
+      "draft": "اعتمده كجاهز بعد إكمال القائمة، ثم نزّل ملف PDF وأرسله من بريدك.",
+      "ready": "جاهز للإرسال. نزّل ملف PDF وأرفقه برسالتك، ثم سجّله كمُرسل.",
+      "sent": "تم الإرسال. سجّل قرار العميل عند وصول الرد.",
+      "accepted": "وافق العميل على العرض.",
+      "declined": "رفض العميل العرض."
+    },
+    "markReady": "اعتماد كجاهز",
+    "checking": "جارٍ التحقق…",
+    "markedReady": "العرض جاهز للإرسال",
+    "downloadPdf": "تنزيل PDF",
+    "copyCoverEmail": "نسخ رسالة التغطية",
+    "coverCopied": "تم نسخ رسالة التغطية",
+    "copyFailed": "تعذّر النسخ إلى الحافظة",
+    "markSent": "تسجيل كمُرسل",
+    "markedSent": "تم تسجيل العرض كمُرسل",
+    "markAccepted": "مقبول",
+    "markDeclined": "مرفوض",
+    "saveBeforeExport": "احفظ تغييراتك قبل التصدير أو الإرسال.",
+    "confirmSentTitle": "تسجيل هذا العرض كمُرسل؟",
+    "confirmSentDescription": "افعل ذلك بعد إرسال {{number}} إلى العميل بالبريد. العرض المُرسل يُقفل ولا يمكن تعديله.",
+    "previewLabel": "معاينة المستند",
+    "pricingBasis": "مصدر الأسعار",
+    "readyToSend": "جاهز للإرسال",
+    "notReady_zero": "لا شيء لإصلاحه",
+    "notReady_one": "أمر واحد يجب إصلاحه قبل الإرسال",
+    "notReady_two": "أمران يجب إصلاحهما قبل الإرسال",
+    "notReady_few": "{{count}} أمور يجب إصلاحها قبل الإرسال",
+    "notReady_many": "{{count}} أمراً يجب إصلاحه قبل الإرسال",
+    "notReady_other": "{{count}} أمر يجب إصلاحه قبل الإرسال",
+    "recheckAfterSave": "تغييرات غير محفوظة — تتحدّث القائمة عند الحفظ.",
+    "issues": {
+      "missing_title": "أضف اسم المشروع.",
+      "missing_client_company": "أضف شركة العميل.",
+      "missing_client_email": "أضف البريد الإلكتروني للعميل.",
+      "invalid_client_email": "بريد العميل الإلكتروني غير صالح.",
+      "missing_outcome": "صف النتيجة التي يشتريها العميل.",
+      "no_milestones": "أضف مرحلة واحدة على الأقل.",
+      "milestone_missing_title": "كل مرحلة تحتاج إلى اسم.",
+      "milestone_missing_amount": "سعّر كل مرحلة — لا تُملأ الأسعار نيابةً عنك أبداً.",
+      "invalid_validity": "يجب أن يكون تاريخ الصلاحية بعد تاريخ العرض.",
+      "expired": "انتهت صلاحية العرض. مدّدها قبل الإرسال.",
+      "placeholder_text": "استبدل العناصر النائبة بين [أقواس]."
+    },
+    "errors": {
+      "invalid": "تحقق من هذه القيمة.",
+      "invalidAmount": "أدخل مبلغاً مثل 1500 أو 1,500.50.",
+      "validityBeforeIssue": "يجب أن يكون بعد تاريخ العرض."
+    },
+    "status": {
+      "draft": "مسودة",
+      "ready": "جاهز",
+      "sent": "مُرسل",
+      "accepted": "مقبول",
+      "declined": "مرفوض"
+    },
+    "filterLabel": "تصفية حسب الحالة",
+    "filterAll": "الكل",
+    "emptyTitle": "لا توجد عروض بعد",
+    "emptyDescription": "أنشئ عرضاً من صفحة عميل محتمل، أو اطلب من مساعد المبيعات إعداده من إرشادات التسعير لديك.",
+    "pickLead": "اختر عميلاً محتملاً",
+    "askCopilot": "اسأل المساعد",
+    "untitled": "عرض بلا عنوان",
+    "unpriced": "غير مُسعّر",
+    "complete": "مكتمل",
+    "newProposal": "عرض جديد",
+    "creating": "جارٍ الإنشاء…",
+    "leadCardTitle": "العروض",
+    "leadCardDescription": "عروض أسعار مُسعّرة لهذا العميل بهوية علامتك."
   }
 }

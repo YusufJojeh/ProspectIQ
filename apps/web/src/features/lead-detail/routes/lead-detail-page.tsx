@@ -41,6 +41,7 @@ import {
 } from "@/features/ai-analysis/api";
 import { addCampaignLeads, listCampaigns } from "@/features/campaigns/api";
 import { CopilotPanel } from "@/features/copilot/components/copilot-panel";
+import { LeadProposalsCard } from "@/features/proposals/components/lead-proposals-card";
 import { EvidenceGraphPanel } from "@/features/leads/components/evidence-graph-panel";
 import { ResearchHistoryPanel } from "@/features/leads/components/research-history-panel";
 import { useAuthSession } from "@/features/auth/session";
@@ -763,6 +764,8 @@ export function LeadDetailPage() {
               });
             }}
           />
+
+          <LeadProposalsCard leadId={leadId} />
 
           <LeadOutreachPanel
             draft={latestOutreach}

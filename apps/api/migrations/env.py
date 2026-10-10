@@ -32,6 +32,7 @@ from app.modules.crm import models as crm_models  # noqa: F401
 from app.modules.knowledge import models as knowledge_models  # noqa: F401
 from app.modules.leads import models as lead_models  # noqa: F401
 from app.modules.outreach import models as outreach_models  # noqa: F401
+from app.modules.proposals import models as proposal_models  # noqa: F401
 from app.modules.provider_serpapi import models as provider_models  # noqa: F401
 from app.modules.research import models as research_models  # noqa: F401
 from app.modules.scoring import models as scoring_models  # noqa: F401

@@ -75,6 +75,12 @@ class ErrorCodes:
     EXPORT_NOT_FOUND = "export.not_found"
     EXPORT_GENERATION_FAILED = "export.generation_failed"
 
+    # Proposals
+    PROPOSAL_NOT_FOUND = "proposals.not_found"
+    PROPOSAL_CONFLICT = "proposals.conflict"
+    PROPOSAL_NOT_READY = "proposals.not_ready"
+    PROPOSAL_INVALID = "proposals.invalid"
+
     # Validation Errors (domain-specific)
     VALIDATION_INVALID_EMAIL = "validation.invalid_email"
     VALIDATION_INVALID_URL = "validation.invalid_url"

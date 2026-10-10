@@ -24,6 +24,7 @@ from app.modules.icp.api import router as icp_router
 from app.modules.knowledge.api import router as knowledge_router
 from app.modules.leads.api import router as leads_router
 from app.modules.outreach.api import router as outreach_router
+from app.modules.proposals.api import router as proposals_router
 from app.modules.search_jobs.api import router as search_jobs_router
 from app.modules.users.api import router as users_router
 from app.shared.responses import DatabaseHealthResponse, HealthCheckResponse
@@ -154,6 +155,7 @@ def register_application_routers(app: FastAPI) -> None:
     app.include_router(assistant_router)
     app.include_router(ai_analysis_router)
     app.include_router(outreach_router)
+    app.include_router(proposals_router)
     app.include_router(admin_router)
     app.include_router(audit_logs_router)
     app.include_router(exports_router)
