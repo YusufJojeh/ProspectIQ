@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterator
 from uuid import uuid4
 
@@ -23,6 +24,9 @@ from app.modules.leads.repository import LeadsRepository
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
+logger = logging.getLogger(__name__)
+
+_STREAM_ERROR_TEXT = "The assistant is temporarily unavailable. Please try again in a moment."
 
 
 def _to_sse(data: dict[str, object] | str) -> str:
@@ -37,6 +41,19 @@ def _to_ui_message_stream(token_iter: Iterator[str | AssistantStreamChunk]) -> I
 
     yield _to_sse({"type": "start", "messageId": message_id})
     yield _to_sse({"type": "text-start", "id": text_id})
+    try:
+        yield from _stream_parts(token_iter, text_id)
+    except Exception:
+        # The response has already started, so an HTTP error is no longer possible:
+        # report it in-band instead of silently truncating the stream.
+        logger.exception("assistant.stream.failed")
+        yield _to_sse({"type": "error", "errorText": _STREAM_ERROR_TEXT})
+    yield _to_sse({"type": "text-end", "id": text_id})
+    yield _to_sse({"type": "finish"})
+    yield _to_sse("[DONE]")
+
+
+def _stream_parts(token_iter: Iterator[str | AssistantStreamChunk], text_id: str) -> Iterator[str]:
     for token in token_iter:
         if isinstance(token, AssistantStreamChunk):
             if token.type == "search":
@@ -64,9 +81,6 @@ def _to_ui_message_stream(token_iter: Iterator[str | AssistantStreamChunk]) -> I
                     )
             continue
         yield _to_sse({"type": "text-delta", "id": text_id, "delta": token})
-    yield _to_sse({"type": "text-end", "id": text_id})
-    yield _to_sse({"type": "finish"})
-    yield _to_sse("[DONE]")
 
 
 def _session_lead_public_id(db: Session, lead_id: int | None) -> str | None:

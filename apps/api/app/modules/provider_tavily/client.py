@@ -16,7 +16,9 @@ from app.modules.provider_tavily.exceptions import ProviderConfigError
 
 TavilySdkClient: Any
 try:  # pragma: no cover - exercised by the guarded live smoke when installed.
-    from tavily import TavilyClient as TavilySdkClient  # type: ignore[import-not-found,no-redef]
+    from tavily import (  # type: ignore[import-not-found,import-untyped,no-redef,unused-ignore]
+        TavilyClient as TavilySdkClient,
+    )
 except ImportError:  # pragma: no cover - dependency installation is validated by gates.
     TavilySdkClient = None
 

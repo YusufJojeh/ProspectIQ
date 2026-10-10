@@ -112,6 +112,13 @@ class ProviderNormalizedFact(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.7)
     completeness: Mapped[float] = mapped_column(Float, default=0.5)
     facts_json: Mapped[dict[str, Any]] = mapped_column(JSON(), default=dict)
+    # 1.0 = observed in this fetch; decays as evidence ages. Populated by
+    # ResearchOrchestrator; providers outside the research flow default to
+    # "fresh" since they were just fetched.
+    freshness_score: Mapped[float] = mapped_column(Float, default=1.0)
+    # Apify run ID for provenance when source_type is an apify_* crawl;
+    # null for every other provider.
+    actor_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
 
 

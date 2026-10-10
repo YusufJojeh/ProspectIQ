@@ -114,3 +114,46 @@ def test_demo_discovery_mode_does_not_warn_about_missing_serpapi_key(monkeypatch
 
     assert settings.discovery_runtime == "demo"
     assert not any("SERPAPI_API_KEY" in warning for warning in settings.runtime_warnings)
+
+
+def _valid_production_env(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET", "x" * 40)
+    monkeypatch.setenv("WEB_ORIGINS", "https://example.com")
+    monkeypatch.setenv("SERPAPI_RUNTIME_MODE", "live")
+    monkeypatch.setenv("SERPAPI_API_KEY", "serp-key")
+    monkeypatch.setenv("AI_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-key")
+    monkeypatch.setenv("DEFAULT_ADMIN_PASSWORD", "strong-password-1234")
+
+
+def test_production_inmemory_broker_requires_single_worker_ack(monkeypatch) -> None:
+    _valid_production_env(monkeypatch)
+    monkeypatch.setenv("AGENT_EVENT_BROKER", "inmemory")
+    monkeypatch.setenv("AGENT_EVENT_BROKER_SINGLE_WORKER", "false")
+    clear_settings_cache()
+    try:
+        Settings()
+        raise AssertionError("inmemory broker must be refused in production without the ack.")
+    except ValueError as exc:
+        assert "AGENT_EVENT_BROKER=redis" in str(exc)
+
+    monkeypatch.setenv("AGENT_EVENT_BROKER_SINGLE_WORKER", "true")
+    clear_settings_cache()
+    assert Settings().agent_event_broker == "inmemory"
+
+
+def test_production_redis_broker_requires_redis_url(monkeypatch) -> None:
+    _valid_production_env(monkeypatch)
+    monkeypatch.setenv("AGENT_EVENT_BROKER", "redis")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    clear_settings_cache()
+    try:
+        Settings()
+        raise AssertionError("redis broker without REDIS_URL must be refused.")
+    except ValueError as exc:
+        assert "REDIS_URL" in str(exc)
+
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    clear_settings_cache()
+    assert Settings().agent_event_broker == "redis"

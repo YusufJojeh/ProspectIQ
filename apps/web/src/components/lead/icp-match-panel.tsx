@@ -105,7 +105,7 @@ export function LeadIcpMatchPanel({
         ) : (
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Select value={selectedProfileId} onValueChange={onProfileChange}>
-              <SelectTrigger className="h-11 rounded-xl bg-background/70 text-start">
+              <SelectTrigger aria-label={t("leadDetail.icp.selectProfile")} className="h-11 rounded-xl bg-background/70 text-start">
                 <SelectValue placeholder={t("leadDetail.icp.selectProfile")} />
               </SelectTrigger>
               <SelectContent>

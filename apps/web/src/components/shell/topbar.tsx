@@ -31,6 +31,7 @@ const SEGMENT_KEYS: Record<string, string> = {
   "ai-analysis": "nav.aiAnalysis",
   assistant: "nav.assistant",
   outreach: "nav.outreach",
+  knowledge: "nav.knowledge",
   admin: "nav.admin",
   team: "nav.team",
   billing: "nav.billing",

@@ -60,3 +60,6 @@ leads-*.png
 
 # Claude Code persistent memory (personal working notes, not a project deliverable)
 memory/
+
+# graphify knowledge-graph output (generated)
+graphify-out/

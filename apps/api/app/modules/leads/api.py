@@ -16,6 +16,7 @@ from app.modules.leads.schemas import (
     LeadNoteCreateRequest,
     LeadNoteResponse,
     LeadOutreachResponse,
+    LeadResearchRequest,
     LeadResearchResponse,
     LeadResponse,
     LeadScoreBreakdownResponse,
@@ -24,6 +25,8 @@ from app.modules.leads.schemas import (
 )
 from app.modules.leads.service import LeadsService
 from app.modules.outreach.schemas import OutreachGenerateRequest
+from app.modules.research.evidence_graph import EvidenceGraph
+from app.modules.research.schemas import ResearchHistoryResponse
 from app.modules.signals.schemas import LeadSignalsResponse
 from app.modules.signals.service import LeadSignalDetectorService
 from app.modules.users.models import User
@@ -161,6 +164,7 @@ def analyze_lead(
 @router.post("/{lead_id}/research", response_model=LeadResearchResponse)
 def research_lead(
     lead_id: str,
+    payload: LeadResearchRequest | None = Body(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
@@ -169,6 +173,8 @@ def research_lead(
         db,
         workspace_id,
         lead_id,
+        depth=payload.depth if payload else "quick",
+        mode=payload.mode if payload else "planned",
         current_user=current_user,
     )
 
@@ -243,6 +249,34 @@ def lead_score_breakdown(
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> LeadScoreBreakdownResponse:
     return LeadsService().score_breakdown(db, workspace_id, lead_id)
+
+
+@router.get("/{lead_id}/evidence-graph", response_model=EvidenceGraph)
+def lead_evidence_graph(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> EvidenceGraph:
+    return LeadsService().evidence_graph(db, workspace_id, lead_id)
+
+
+@router.get("/{lead_id}/research-history", response_model=ResearchHistoryResponse)
+def lead_research_history(
+    lead_id: str,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> ResearchHistoryResponse:
+    return LeadsService().research_history(
+        db,
+        workspace_id,
+        lead_id,
+        page=page,
+        per_page=per_page,
+    )
 
 
 @router.get("/{lead_id}/ai-evidence", response_model=LeadAiEvidenceResponse)

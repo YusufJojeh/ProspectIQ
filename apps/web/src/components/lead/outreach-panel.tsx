@@ -96,7 +96,7 @@ export function LeadOutreachPanel({
             value={tone}
             onValueChange={(value) => onToneChange(value as OutreachTone)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t("outreach.toneLabel")}>
               <SelectValue placeholder={t("outreach.toneLabel")} />
             </SelectTrigger>
             <SelectContent>
@@ -180,6 +180,7 @@ export function LeadOutreachPanel({
                 {sending ? t("common.loading") : t("outreach.send")}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">{t("outreach.sendNote")}</p>
           </>
         ) : (
           <QueryStateNotice

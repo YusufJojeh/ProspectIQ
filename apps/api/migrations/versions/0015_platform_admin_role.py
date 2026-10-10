@@ -7,6 +7,8 @@ Create Date: 2026-06-25
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import sqlalchemy as sa
 from alembic import context, op
 
@@ -26,6 +28,7 @@ def upgrade() -> None:
         sa.column("key", sa.String),
         sa.column("label", sa.String),
         sa.column("description", sa.Text),
+        sa.column("created_at", sa.DateTime),
     )
 
     if bind is not None:
@@ -44,6 +47,7 @@ def upgrade() -> None:
                 "key": _ROLE_KEY,
                 "label": "Platform Admin",
                 "description": "Platform-level SaaS operator access.",
+                "created_at": datetime.now(tz=UTC),
             }
         ],
     )

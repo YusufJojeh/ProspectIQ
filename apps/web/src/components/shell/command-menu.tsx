@@ -16,6 +16,7 @@ import {
   Users,
   Sparkles,
   Send,
+  BookOpen,
   Megaphone,
   ShieldCheck,
   ScrollText,
@@ -99,6 +100,10 @@ export function CommandMenu() {
           <CommandItem onSelect={() => go(appPaths.outreach)}>
             <Send className="size-4" />
             {t("nav.outreach")}
+          </CommandItem>
+          <CommandItem onSelect={() => go(appPaths.knowledge)}>
+            <BookOpen className="size-4" />
+            {t("nav.knowledge")}
           </CommandItem>
           <CommandItem onSelect={() => go(appPaths.campaigns)}>
             <Megaphone className="size-4" />

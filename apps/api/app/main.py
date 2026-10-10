@@ -11,6 +11,7 @@ from app.core.logging import setup_logging
 from app.core.middleware import add_cors_middleware, add_http_middleware
 from app.core.runtime_health import probe_ollama, probe_serpapi
 from app.modules.admin.api import router as admin_router
+from app.modules.agents.api import router as agents_router
 from app.modules.ai_analysis.api import router as ai_analysis_router
 from app.modules.assistant.api import router as assistant_router
 from app.modules.audit_logs.api import router as audit_logs_router
@@ -20,10 +21,10 @@ from app.modules.campaigns.api import router as campaigns_router
 from app.modules.crm.api import router as crm_router
 from app.modules.exports.api import router as exports_router
 from app.modules.icp.api import router as icp_router
+from app.modules.knowledge.api import router as knowledge_router
 from app.modules.leads.api import router as leads_router
 from app.modules.outreach.api import router as outreach_router
 from app.modules.search_jobs.api import router as search_jobs_router
-from app.modules.search_jobs.router_v2 import router as search_jobs_v2_router
 from app.modules.users.api import router as users_router
 from app.shared.responses import DatabaseHealthResponse, HealthCheckResponse
 
@@ -61,6 +62,22 @@ async def app_lifespan(_: FastAPI) -> AsyncIterator[None]:
         serpapi_probe.configured,
         serpapi_probe.reachable,
         serpapi_probe.detail,
+    )
+
+    from app.modules.agents.events import RedisAgentEventBroker, get_event_broker
+
+    event_broker = get_event_broker()
+    if isinstance(event_broker, RedisAgentEventBroker):
+        # Fail at boot, not on the first stream: a production deployment that
+        # asked for cross-worker SSE must actually have it.
+        try:
+            event_broker.ping()
+        except Exception as exc:
+            raise RuntimeError(
+                "AGENT_EVENT_BROKER=redis but Redis is unreachable at REDIS_URL."
+            ) from exc
+    logger.info(
+        "agent_events.broker name=%s multi_worker=%s", event_broker.name, event_broker.multi_worker
     )
 
     if settings.analysis_runtime == "ollama":
@@ -132,7 +149,6 @@ def register_application_routers(app: FastAPI) -> None:
     app.include_router(campaigns_router)
     app.include_router(crm_router)
     app.include_router(search_jobs_router)
-    app.include_router(search_jobs_v2_router)
     app.include_router(icp_router)
     app.include_router(leads_router)
     app.include_router(assistant_router)
@@ -141,6 +157,8 @@ def register_application_routers(app: FastAPI) -> None:
     app.include_router(admin_router)
     app.include_router(audit_logs_router)
     app.include_router(exports_router)
+    app.include_router(agents_router)
+    app.include_router(knowledge_router)
 
 
 def create_app() -> FastAPI:

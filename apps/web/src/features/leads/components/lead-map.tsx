@@ -104,6 +104,7 @@ const LeadMarker = memo(function LeadMarker({
       eventHandlers={eventHandlers}
       icon={markerIcon}
       position={toLatLngTuple(lead)}
+      title={lead.company_name}
       zIndexOffset={isSelected ? 1000 : 0}
     >
       <Popup closeButton={false}>

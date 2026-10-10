@@ -12,6 +12,7 @@ import {
   RadioTower,
   ScrollText,
   Send,
+  BookOpen,
   Megaphone,
   Settings,
   ShieldCheck,
@@ -61,6 +62,7 @@ const PRIMARY: NavItem[] = [
     icon: MessageSquareText,
   },
   { labelKey: "nav.outreach", href: appPaths.outreach, icon: Send },
+  { labelKey: "nav.knowledge", href: appPaths.knowledge, icon: BookOpen },
   { labelKey: "nav.campaigns", href: appPaths.campaigns, icon: Megaphone },
   { labelKey: "nav.crm", href: appPaths.crm, icon: BriefcaseBusiness },
 ];

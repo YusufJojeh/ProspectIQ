@@ -19,17 +19,21 @@ from sqlalchemy import (
 from app.core.config import get_settings
 from app.core.database import Base
 from app.modules.admin import models as admin_models  # noqa: F401
+from app.modules.agents import models as agent_models  # noqa: F401
 
 # Import models so Base.metadata is populated for autogenerate.
 from app.modules.ai_analysis import models as ai_models  # noqa: F401
+from app.modules.ai_runtime import models as ai_runtime_models  # noqa: F401
 from app.modules.assistant import models as assistant_models  # noqa: F401
 from app.modules.audit_logs import models as audit_models  # noqa: F401
 from app.modules.billing import models as billing_models  # noqa: F401
 from app.modules.campaigns import models as campaign_models  # noqa: F401
 from app.modules.crm import models as crm_models  # noqa: F401
+from app.modules.knowledge import models as knowledge_models  # noqa: F401
 from app.modules.leads import models as lead_models  # noqa: F401
 from app.modules.outreach import models as outreach_models  # noqa: F401
 from app.modules.provider_serpapi import models as provider_models  # noqa: F401
+from app.modules.research import models as research_models  # noqa: F401
 from app.modules.scoring import models as scoring_models  # noqa: F401
 from app.modules.search_jobs import models as search_job_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401

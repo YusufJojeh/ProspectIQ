@@ -195,7 +195,9 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
               </span>
               {displayDraft.outreach_status !== "draft" && (
                 <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
-                  {displayDraft.outreach_status}
+                  {t(`leads.outreachStatus.${displayDraft.outreach_status}`, {
+                    defaultValue: displayDraft.outreach_status,
+                  })}
                 </span>
               )}
             </div>
@@ -214,6 +216,9 @@ function OutreachCard({ lead }: { lead: LeadResponse }) {
                 )}
                 {t("outreach.send")}
               </Button>
+            )}
+            {displayDraft.outreach_status === "draft" && (
+              <p className="basis-full text-[11px] text-muted-foreground">{t("outreach.sendNote")}</p>
             )}
           </div>
         </div>

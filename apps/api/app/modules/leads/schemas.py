@@ -83,6 +83,11 @@ class LeadOutreachResponse(BaseModel):
     message: OutreachMessageResult
 
 
+class LeadResearchRequest(BaseModel):
+    depth: Literal["quick", "standard", "deep"] = "quick"
+    mode: Literal["planned", "agentic"] = "planned"
+
+
 class LeadResearchResponse(BaseModel):
     lead_id: str
     provider_fetch_id: str
@@ -90,6 +95,11 @@ class LeadResearchResponse(BaseModel):
     status: str
     request_id: str | None = None
     message: str
+    depth: Literal["quick", "standard", "deep"] = "quick"
+    mode: Literal["planned", "agentic"] = "planned"
+    providers_used: list[str] = Field(default_factory=list)
+    contradictions_detected: int = 0
+    tool_calls_made: int = 0
 
 
 class LeadAssignRequest(BaseModel):

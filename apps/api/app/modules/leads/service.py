@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.modules.ai_analysis.service import AIAnalysisService
 from app.modules.audit_logs.service import AuditLogService
@@ -30,16 +30,29 @@ from app.modules.leads.schemas import (
 from app.modules.outreach.repository import OutreachRepository
 from app.modules.outreach.schemas import OutreachGenerateRequest
 from app.modules.outreach.service import OutreachGenerationService
-from app.modules.provider_serpapi.models import ProviderNormalizedFact
-from app.modules.provider_tavily.demo_service import DemoTavilyService
-from app.modules.provider_tavily.service import TavilyService
+from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
+from app.modules.research.agent_loop import ResearchAgentLoop
+from app.modules.research.delta import DeltaIntelligenceService
+from app.modules.research.evidence_graph import EvidenceGraph, EvidenceGraphBuilder
+from app.modules.research.orchestrator import ResearchOrchestrator
+from app.modules.research.repository import ResearchRepository
+from app.modules.research.schemas import (
+    ResearchDepth,
+    ResearchHistoryChange,
+    ResearchHistoryItem,
+    ResearchHistoryPagination,
+    ResearchHistoryResponse,
+    ResearchMode,
+)
 from app.modules.scoring.models import LeadScore
 from app.modules.scoring.repository import ScoringRepository
 from app.modules.signals.repository import LeadSignalRepository, LeadSignalSummary
 from app.modules.users.models import User
-from app.shared.enums.jobs import LeadScoreBand, LeadStatus, ProviderFetchStatus
+from app.shared.enums.jobs import LeadScoreBand, LeadStatus
 from app.shared.pagination.schemas import PaginationMeta
 from app.shared.services.lead_intelligence import LeadIntelligenceService
+
+logger = logging.getLogger(__name__)
 
 
 class LeadsService:
@@ -53,6 +66,12 @@ class LeadsService:
         self.scoring_repository = ScoringRepository()
         self.signal_repository = LeadSignalRepository()
         self.lead_intelligence = LeadIntelligenceService()
+        self.research_orchestrator = ResearchOrchestrator()
+        self.research_agent_loop = ResearchAgentLoop()
+        self.evidence_repository = ProviderEvidenceRepository()
+        self.evidence_graph_builder = EvidenceGraphBuilder()
+        self.delta_intelligence = DeltaIntelligenceService()
+        self.research_repository = ResearchRepository()
 
     def list_leads(
         self,
@@ -234,52 +253,57 @@ class LeadsService:
         workspace_id: int,
         lead_id: str,
         *,
+        depth: ResearchDepth = "quick",
+        mode: ResearchMode = "planned",
         current_user: User,
     ) -> LeadResearchResponse:
-        settings = get_settings()
-        if settings.tavily_runtime == "blocked" or not (
-            settings.has_tavily_configured or settings.tavily_runtime in {"demo", "stub"}
-        ):
+        lead = self._get_or_raise(db, workspace_id, lead_id)
+        runner = self.research_agent_loop if mode == "agentic" else self.research_orchestrator
+        result = runner.run(db, workspace_id=workspace_id, lead=lead, depth=depth)
+        if result.last_provider_fetch_public_id is None:
             raise ServiceUnavailableError(
-                "Tavily research is unavailable because TAVILY_API_KEY is not configured."
+                f"Research is unavailable because no research providers succeeded for "
+                f"depth={depth}, mode={mode}."
             )
 
-        lead = self._get_or_raise(db, workspace_id, lead_id)
-        service = (
-            DemoTavilyService() if settings.tavily_runtime in {"demo", "stub"} else TavilyService()
-        )
-        query = self._build_tavily_research_query(lead)
-        fetch, payload = service.research(
-            db,
-            workspace_id=workspace_id,
-            search_job_id=lead.search_job_id,
-            query=query,
-        )
-        request_id_value = payload.get("request_id")
-        request_id = str(request_id_value) if request_id_value is not None else None
-        status = fetch.status
-        if fetch.status == ProviderFetchStatus.OK.value:
-            self._persist_tavily_research_fact(
-                db, lead=lead, provider_fetch_id=fetch.id, payload=payload
+        try:
+            self.delta_intelligence.process_completed_run(
+                db,
+                workspace_id=workspace_id,
+                lead=lead,
+                depth=depth,
+                mode=mode,
+                status=result.status,
+                providers_used=result.providers_used,
+            )
+        except Exception:
+            logger.exception(
+                "delta_intelligence.process_completed_run_failed lead_id=%s", lead.id
             )
 
         self.audit_logs.record(
             db,
             workspace_id=workspace_id,
             actor_user_id=current_user.id,
-            event_name="lead.tavily_research_requested",
-            details=f"Requested Tavily research for lead {lead.public_id}; provider status {status}.",
+            event_name="lead.research_requested",
+            details=(
+                f"Requested {depth} research (mode={mode}) for lead {lead.public_id} using "
+                f"providers={result.providers_used}; status {result.status}; "
+                f"contradictions={len(result.contradictions)}."
+            ),
         )
         return LeadResearchResponse(
             lead_id=lead.public_id,
-            provider_fetch_id=fetch.public_id,
-            status=status,
-            request_id=request_id,
-            message=(
-                "Tavily research request recorded."
-                if fetch.status == ProviderFetchStatus.OK.value
-                else "Tavily research request failed safely."
-            ),
+            provider_fetch_id=result.last_provider_fetch_public_id,
+            provider=result.providers_used[-1] if result.providers_used else "tavily",
+            status=result.status,
+            request_id=None,
+            message=result.message,
+            depth=depth,
+            mode=mode,
+            providers_used=result.providers_used,
+            contradictions_detected=len(result.contradictions),
+            tool_calls_made=result.tool_calls_made,
         )
 
     def create_note(
@@ -460,57 +484,76 @@ class LeadsService:
         lead = self._get_or_raise(db, workspace_id, lead_id)
         return self.scoring_repository.get_latest_score_breakdown(db, lead.id)
 
-    def _build_tavily_research_query(self, lead: Lead) -> str:
-        parts = [lead.company_name]
-        if lead.city:
-            parts.append(lead.city)
-        if lead.category:
-            parts.append(lead.category)
-        parts.append("company services customers")
-        return " ".join(parts)[:220]
+    def evidence_graph(self, db: Session, workspace_id: int, lead_id: str) -> EvidenceGraph:
+        from app.modules.provider_serpapi.models import ProviderFetch
 
-    def _persist_tavily_research_fact(
+        lead = self._get_or_raise(db, workspace_id, lead_id)
+        facts = self.evidence_repository.list_normalized_facts_for_lead(db, lead.id)
+        fetch_ids = {fact.provider_fetch_id for fact in facts}
+        fetches_by_id = {
+            fetch.id: fetch
+            for fetch in db.query(ProviderFetch).filter(ProviderFetch.id.in_(fetch_ids))
+        }
+        signals = self.signal_repository.list_for_lead(
+            db, workspace_id=workspace_id, lead_id=lead.id
+        )
+        return self.evidence_graph_builder.build(
+            lead_public_id=lead.public_id,
+            facts=facts,
+            fetches_by_id=fetches_by_id,
+            signals=signals,
+        )
+
+    def research_history(
         self,
         db: Session,
+        workspace_id: int,
+        lead_id: str,
         *,
-        lead: Lead,
-        provider_fetch_id: int,
-        payload: dict[str, object],
-    ) -> None:
-        request_id = payload.get("request_id")
-        db.add(
-            ProviderNormalizedFact(
-                workspace_id=lead.workspace_id,
-                lead_id=lead.id,
-                provider_fetch_id=provider_fetch_id,
-                source_type="tavily_research",
-                data_cid=None,
-                data_id=None,
-                place_id=None,
-                company_name=lead.company_name,
-                category=lead.category,
-                address=lead.address,
-                city=lead.city,
-                phone=lead.phone,
-                website_url=lead.website_url,
-                website_domain=lead.website_domain,
-                rating=lead.rating,
-                review_count=lead.review_count,
-                lat=lead.lat,
-                lng=lead.lng,
-                confidence=0.55,
-                completeness=lead.data_completeness,
-                facts_json={
-                    "provider": "tavily",
-                    "provider_shape": "tavily_research_request",
-                    "request_id": str(request_id) if request_id is not None else None,
-                    "status": payload.get("status"),
-                    "model": payload.get("model"),
-                    "source": "tavily_research",
-                },
-            )
+        page: int,
+        per_page: int,
+    ) -> ResearchHistoryResponse:
+        lead = self._get_or_raise(db, workspace_id, lead_id)
+        runs, total, changes_by_run = self.research_repository.list_history(
+            db,
+            workspace_id=workspace_id,
+            lead_id=lead.id,
+            page=page,
+            per_page=per_page,
         )
-        db.commit()
+        return ResearchHistoryResponse(
+            lead_id=lead.public_id,
+            items=[
+                ResearchHistoryItem(
+                    run_id=run.public_id,
+                    mode=run.mode,
+                    depth=run.depth,
+                    started_at=run.created_at,
+                    completed_at=run.created_at,
+                    status=run.status,
+                    evidence_confidence=run.evidence_confidence,
+                    research_coverage=run.research_coverage,
+                    changes=[
+                        ResearchHistoryChange(
+                            change_id=change.public_id,
+                            claim_type=change.claim_type,
+                            change_type=change.direction,
+                            before=change.previous_value,
+                            after=change.new_value,
+                            significance=change.significance,
+                            explanation=change.explanation,
+                        )
+                        for change in changes_by_run[run.id]
+                    ],
+                )
+                for run in runs
+            ],
+            pagination=ResearchHistoryPagination(
+                page=page,
+                per_page=per_page,
+                total=total,
+            ),
+        )
 
     def _get_or_raise(self, db: Session, workspace_id: int, lead_id: str) -> Lead:
         lead = self.repository.get_by_public_id_for_workspace(

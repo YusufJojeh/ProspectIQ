@@ -93,6 +93,10 @@ const OutreachPage = lazy(async () => {
   const module = await import("@/features/outreach/routes/outreach-page");
   return { default: module.OutreachPage };
 });
+const KnowledgePage = lazy(async () => {
+  const module = await import("@/features/knowledge/routes/knowledge-page");
+  return { default: module.KnowledgePage };
+});
 const CampaignsPage = lazy(async () => {
   const module = await import("@/features/campaigns/routes/campaigns-page");
   return { default: module.CampaignsPage };
@@ -317,6 +321,14 @@ function buildRouter() {
           element: lazyPage(OutreachPage, {
             title: i18n.t("routeLoading.outreachTitle"),
             description: i18n.t("routeLoading.outreachDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "knowledge",
+          element: lazyPage(KnowledgePage, {
+            title: i18n.t("routeLoading.knowledgeTitle"),
+            description: i18n.t("routeLoading.knowledgeDescription"),
             compact: true,
           }),
         },

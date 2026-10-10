@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -1007,6 +1008,57 @@ def test_multi_provider_pipeline_completed_when_selected_providers_succeed(monke
         assert job.provider_error_count == 0
         assert job.leads_upserted == 2
         assert db.scalar(select(func.count(LeadScore.id))) == 2
+
+    clear_settings_cache()
+
+
+class _ForbiddenTavilyService(_FakeTavilyService):
+    """Tavily blocked at the network edge (HTML 403): every call raises."""
+
+    def web_search(self, db: Session, **kwargs: Any) -> Any:  # noqa: ARG002
+        raise RuntimeError("403 Forbidden")
+
+
+def test_supplementary_tavily_failure_does_not_degrade_job_when_primary_succeeds(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DISCOVERY_KILL_SWITCH", "false")
+    monkeypatch.setenv("DISCOVERY_MODE", "multi_engine_multi_query")
+    monkeypatch.setenv("DISCOVERY_ENGINE_LIST", "tavily_web,serpapi_maps")
+    monkeypatch.setenv("DISCOVERY_MAX_CALLS_PER_JOB", "3")
+    monkeypatch.setenv("TAVILY_LIVE_MAX_CALLS", "1")
+    clear_settings_cache()
+    session_factory = _build_session_factory()
+    job_public_id = _seed_job(session_factory)
+    provider = _FakeProviderService(
+        search_payload={
+            "local_results": [
+                {
+                    "title": "North Clinic",
+                    "address": "Kadikoy, Istanbul, Turkey",
+                    "phone": "+90 555 999 8899",
+                    "rating": 4.2,
+                    "reviews": 5,
+                    "gps_coordinates": {"latitude": 41.02, "longitude": 29.01},
+                    "data_id": "maps-north-1",
+                    "type": "Clinic",
+                }
+            ]
+        }
+    )
+
+    LeadDiscoveryOrchestrator(
+        session_factory=session_factory,
+        provider_service=provider,
+        tavily_service=_ForbiddenTavilyService(search_payload={}),
+    ).run(job_public_id)
+
+    with session_factory() as db:
+        job = db.scalar(select(SearchJob).where(SearchJob.public_id == job_public_id))
+        assert job is not None
+        assert job.status == SearchJobStatus.COMPLETED.value
+        assert job.provider_error_count == 0
+        assert job.leads_upserted == 1
 
     clear_settings_cache()
 

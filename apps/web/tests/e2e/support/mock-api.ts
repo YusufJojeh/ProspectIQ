@@ -477,7 +477,15 @@ function nextTimestamp(state: MockState) {
   return iso(state.counters.timestamps);
 }
 
+// Mirrors ROLE_PERMISSIONS in apps/api/app/modules/auth/permissions.py for the
+// lead/knowledge workflow: every workspace role may view and manage leads.
+const LEAD_PERMISSIONS = ["leads:view", "leads:manage"];
+
 function permissionsForRole(role: UserRole) {
+  return [...LEAD_PERMISSIONS, ...roleSpecificPermissions(role)];
+}
+
+function roleSpecificPermissions(role: UserRole) {
   if (role === "account_owner") {
     return [
       "workspace:read",
@@ -1598,6 +1606,211 @@ function filterLeads(state: MockState, url: URL) {
       }
       return Date.parse(right.created_at) - Date.parse(left.created_at);
     });
+}
+
+interface MockKnowledgeCollection {
+  collection_id: string;
+  slug: string;
+  name: string;
+  collection_type: string;
+  description: string | null;
+  document_count: number;
+  created_at: string;
+}
+
+interface MockKnowledgeDocument {
+  document_id: string;
+  collection_id: string;
+  document_type: string;
+  title: string;
+  source_name: string | null;
+  visibility: string;
+  status: string;
+  current_version: number;
+  chunk_count: number;
+  language: string;
+  industry: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Kept so the mock search can find it; the real API never returns content. */
+  content: string;
+}
+
+interface MockKnowledgeStore {
+  collections: MockKnowledgeCollection[];
+  documents: MockKnowledgeDocument[];
+  counter: number;
+}
+
+const knowledgeStores = new WeakMap<MockState, MockKnowledgeStore>();
+
+function knowledgeStore(state: MockState): MockKnowledgeStore {
+  let store = knowledgeStores.get(state);
+  if (!store) {
+    store = { collections: [], documents: [], counter: 0 };
+    knowledgeStores.set(state, store);
+  }
+  return store;
+}
+
+function publicDocument(document: MockKnowledgeDocument) {
+  const { content: _content, ...rest } = document;
+  return rest;
+}
+
+async function handleKnowledgeRoute(
+  route: Route,
+  state: MockState,
+  method: string,
+  path: string,
+  url: URL,
+): Promise<boolean> {
+  const store = knowledgeStore(state);
+  const now = nextTimestamp(state);
+
+  if (path === "/api/v1/knowledge/collections" && method === "GET") {
+    await fulfillJson(route, { collections: store.collections });
+    return true;
+  }
+  if (path === "/api/v1/knowledge/collections" && method === "POST") {
+    const payload = readJsonBody(route);
+    store.counter += 1;
+    const collection: MockKnowledgeCollection = {
+      collection_id: `kcol_mock_${store.counter}`,
+      slug: String(payload.slug ?? "collection"),
+      name: String(payload.name ?? "Collection"),
+      collection_type: String(payload.collection_type ?? "services"),
+      description: null,
+      document_count: 0,
+      created_at: now,
+    };
+    store.collections.push(collection);
+    await fulfillJson(route, collection, 201);
+    return true;
+  }
+  if (path === "/api/v1/knowledge/documents" && method === "GET") {
+    const collectionId = url.searchParams.get("collection_id");
+    const documents = store.documents.filter(
+      (item) => !collectionId || item.collection_id === collectionId,
+    );
+    await fulfillJson(route, { documents: documents.map(publicDocument) });
+    return true;
+  }
+  if (path === "/api/v1/knowledge/documents" && method === "POST") {
+    const payload = readJsonBody(route);
+    store.counter += 1;
+    const content = String(payload.content ?? "");
+    const document: MockKnowledgeDocument = {
+      document_id: `kdoc_mock_${store.counter}`,
+      collection_id: String(payload.collection_id ?? ""),
+      document_type: "services",
+      title: String(payload.title ?? "Untitled"),
+      source_name: null,
+      visibility: String(payload.visibility ?? "workspace"),
+      status: "ready",
+      current_version: 1,
+      chunk_count: Math.max(1, Math.ceil(content.length / 500)),
+      language: "en",
+      industry: null,
+      created_at: now,
+      updated_at: now,
+      content,
+    };
+    store.documents.push(document);
+    await fulfillJson(
+      route,
+      {
+        ingestion_id: `king_mock_${store.counter}`,
+        document_id: document.document_id,
+        status: "completed",
+        version: 1,
+        chunk_count: document.chunk_count,
+        embedding_provider: null,
+        embedding_model: null,
+        embedding_tokens: 0,
+        fallback_used: true,
+        latency_ms: 5,
+        error_code: null,
+        error_message: null,
+        trace_id: `trace_mock_${store.counter}`,
+      },
+      201,
+    );
+    return true;
+  }
+  const documentMatch = path.match(
+    /^\/api\/v1\/knowledge\/documents\/([^/]+)(\/reingest)?$/,
+  );
+  if (documentMatch) {
+    const document = store.documents.find(
+      (item) => item.document_id === documentMatch[1],
+    );
+    if (!document) {
+      await fulfillJson(route, { error: { detail: "Document not found." } }, 404);
+      return true;
+    }
+    if (method === "DELETE") {
+      document.status = "archived";
+      await route.fulfill({ status: 204, headers: CORS_HEADERS, body: "" });
+      return true;
+    }
+    if (method === "POST" && documentMatch[2]) {
+      const payload = readJsonBody(route);
+      const content = String(payload.content ?? "");
+      const unchanged = content === document.content;
+      document.content = content;
+      document.updated_at = now;
+      await fulfillJson(route, {
+        ingestion_id: `king_mock_re_${document.document_id}`,
+        document_id: document.document_id,
+        status: unchanged ? "skipped_unchanged" : "completed",
+        version: document.current_version,
+        chunk_count: document.chunk_count,
+        embedding_provider: null,
+        embedding_model: null,
+        embedding_tokens: 0,
+        fallback_used: true,
+        latency_ms: 5,
+        error_code: null,
+        error_message: null,
+        trace_id: "trace_mock_reingest",
+      });
+      return true;
+    }
+  }
+  if (path === "/api/v1/knowledge/search" && method === "POST") {
+    const payload = readJsonBody(route);
+    const terms = String(payload.query ?? "")
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((term) => term.length > 2);
+    const results = store.documents
+      .filter((item) => item.status !== "archived")
+      .filter((item) =>
+        terms.some((term) => item.content.toLowerCase().includes(term)),
+      )
+      .map((item) => ({
+        chunk_id: `chunk_${item.document_id}`,
+        document_id: item.document_id,
+        document_title: item.title,
+        document_type: item.document_type,
+        section: null,
+        version: item.current_version,
+        excerpt: item.content.slice(0, 200),
+        score: 0.8,
+        vector_score: 0,
+        keyword_score: 0.8,
+      }));
+    await fulfillJson(route, {
+      query: String(payload.query ?? ""),
+      results,
+      candidate_count: results.length,
+      embedding_model: null,
+      degraded: true,
+    });
+    return true;
+  }
+  return false;
 }
 
 async function handleApiRoute(route: Route, state: MockState) {
@@ -2925,6 +3138,38 @@ async function handleApiRoute(route: Route, state: MockState) {
     const lead = getLeadOrThrow(state, leadDetailMatch[1]);
     await fulfillJson(route, serializeLead(lead));
     return;
+  }
+
+  const researchLeadMatch = path.match(
+    /^\/api\/v1\/leads\/([^/]+)\/(evidence-graph|research-history|research)$/,
+  );
+  if (researchLeadMatch) {
+    const [, leadId, resource] = researchLeadMatch;
+    if (resource === "evidence-graph" && method === "GET") {
+      await fulfillJson(route, {
+        lead_id: leadId,
+        groups: [],
+        evidence_confidence: 0,
+        research_coverage: 0,
+        generated_at: nextTimestamp(state),
+      });
+      return;
+    }
+    if (resource === "research-history" && method === "GET") {
+      await fulfillJson(route, {
+        lead_id: leadId,
+        items: [],
+        pagination: { page: 1, per_page: 5, total: 0 },
+      });
+      return;
+    }
+  }
+
+  if (path.startsWith("/api/v1/knowledge/")) {
+    const handled = await handleKnowledgeRoute(route, state, method, path, url);
+    if (handled) {
+      return;
+    }
   }
 
   await fulfillJson(

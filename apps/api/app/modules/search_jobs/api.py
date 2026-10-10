@@ -1,8 +1,4 @@
-import asyncio
-import json
 import re
-from collections.abc import AsyncIterator
-from queue import Empty
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from fastapi.responses import StreamingResponse
@@ -19,6 +15,12 @@ from app.modules.search_jobs.schemas import (
     SearchJobResponse,
 )
 from app.modules.search_jobs.service import SearchJobService
+from app.modules.search_jobs.stream import (
+    SSE_HEADERS,
+    TERMINAL_STATUSES,
+    live_stream,
+    terminal_stream,
+)
 from app.modules.users.models import User
 from app.workers.orchestration.lead_discovery import LeadDiscoveryOrchestrator
 
@@ -123,14 +125,6 @@ def get_search_job(
     return service.to_response(job, db)
 
 
-_SSE_HEADERS = {
-    "Cache-Control": "no-cache",
-    "X-Accel-Buffering": "no",
-    "Connection": "keep-alive",
-}
-_SSE_TIMEOUT_TICKS = 300  # 1 s per tick → 5-minute max stream
-
-
 @router.get("/{job_id}/stream")
 async def stream_search_job_progress(
     job_id: str,
@@ -138,42 +132,12 @@ async def stream_search_job_progress(
     _: User = Depends(get_current_user),
     workspace_id: int = Depends(get_current_workspace_id),
 ) -> StreamingResponse:
-    service = SearchJobService()
-    job = service.get_by_public_id(db, workspace_id, job_id)
-
-    terminal_statuses = {"completed", "partially_completed", "failed"}
-
-    async def _terminal_stream() -> AsyncIterator[str]:
-        stage = "done" if job.status in ("completed", "partially_completed") else "error"
-        progress = 100 if stage == "done" else 0
-        yield f"data: {json.dumps({'stage': stage, 'progress': progress, 'message': job.status})}\n\n"
-
-    if job.status in terminal_statuses:
-        return StreamingResponse(
-            _terminal_stream(), media_type="text/event-stream", headers=_SSE_HEADERS
-        )
-
-    from app.core.progress_bus import register, unregister
-
-    q = register(job_id)
-
-    async def _live_stream() -> AsyncIterator[str]:
-        ticks_without_event = 0
-        try:
-            while ticks_without_event < _SSE_TIMEOUT_TICKS:
-                try:
-                    event = await asyncio.to_thread(q.get, True, 1.0)
-                    yield f"data: {json.dumps(event)}\n\n"
-                    ticks_without_event = 0
-                    if event.get("stage") in ("done", "error"):
-                        break
-                except Empty:
-                    ticks_without_event += 1
-                    yield ": keepalive\n\n"
-        finally:
-            unregister(job_id)
-
-    return StreamingResponse(_live_stream(), media_type="text/event-stream", headers=_SSE_HEADERS)
+    job = SearchJobService().get_by_public_id(db, workspace_id, job_id)
+    if job.status in TERMINAL_STATUSES:
+        body = terminal_stream(job.status)
+    else:
+        body = live_stream(job_id, workspace_id)
+    return StreamingResponse(body, media_type="text/event-stream", headers=SSE_HEADERS)
 
 
 @router.get("", response_model=SearchJobListResponse)

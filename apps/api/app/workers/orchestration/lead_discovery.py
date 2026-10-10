@@ -65,6 +65,10 @@ ProgressEmitFn = Callable[[str, int, str], None]  # (stage, progress, message)
 
 ORCHESTRATION_TIMEOUT_SECONDS = 300
 
+# Optional enrichment/fallback sources. Their failure is logged and kept in provider_fetches,
+# but only degrades a job (partially_completed) when no primary adapter succeeded.
+SUPPLEMENTARY_ADAPTERS: frozenset[str] = frozenset({"tavily_web", "openai_web"})
+
 
 class ProviderServiceProtocol(Protocol):
     def get_settings(self, db: Session, workspace_id: int) -> ProviderSettings: ...
@@ -179,14 +183,16 @@ class LeadDiscoveryOrchestrator:
         self.icp_matcher = icp_matcher or LeadIcpMatcherService()
         self._emit_fn = emit_fn
 
-    def _emit(self, job_public_id: str, stage: str, progress: int, message: str) -> None:
+    def _emit(
+        self, job_public_id: str, workspace_id: int, stage: str, progress: int, message: str
+    ) -> None:
         try:
             if self._emit_fn is not None:
                 self._emit_fn(stage, progress, message)
             else:
                 from app.core.progress_bus import emit as bus_emit
 
-                bus_emit(job_public_id, stage, progress, message)
+                bus_emit(job_public_id, stage, progress, message, workspace_id=workspace_id)
         except Exception:
             pass  # never let progress emission crash the pipeline
 
@@ -199,7 +205,7 @@ class LeadDiscoveryOrchestrator:
 
             try:
                 self._mark_running(db, job)
-                self._emit(job_public_id, "fetching", 5, "Discovery started")
+                self._emit(job_public_id, job.workspace_id, "fetching", 5, "Discovery started")
                 settings = get_settings()
                 timeout_seconds = min(
                     settings.discovery_global_job_deadline_seconds or ORCHESTRATION_TIMEOUT_SECONDS,
@@ -218,30 +224,54 @@ class LeadDiscoveryOrchestrator:
                         lead_ids = fallback_ids
                         used_openai_fallback = True
 
-                self._emit(job_public_id, "fetching", 40, f"Found {len(lead_ids)} candidates")
+                self._emit(
+                    job_public_id,
+                    job.workspace_id,
+                    "fetching",
+                    40,
+                    f"Found {len(lead_ids)} candidates",
+                )
                 if lead_ids:
                     # SerpAPI-backed enrichment is pointless (and just burns retries)
                     # when discovery already fell back because SerpAPI was unavailable.
                     if not used_openai_fallback:
                         if self._can_use_serpapi_provider():
                             self._enrich_top_candidates(db, job, lead_ids, deadline=deadline)
-                            self._emit(job_public_id, "normalizing", 65, "Enrichment complete")
+                            self._emit(
+                                job_public_id,
+                                job.workspace_id,
+                                "normalizing",
+                                65,
+                                "Enrichment complete",
+                            )
                         else:
                             logger.info(
                                 "discovery.enrichment.skipped provider=serpapi reason=unconfigured"
                             )
                         self._validate_web_presence(db, job, lead_ids, deadline=deadline)
-                        self._emit(job_public_id, "normalizing", 80, "Web presence validated")
+                        self._emit(
+                            job_public_id,
+                            job.workspace_id,
+                            "normalizing",
+                            80,
+                            "Web presence validated",
+                        )
                         self._run_enrichment(db, lead_ids)
-                        self._emit(job_public_id, "enriching", 88, "External enrichment complete")
+                        self._emit(
+                            job_public_id,
+                            job.workspace_id,
+                            "enriching",
+                            88,
+                            "External enrichment complete",
+                        )
                     self._score_leads(db, job, lead_ids)
-                    self._emit(job_public_id, "scoring", 95, "Scoring complete")
+                    self._emit(job_public_id, job.workspace_id, "scoring", 95, "Scoring complete")
                 self._finalize_status(db, job)
-                self._emit(job_public_id, "done", 100, "Discovery complete")
+                self._emit(job_public_id, job.workspace_id, "done", 100, "Discovery complete")
             except Exception as exc:
                 logger.exception("Lead discovery failed for search job '%s'.", job_public_id)
                 self._mark_failed(db, job, str(exc))
-                self._emit(job_public_id, "error", 0, str(exc))
+                self._emit(job_public_id, job.workspace_id, "error", 0, str(exc))
 
     def _discover_leads(self, db: Session, job: SearchJob, *, deadline: datetime) -> list[int]:
         settings = get_settings()
@@ -261,6 +291,7 @@ class LeadDiscoveryOrchestrator:
 
         self._emit(
             job.public_id,
+            job.workspace_id,
             "fetching",
             30,
             "Search provider unavailable — falling back to OpenAI web search",
@@ -449,6 +480,7 @@ class LeadDiscoveryOrchestrator:
         skipped_budget = 0
         tavily_calls_used = 0
         failed_adapters: set[str] = set()
+        primary_succeeded = False
         for task in tasks:
             if datetime.now(tz=UTC) >= deadline:
                 logger.warning("discovery.pipeline.deadline_reached stage=discover")
@@ -485,7 +517,8 @@ class LeadDiscoveryOrchestrator:
                         logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
                     if task.adapter_name not in failed_adapters:
                         failed_adapters.add(task.adapter_name)
-                        job.provider_error_count += 1
+                        if task.adapter_name not in SUPPLEMENTARY_ADAPTERS:
+                            job.provider_error_count += 1
                     self.search_job_repository.save(db, job)
                 continue
 
@@ -507,7 +540,8 @@ class LeadDiscoveryOrchestrator:
                     logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
                 if task.adapter_name not in failed_adapters:
                     failed_adapters.add(task.adapter_name)
-                    job.provider_error_count += 1
+                    if task.adapter_name not in SUPPLEMENTARY_ADAPTERS:
+                        job.provider_error_count += 1
                 self.search_job_repository.save(db, job)
                 continue
 
@@ -524,11 +558,14 @@ class LeadDiscoveryOrchestrator:
                     logger.warning("discovery.circuit.open adapter=%s", task.adapter_name)
                 if task.adapter_name not in failed_adapters:
                     failed_adapters.add(task.adapter_name)
-                    job.provider_error_count += 1
+                    if task.adapter_name not in SUPPLEMENTARY_ADAPTERS:
+                        job.provider_error_count += 1
                 self.search_job_repository.save(db, job)
                 continue
 
             circuit.mark_success(task.adapter_name)
+            if task.adapter_name not in SUPPLEMENTARY_ADAPTERS:
+                primary_succeeded = True
             if task.adapter_name == "google_maps_search":
                 normalized = self.maps_local_normalizer.normalize(payload)
                 for item in normalized:
@@ -566,6 +603,18 @@ class LeadDiscoveryOrchestrator:
                     item.facts["adapter_name"] = task.adapter_name
                     item.facts["execution_stage"] = task.stage
                 candidate_batches.append(normalized)
+
+        supplementary_failed = failed_adapters & SUPPLEMENTARY_ADAPTERS
+        if supplementary_failed:
+            logger.warning(
+                "discovery.supplementary_adapters_failed adapters=%s primary_succeeded=%s",
+                sorted(supplementary_failed),
+                primary_succeeded,
+            )
+            if not primary_succeeded:
+                # Supplementary sources alone cannot carry a job: surface it as degraded.
+                job.provider_error_count += 1
+                self.search_job_repository.save(db, job)
 
         merged = merger.merge(
             candidate_batches,
@@ -814,21 +863,34 @@ class LeadDiscoveryOrchestrator:
             if tavily_enabled:
                 tavily_service = self._get_tavily_service()
                 if tavily_service is not None:
-                    fetch, payload = tavily_service.web_search(
-                        db,
-                        workspace_id=job.workspace_id,
-                        search_job_id=job.id,
-                        query=query,
-                    )
-                    if fetch.status == ProviderFetchStatus.OK.value:
-                        discovery = self.tavily_web_normalizer.normalize(payload)
+                    tavily_fetch = None
+                    tavily_payload: dict[str, Any] = {}
+                    try:
+                        tavily_fetch, tavily_payload = tavily_service.web_search(
+                            db,
+                            workspace_id=job.workspace_id,
+                            search_job_id=job.id,
+                            query=query,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "discovery.web_presence.tavily_failed lead_id=%s",
+                            lead.id,
+                            exc_info=True,
+                        )
+                    if (
+                        tavily_fetch is not None
+                        and tavily_fetch.status == ProviderFetchStatus.OK.value
+                    ):
+                        discovery = self.tavily_web_normalizer.normalize(tavily_payload)
                         self._persist_web_discovery(
-                            db, lead, fetch.id, discovery, source_type="tavily_web"
+                            db, lead, tavily_fetch.id, discovery, source_type="tavily_web"
                         )
                         continue
-                    job.provider_error_count += 1
-                    self.search_job_repository.save(db, job)
-                    # Fall through to SerpAPI web search below.
+                    # Tavily is supplementary: stop calling it for the rest of this run
+                    # (one blocked/rate-limited call would otherwise repeat per lead) and
+                    # fall through to SerpAPI web search below.
+                    tavily_enabled = False
 
             if provider_service is None:
                 try:

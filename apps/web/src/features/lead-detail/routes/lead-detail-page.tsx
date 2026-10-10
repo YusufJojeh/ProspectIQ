@@ -40,6 +40,10 @@ import {
   submitAnalysisFeedback,
 } from "@/features/ai-analysis/api";
 import { addCampaignLeads, listCampaigns } from "@/features/campaigns/api";
+import { CopilotPanel } from "@/features/copilot/components/copilot-panel";
+import { EvidenceGraphPanel } from "@/features/leads/components/evidence-graph-panel";
+import { ResearchHistoryPanel } from "@/features/leads/components/research-history-panel";
+import { useAuthSession } from "@/features/auth/session";
 import { createLeadDeal, listCrmDeals } from "@/features/crm/api";
 import {
   listIcpProfiles,
@@ -87,6 +91,8 @@ export function LeadDetailPage() {
   const { leadId = "" } = useParams();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { user } = useAuthSession();
+  const canWrite = user?.permissions.includes("leads:manage") ?? false;
   const [statusDraft, setStatusDraft] = useState<LeadStatus>("new");
   const [statusNote, setStatusNote] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
@@ -465,6 +471,10 @@ export function LeadDetailPage() {
 
           <LeadContactCard lead={lead} />
 
+          <EvidenceGraphPanel leadId={leadId} />
+
+          <ResearchHistoryPanel leadId={leadId} canRun={canWrite} />
+
           <LeadIcpMatchPanel
             lead={lead}
             breakdown={breakdown}
@@ -519,6 +529,8 @@ export function LeadDetailPage() {
         </div>
 
         <div className="min-w-0 space-y-4">
+          <CopilotPanel leadId={leadId} leadName={lead.company_name} />
+
           <Card className="overflow-hidden rounded-[1.5rem] border-border bg-card/95">
             <CardHeader>
               <CardTitle>{t("leadDetail.leadOperations")}</CardTitle>
@@ -587,7 +599,7 @@ export function LeadDetailPage() {
                       )
                     }
                   >
-                    <SelectTrigger className="h-11 rounded-xl bg-background/70 text-start">
+                    <SelectTrigger aria-label={t("leads.assignee")} className="h-11 rounded-xl bg-background/70 text-start">
                       <SelectValue placeholder={t("leads.unassigned")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -611,7 +623,7 @@ export function LeadDetailPage() {
                       setStatusDraft(value as LeadStatus)
                     }
                   >
-                    <SelectTrigger className="h-11 rounded-xl bg-background/70 text-start">
+                    <SelectTrigger aria-label={t("leadDetail.selectStatus")} className="h-11 rounded-xl bg-background/70 text-start">
                       <SelectValue placeholder={t("leadDetail.selectStatus")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -652,7 +664,7 @@ export function LeadDetailPage() {
                     disabled={campaignsQuery.isPending}
                     onValueChange={setSelectedCampaignId}
                   >
-                    <SelectTrigger className="h-11 rounded-xl bg-background/70 text-start">
+                    <SelectTrigger aria-label={t("campaigns.addToCampaign")} className="h-11 rounded-xl bg-background/70 text-start">
                       <SelectValue placeholder={t("campaigns.selectCampaign")} />
                     </SelectTrigger>
                     <SelectContent>

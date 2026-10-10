@@ -1,5 +1,218 @@
 # CHANGES
 
+## [Search UX] Job progress SSE now runs on the shared EventBroker - 2026-10-08
+
+### Changed
+- `core/progress_bus.py` publishes through `agents.events.EventBroker` (in-memory or Redis, per `AGENT_EVENT_BROKER`) instead of a private one-queue-per-job dict. Many viewers can follow one job, one viewer disconnecting no longer unregisters the others, and Redis delivers across API workers.
+- New `search_jobs/stream.py` is the single SSE body for `GET /api/v1/search-jobs/{id}/stream` and `GET /api/v2/stream/{id}`. It subscribes first, then sends the latest event as a snapshot (so a reconnecting client catches up), de-duplicates by seq, and emits `id:` per event. The `data:` payload is still `{stage, progress, message}`, so `useJobStream` is unchanged.
+- `LeadDiscoveryOrchestrator._emit` now carries `workspace_id` (Redis channels are tenant-scoped).
+
+### Added
+- `tests/test_job_progress_stream.py`.
+
+### Removed
+- `/api/v2` (`search_jobs/router_v2.py`, its router registration and `tests/test_router_v2.py`) and the `apps/frontend` scaffold, its only consumer. `apps/web` never called v2, and CI, infra and docs did not reference `apps/frontend`. The v1 stream endpoint is now the only job-progress SSE; `useJobStream` is unaffected.
+
+### Known limitations
+- The snapshot is in-process. With the Redis broker, a client on a different worker than the one running the job gets live events only, plus the persisted terminal status.
+
+## [Accessibility] Keyboard, focus and screen-reader pass over the new surfaces - 2026-09-20
+
+### Added
+- `hooks/use-return-focus.ts`: controlled Radix dialogs are opened from a state flag, not a `<Trigger>`, so Radix has no element to restore focus to on close. The hook records what opened the dialog and returns focus through `onCloseAutoFocus`. It falls back to the last activated control because touch pointers do not focus a button when tapped, which is why focus return failed only on the tablet and mobile projects.
+- `tests/e2e/accessibility.spec.ts`: axe (`wcag2a/2aa/21a/21aa`, contrast excluded) over the Knowledge page, both of its dialogs, the archive alert dialog, and lead detail at idle, at `waiting_for_approval`, after a terminal phase and on a failed run; plus focus-trap, focus-return, keyboard-only approve/decline, an accessible-name sweep of icon-only buttons, a live-region budget, and assertions that Supported / Conflicting / Unverified and pending / applied / declined are stated in words.
+- `@axe-core/playwright` (dev dependency only).
+
+### Fixed
+- The Copilot, Evidence Graph and Research History cards were unlabelled `<div>`s: they are now `role="region"` with `aria-labelledby` pointing at a heading, so the panels are reachable as landmarks.
+- Unlabelled selects on lead detail (assignee, status, campaign, ICP profile, outreach tone) produced `button-name` violations; each trigger now carries an `aria-label`.
+- Lead map markers are `role="button"` with no name (`aria-command-name`); each marker now carries the company name as its title.
+
+### Known limitations
+- Colour contrast is excluded from the axe run and is verified against the design tokens instead: the headless render differs from the real one in fonts and blend modes.
+- The audit covers the new surfaces and lead detail. Older routes were not swept.
+
+### Migration needed: no
+
+## [Frontend + Integration] Sales Copilot, Evidence Graph, Research History, Sales Knowledge UI - 2026-09-19
+
+### Added
+- Copilot state machine (`features/copilot/agent-state.ts`, pure reducer; terminal phases sticky; events de-duplicated by `seq`; action status comes only from the server), fetch-based SSE client with `Last-Event-ID` resume, abortable exponential back-off and event batching, and `useAgentRun`. Sequential approvals re-sync the same run (no second run is created).
+- Lead detail: Sales Copilot panel (activity, approvals with exact previews, final-answer hierarchy separating lead evidence from internal knowledge), Evidence Graph panel, Research History with depth choice and "What changed?".
+- `/app/knowledge`: collections, documents (paste or plain-text upload), replace content, archive ("removed from answers"), ingestion outcome states (indexed / keyword-only / unchanged / failed), search tester with degraded-mode notice; en + ar strings; sidebar, mobile nav and command menu entries.
+- Tests: reducer, SSE parser, file reader (Vitest); E2E `copilot.spec.ts` (pending is never shown as applied, decline, evidence/knowledge separation, server error) and `knowledge.spec.ts` (upload/search/replace/remove, refused files, member cannot pick restricted). The Playwright mock now models the research and knowledge endpoints and matches backend permissions (`leads:manage`).
+
+### Fixed
+- Backend: approving/rejecting agent actions was gated on the role name `admin`, so managers and members (who hold `leads:manage`) got 403. It now uses the permission.
+- Backend: knowledge document listing, re-ingest and archive ignored visibility (any member could see or change a private or restricted document, and the service-catalog agent tool listed them); `restricted` documents could be created by roles that could never read them. Visibility is now enforced in one place (`knowledge/visibility.py`).
+- Backend: agent actions returned an internal run id; they now return the public `run_id`.
+- Contract drift: the re-ingest client sent no body although the API requires a full document body; `OutreachGenerateRequest` lacked `language`.
+- Truthfulness: the outreach "Send" button only records a status and delivers nothing. It is now "Mark as sent" with a note, and the raw status string is localized.
+
+### Known limitations
+- Any workspace member may create, replace or archive workspace-visible knowledge; only visibility is enforced, there is no separate management permission.
+- No endpoint returns a document's stored text, so "Replace content" requires the full new text.
+- Capability matching is exposed only through the copilot's tools; there is no REST endpoint or dedicated UI.
+- The lead-detail visual baseline was regenerated because the page now contains three new panels.
+
+### Migration needed: no
+
+## [Hardening] Production-verification gaps: grounded evidence refs, Redis SSE broker, RAG metrics - 2026-09-19
+
+### Added
+- `agents/grounding.py`: `evidence_refs` on a final answer are now backend-grounded (model-requested AND observed in this run's persisted `AgentToolCall` results AND owned by the run's workspace/lead). Fabricated refs are dropped, never fail the run, and emit `final_evidence_ref_dropped`. Reconstructable across pause/resume.
+- `EventBroker` protocol with `InMemoryAgentEventBroker` and `RedisAgentEventBroker` (persist-then-publish, channel `{prefix}:{workspace}:{run}`, safe payload only, boot ping, scope check on delivery). Selected by `AGENT_EVENT_BROKER`; production refuses `inmemory` without `AGENT_EVENT_BROKER_SINGLE_WORKER=true` and `redis` without `REDIS_URL`. SSE supports `Last-Event-ID` (replay/live handoff without loss or duplication) and closes on `waiting_for_approval`. `redis>=5.0.0` declared in pyproject.
+- Tests: `test_evidence_grounding.py`, `test_agent_redis_broker.py` (fake Redis only), `test_acceptance_change_monitoring.py` (section 49, transcript-driven model double, both branches), `test_agent_tool_validation.py`, `test_rag_retrieval_metrics.py` (+ `rag_golden_dataset.py`, `rag_metrics.py`), `scripts/rag_scale_benchmark.py`, `docs/RAG_RETRIEVAL_QUALITY.md`.
+- `test_live_agent_smoke.py` rewritten (3 opt-in smokes) with a clear failure when the provider rejects the call.
+
+### Fixed
+- Tool-schema validation did not enforce `minItems`.
+- Keyword retrieval lacked two-letter stopwords (`to`, `in`, `of`...): 50% of off-topic queries returned results; now 20%.
+- Duplicate-tool-call guard now forgets READ signatures after a tool that persists new evidence, so a post-refresh re-read is allowed.
+
+### Known limitations
+- Redis broker proven against a fake Redis only; no real Redis server was run.
+- Live smoke was executed and FAILED: the configured OpenAI key returned HTTP 401. Live-provider behaviour is unverified.
+- The RAG candidate cap is recency-based: recall@5 is 0.20 at 1k chunks and 0.00 at 10k (see docs/RAG_RETRIEVAL_QUALITY.md). Not fixed here.
+
+### Migration needed: no
+
+## [Hardening] Phase E verification: schema-enforced tool arguments, backend-grounded final answers, main acceptance E2E - 2026-09-19
+
+### Added
+- `validate_arguments()` in `agents/tool_registry.py`: every model tool call is checked against the tool's registered `input_schema` (types, enum, required, `additionalProperties: false`, length/range bounds) at the single dispatch point in `AgentRuntime._handle_tool_call`. Invalid calls are recorded as `tool_failed` with a model-readable error and never reach a domain service or the action gate. Previously an invalid enum (e.g. `tone: "professional"`) raised an unhandled `ValueError` and a stray `query` on `search_web_tavily` was silently ignored.
+- `AgentFinalAnswer.knowledge_refs`: Internal Sales Knowledge citations kept separate from `evidence_refs` (lead evidence).
+- `AgentRuntime._ground_final_answer()`: backend-owned fields overwrite the model's claims on completion: `research_coverage` from the deterministic Evidence Graph, `knowledge_refs` filtered to documents in this run's `knowledge_selected` events, `completed_actions`/`pending_actions` from `AgentAction` rows.
+- `tests/test_acceptance_sales_copilot.py`: section-48 E2E with a transcript-reading (unscripted) model double. It covers lead/ICP/evidence/Tavily/score/RAG/draft, a note + follow-up paused with nothing written, sequential approvals with retried-approval idempotency, two same-run resumes, one run, one note, one activity, a shared trace_id, and fabricated citations/actions discarded. Also covers invalid-argument rejection.
+
+### Fixed
+- `test_twelve_concurrent_runs_stay_independent`: the provider double kept its step counter on a per-call instance, so every call re-requested the same tool and the runtime (correctly) tripped the duplicate/consecutive-failure breaker. It now decides from the transcript.
+- Eval tests that passed a `query` to parameterless `search_web_tavily` now call it with `{}`.
+
+### Quality gate
+- `ruff check .`: clean · `mypy app/`: 0 errors (233 files) · `pytest`: 458 passed, 4 skipped (live smoke / live-provider tests, opt-in).
+
+### Migration needed: no
+
+## [Feature] Governed actions and external send boundary (Phase C) - 2026-09-18
+
+### Added
+
+- `app/modules/outreach/send_gateway.py`: the single boundary where an outreach message could leave the platform. Everything else the agent can do — a draft, a note, a stage change, a task — is reversible by a human afterwards; a sent message is not, so this module is deliberately the most restricted thing in the codebase.
+- Three tools registered: `send_email`, `send_whatsapp`, `send_linkedin_message` — `tool_type=action`, `risk_level=high`, `requires_approval=True`, `external_io=True`, `cost_class=external`.
+- **External sending is DISABLED by default** (`EXTERNAL_SEND_ENABLED=false`), and "disabled" means three independent refusals rather than one: (1) a new `ToolDefinition.feature_flag` makes `tools_for_profile` omit the tool, so the model is never told it exists; (2) `build_preview` calls `ExternalSendGateway.ensure_enabled()`, so a disabled send cannot even be proposed for approval — an approval queue full of actions that can never run is its own hazard; (3) `execute_action` re-checks independently, so flipping the flag off between approval and execution still refuses.
+- **No delivery transport exists.** Even with the flag enabled, `ExternalSendGateway.send` logs the attempt for audit and returns `delivered=False, provider="none"`. Wiring a real ESP, the WhatsApp Business API or LinkedIn is separate, audited work with its own credentials, consent records, suppression lists and compliance review. A plausible-looking stub that silently swallowed messages would be worse than an explicit refusal, so the result states exactly what happened and `outreach_status` advances to `sent` only on a genuine delivery — otherwise every downstream reply-rate and follow-up decision that reads that column would be reading a lie.
+- **Approved payload == executed payload.** The send payload carries the exact stored draft text, resolved from the database by public id; the model supplies an id, never a body, so a human approves text they can read rather than something re-typed at send time. The payload is hashed at proposal, and `AgentActionGate.approve` re-hashes the stored payload immediately before execution and raises on mismatch. The recipient is likewise taken from the approved payload, never re-derived from the lead record at send time — approved text going to an address nobody reviewed is the same failure by a different route.
+- Send tools are scoped to the `sales_copilot` and `admin_assistant` profiles, but the copilot's `medium` risk ceiling excludes them in practice: the profile must name the tool, the tool must name the profile, the caller must hold `outreach.write`, and the risk ceiling must allow it. In the shipped configuration only `admin_assistant` can see them, and only when the flag is on.
+
+### Tests
+
+- `tests/test_external_send.py` (11): registration policy (type/risk/approval/flag), no tenancy parameter in any send schema and `additionalProperties: False`, invisibility to every profile while disabled, visibility only to `admin_assistant` when enabled, gateway refusal transmitting nothing, refusal at proposal time, refusal at execution time with a previously-approved payload (config changed between approval and execution), payload carrying the exact stored draft text, tamper-detection via `hash_payload` (including that key order alone does not change the hash), rejection of an outreach message belonging to another lead, and the honest result path — `delivered=False`, `provider=none`, draft status unchanged in the database.
+
+### Notes
+
+- Live sending is **disabled** and **undelivering** in this build. Nothing in this phase can transmit a message.
+
+## [Feature] Sales Knowledge RAG (Phase B) - 2026-09-18
+
+### Added
+
+- `app/modules/knowledge/`: a retrieval store for the agency's OWN sales knowledge — service catalogue, capabilities, case studies, portfolio, playbooks, objection handling, pricing guidance, proposal templates, past proposals, winning outreach. It answers "what can we credibly offer this prospect?", which is a different question from the lead research store's "what is true about the prospect?". Structured operational lead data (score, evidence, stage, CRM fields, research history) is deliberately NOT embedded here just because vectors exist; it is still read through deterministic tools.
+- Data model via migration `0024_sales_knowledge_rag`: `KnowledgeCollection`, `KnowledgeDocument`, `KnowledgeDocumentVersion`, `KnowledgeChunk`, `KnowledgeIngestionRun`. Documents are versioned rather than overwritten, so a citation stays resolvable and a superseded revision can be retired atomically.
+- **No pgvector.** The deployment database is MariaDB/MySQL, so embeddings are stored as JSON float arrays with their model, dimension and precomputed L2 norm, and cosine similarity is computed in Python over a candidate set the SQL has already restricted. This is a real limit and is documented in `retrieval.py`: on a very large corpus, recall is bounded by `knowledge_search_candidate_limit` (default 400).
+- `app/modules/knowledge/retrieval.py`: hybrid retrieval — IDF-weighted keyword overlap plus vector cosine, combined at `knowledge_hybrid_vector_weight` (0.7). **Tenant, visibility, status and version filtering all happen inside the candidate query.** A foreign workspace's chunk, an archived document's chunk, a superseded version's chunk, or a document the caller may not see is never loaded into the process, so no later bug in the Python scoring can leak it. A chunk embedded by a different model is never compared against the query vector (incompatible vector spaces); it can still match on keywords.
+- Precision guard `knowledge_min_vector_only_similarity` (0.35): a passage with zero lexical overlap must clear a much higher vector bar. Low-dimension/hashed embeddings have a spurious-similarity noise floor, and a confidently-cited irrelevant case study is worse for a salesperson than no result.
+- `app/modules/knowledge/embeddings.py`: `EmbeddingRouter` over `OpenAIEmbeddingProvider` and a deterministic, dependency-free `LocalHashingEmbeddingProvider` (256-dim, blake2b hashed bag-of-words, sublinear term weighting). The local provider keeps the pipeline functional and the evals offline and reproducible; it is explicitly documented as lexical, not semantic — it cannot match "appointment scheduling" to "booking system" without word overlap. The embedding model always comes from settings, never from a caller or the agent.
+- `app/modules/knowledge/chunking.py`: structure-first chunking (headings → paragraphs → sentences) with overlap. Every chunk carries and is embedded with its section heading, so a chunk boundary cannot orphan a claim from the case study or service it belongs to. Text is NFKC-normalized with control, zero-width and bidi-override characters stripped, so what a reviewer reads is what the model receives.
+- `app/modules/knowledge/ingestion.py`: validate → sanitize → checksum → (skip if unchanged) → new version → chunk → embed → store inactive → activate atomically → mark ready. Unchanged re-ingestion is reported as `skipped_unchanged` rather than silently re-embedding. Chunks are written inactive and swapped in one transaction, so a failure mid-ingestion leaves the previous version serving rather than the document unsearchable; a document that already has a live version stays `ready` on failure.
+- `app/modules/knowledge/api.py`: `/api/v1/knowledge/collections` (POST, GET), `/documents` (POST, GET), `/documents/{id}/reingest` (POST), `/documents/{id}` (DELETE — archive), `/search` (POST). Visibility is resolved from the authenticated user; there is no request field that lets a caller widen its own scope.
+- Agent tool `search_sales_knowledge` (tool_type `rag`, risk `low`, requires `knowledge.read`). Its schema has exactly three fields — `query`, `collection_types` (closed enum), `limit`. There is no workspace, user, tenant, visibility or SQL field for an injected instruction to fill in; tenancy comes from the run and the acting user. Unknown `collection_types` values are dropped rather than trusted, so an invented filter can never widen scope. Results re-enter the model wrapped as untrusted `KNOWLEDGE_CONTEXT` via the existing `wrap_untrusted` path.
+- Runtime RAG lifecycle events: `rag_search_started`, `rag_search_completed` (result/candidate counts, embedding model, degraded flag, duration) and `knowledge_selected` (which documents grounded the answer — ids, titles, types, sections, versions, scores; never the passage text, which is untrusted content and stays in the tool result). Bounded by the new `agent_max_rag_queries` budget (default 8) and counted in `AgentRun.rag_query_count`.
+- Tests: `tests/test_knowledge_rag.py` (17 evals) — Recall@3 / Precision@1 / MRR on a labelled corpus with deliberately overlapping vocabulary, citation-resolves-to-the-containing-document, irrelevant-query-returns-nothing, empty store, collection-type filtering and invented-filter rejection, cross-workspace isolation (asserting `candidate_count == 0`, i.e. never a candidate rather than filtered afterwards), private-document isolation from a colleague, restricted-document role gate, archived-document exclusion, re-ingestion superseding a price (the current retainer figure is returned and the old one is absent), skipped unchanged re-ingestion, the single-active-version invariant, section preservation under chunking, duplicate-passage crowd-out, sanitizer stripping invisible/control characters, poisoned-document inertness, and the structural assertion that the RAG tool schema exposes no tenancy field.
+
+### Notes
+
+- Retrieval quality with the local hashing provider is lexical. Deployments that need true semantic recall configure `EMBEDDING_PROVIDER=openai`; the evals pin behaviour, not provider quality.
+
+## [Feature] Agent Runtime hardening: live SSE, tool-registry policy, injection defence (Phase A) - 2026-09-18
+
+### Added
+
+- `app/modules/agents/events.py`: the canonical agent event vocabulary and an in-process `AgentEventBroker`. Events are persisted first and published second, so a subscriber can never see an event that is not in the database. `sanitize_payload` drops forbidden keys (prompts, messages, reasoning/chain-of-thought, credentials, tokens) and truncates long values on the way IN, so an unsafe payload is never stored, not merely never rendered.
+- **Known limitation, stated plainly:** the broker is in-process. This project has no Redis or other pub/sub, so live streaming works within a single API process; a multi-process deployment needs a shared broker behind the same `publish`/`subscribe`/`unsubscribe` seam. The replay path (`after_seq`) is durable and process-independent.
+- `GET /api/v1/agent/runs/{run_id}/stream`: real SSE (`text/event-stream`). It subscribes BEFORE reading history so no event can fall between replay and live, de-duplicates by `seq`, resumes from `after_seq`, emits heartbeats every `agent_stream_heartbeat_seconds`, closes on a terminal event, and always unsubscribes in a `finally`. A slow client cannot block the agent loop: publishing uses `put_nowait` and drops on a full queue.
+- Runtime now emits `model_started` / `model_completed` (provider, model, token counts, and the requested tool's NAME only — never the reasoning behind it), `tool_requested` before any budget check, `tool_started` immediately before execution, `tool_completed` / `tool_failed` with `duration_ms`, and `budget_exhausted` with `AgentRun.stop_reason`.
+- `app/modules/agents/untrusted.py`: untrusted-content envelopes for research and RAG results, forged-marker stripping, a security preamble, and injection-marker detection recorded for observability ONLY — never used as a security decision. The module documents that the real boundary is structural: no tenancy parameter exists in any tool schema, writes require human approval, profiles gate tool availability, and scoring stays deterministic in the backend.
+- `tool_registry.py` extended into a policy object: `tool_type` (read/research/rag/generative/write_proposal/action), `risk_level`, `requires_approval`, `resource_type`, `required_permissions`, `allowed_profiles`, `timeout_seconds`, `max_result_bytes`, `cost_class`, `external_io`. `tools_for_profile` requires three independent conditions — the profile names the tool, the tool names the profile, and the user holds every required permission — so a tool the caller is not entitled to is never described to the model at all.
+- `AgentRun` columns via migration `0023_agent_profiles_and_cost`: `profile`, `prompt_key`, `prompt_version`, `stop_reason`, `rag_query_count`, `model_call_count`, `embedding_tokens`, `cost_micro_usd` (micro-USD integers, to avoid float drift in money).
+- New setting `agent_runtime_mode` (`auto|openai|stub|blocked`) so provider-level tool-call behaviour can be exercised under test without the test environment silently forcing the stub.
+- Tests: `tests/test_agent_streaming.py` (7), `tests/test_agent_provider_contract.py` (3, including a provider double that branches on the CONTENT of earlier tool results, proving the loop is model-directed and not a scripted workflow), `tests/test_agent_concurrency.py` (10, against file-backed SQLite so threads hold genuinely separate connections and contend for the same row), `tests/test_agent_authorization.py` (7), `tests/test_agent_injection.py` (9).
+
+
+## [Feature] Operational Agent Runtime (model-directed multi-turn agent with human-in-the-loop write approval) - 2026-09-18
+
+### Added
+
+- `app/modules/agents/models.py`: `AgentRun`, `AgentMessage`, `AgentToolCall`, `AgentAction`, `AgentEvent`, via migration `0022_agent_runtime`. No hidden chain-of-thought is persisted — only tool calls, tool results, proposed/decided write actions, and lifecycle events.
+- `app/modules/agents/tool_registry.py`: a single authoritative tool registry (15 read/research tools reusing `ResearchToolExecutor` and existing lead/outreach/CRM read paths; 8 write tools — `draft_outreach` auto-executes, the other 7 always pause for human approval) generating the OpenAI function-calling schema; no duplicate tool schemas exist elsewhere.
+- `app/modules/agents/runtime.py`: `AgentRuntime`, the model-directed loop — each round persists the provider message history, asks the caller (native OpenAI tool-calling in production, a deterministic scripted stub in `agent_runtime=stub` for tests/demo) for the next step, and either executes a read/research tool immediately, creates a pending `AgentAction` and pauses the run for an approval-gated write, or completes with a server-validated structured final answer. Server-enforced bounds (`agent_max_steps=12`, `agent_max_tool_calls=16`, `agent_max_external_searches=6`, `agent_max_crawls=4`, `agent_max_write_proposals=5`, `agent_max_runtime_seconds=90`, `agent_max_tool_result_bytes=16384`, `agent_max_consecutive_tool_failures=3`) are checked before every tool call; duplicate tool calls with identical arguments are rejected; parallel tool execution stays disabled (only the first tool call per model turn is ever acted on).
+- `app/modules/agents/action_gate.py`: `AgentActionGate`, the single place a pending `AgentAction` can become a real domain mutation — atomic claim via a conditional `UPDATE ... WHERE status='pending'`, payload-hash re-verification, workspace/lead re-verification at decision time, idempotent repeated approval, and expired/rejected actions cannot execute. Approval or rejection resumes the *same* `AgentRun` (`AgentRuntime.resume_after_action`), not a new run.
+- `app/modules/agents/api.py`: 8 endpoints under `/api/v1/agent/...` — `POST /runs`, `GET /runs/{id}`, `GET /runs/{id}/events`, `POST /runs/{id}/cancel`, `GET /actions`, `GET /actions/{id}`, `POST /actions/{id}/approve`, `POST /actions/{id}/reject`.
+- Documented domain-model gaps rather than inventing broken concepts: `Lead` has no `tags` column, so `update_lead_tags` writes into `Lead.enrichments["tags"]`; `CrmActivity.ActivityType` has no `TASK` value, so `create_lead_task` reuses `FOLLOW_UP` (documented in `tool_executor.py`).
+- Known architectural limitation: `GET /runs/{id}/events` serves a replay of persisted events, not a live server push — this codebase has no pub/sub infrastructure for true streaming SSE.
+- Tests: `tests/test_agent_runtime.py` and `tests/test_agent_actions_api.py` — full stub-runtime happy path (research → auto-drafted outreach → note proposal → pause → approve → resume → follow-up proposal → pause → approve → resume → completion), reject-causes-no-mutation, idempotent repeated approval, duplicate-tool-call detection, blocked-runtime fail-fast, and workspace-scoped authorization (a foreign workspace's user gets 404 on the run, the action, and an approve attempt).
+
+## [Feature] Research History API and Business Intelligence Evidence - 2026-09-17
+
+### Added
+
+- `GET /api/v1/leads/{lead_id}/research-history`: authenticated, workspace-scoped, read-only history over durable research runs and their run-scoped change events, with newest-first `page`/`per_page` pagination. The response excludes provider payloads, provider settings, prompts, credentials, and model metadata and performs no research or LLM call.
+- `app/modules/research/business_intelligence.py`: deterministic projections for `online_booking`, `branch_count`, `services`, `social_presence`, `contact_channels`, `has_ecommerce`, `has_whatsapp`, `review_sentiment`, `recurring_review_pain_points`, and `hiring_signal` from curated normalized provider facts and explicit crawl/search evidence.
+- Evidence Graph `digital_maturity`: explicit 100-point formula based on official website (20), explicit mobile responsiveness (10), booking (15), ecommerce (15), WhatsApp (10), social profiles (up to 15), contact channels (up to 15), review volume (5), and structured services (5), capped at 100 and banded low below 40, medium from 40, and high from 70.
+- Fact resolution now supports projected observations, case-insensitive merged service/contact collections, `supported`/`conflicting`/`unknown` status vocabulary, and full source records on contradicting values while retaining deterministic source-quality, freshness, and agreement scoring.
+- Delta Intelligence classifications for capability, branch expansion, service/contact collection growth, hiring activity, and digital-maturity score movement; non-neutral significant changes continue through the existing deterministic rescore gate.
+- Apify normalization retains only bounded, curated business evidence required by these projections; raw actor items remain confined to existing raw-payload persistence and are never returned by the history API.
+- Focused tests cover tenant isolation, missing/empty history, pagination, newest-first ordering, run-scoped changes, no provider/LLM invocation, booking, branch disagreement, service deduplication, WhatsApp/contact channels, ecommerce, social presence, review sentiment/pain points, hiring, digital maturity, insufficient evidence, source quality/freshness, and new delta classifications.
+
+## [Feature] Delta Intelligence (research-run diffing and change detection) - 2026-09-17
+
+### Added
+
+- `app/modules/research/models.py`: `ResearchRun` (one row per `research_lead` call), `ResearchFactSnapshot` (immutable per-claim-type canonical value captured at the end of a run), and `ResearchChangeEvent` (one row per meaningful, backend-decided change between two runs), via migration `0021_research_delta_intelligence`.
+- `app/modules/research/delta.py`: `FactDiffEngine` — pure Python, deterministic diff of two `ResearchFactSnapshot` maps, dropping numeric noise below 2% of a claim's scale (rating/5.0, review_count/200) and classifying the rest into a fixed `event_type` vocabulary with a computed `significance` and `direction` (`improved`/`declined`/`neutral`); `ChangeExplainer` — runs strictly after `FactDiffEngine` has already decided a change occurred, and only ever produces the human-readable `explanation` string (via `OPENAI_API_KEY` when available, otherwise a deterministic templated sentence, exception-safe). **The LLM never decides whether a change occurred or how significant it is — only the backend does; the LLM only explains.**
+- `app/modules/research/delta.py`: `DeltaIntelligenceService.process_completed_run`, wired into `LeadsService.research_lead` as the single shared call site for both `mode="planned"` and `mode="agentic"` research runs. Builds the current Evidence Graph, diffs it against the previous OK run, persists the new run/snapshot, and (for changes at/above `research_delta_min_significance`) persists `ResearchChangeEvent` rows and triggers `rescore_lead()` for non-neutral changes at/above `research_delta_rescore_significance`.
+- `app/modules/scoring/rescore.py`: `rescore_lead()`, a job-independent extraction of `LeadDiscoveryOrchestrator._score_leads`'s scoring pipeline (evidence → signals → ICP match → facts → `ScoringEngine.evaluate` → persist) for exactly one already-known lead, usable outside a `SearchJob` context.
+- New settings: `research_delta_min_significance` (0.15) and `research_delta_rescore_significance` (0.4), both deterministic backend thresholds.
+- `docs/PROVIDERS.md`: Delta Intelligence section.
+- Tests: `tests/test_delta_intelligence.py` (14 new tests) covering `FactDiffEngine` classification rules, `ChangeExplainer` template fallback and exception-safety, and `ResearchRepository` run/snapshot/event persistence round-trips.
+
+## [Feature] Research Agent Loop, Tool Registry, and Evidence Graph - 2026-09-17
+
+### Added
+
+- `app/modules/research/tools.py`: `TOOL_DEFINITIONS`, a fixed registry of 10 research tools (`search_web_tavily`, `search_google_serpapi`, `crawl_company_site`, `crawl_reviews`, `get_existing_evidence`, `get_previous_research`, `get_lead_score_breakdown`, `get_icp_profile`, `resolve_company_domain`, `compare_evidence`) and `ResearchToolExecutor`. `crawl_company_site`/`crawl_reviews` take zero parameters — the crawl target is always resolved server-side from evidence already on file, so the LLM can never supply a URL or Apify Actor ID outside the existing allowlist layer.
+- `app/modules/research/agent_loop.py`: `ResearchAgentLoop`, a bounded LLM tool-calling loop (`mode="agentic"`) as an alternative to `ResearchOrchestrator`'s fixed-step `mode="planned"` flow. Hard-bounded via new `research_agent_max_tool_calls` (8), `research_agent_max_external_searches` (5), `research_agent_max_crawls` (3), `research_agent_max_sources` (15), and `research_agent_max_runtime_seconds` (60) settings, enforced in the loop before each tool call. Reuses `OPENAI_API_KEY`; a `research_agent_runtime` property (`openai`/`stub`/`blocked`) mirrors the existing demo/live/stub/blocked runtime pattern.
+- `app/modules/research/evidence_graph.py`: canonical Evidence Graph — `FactResolver` (per-claim canonical value plus explicit disagreeing values, not just a contradiction flag), `source_quality()` (a fixed weight table from official-site crawl 1.00 down to unrecognized source 0.35), and `EvidenceGraphBuilder`, which groups resolved facts and `LeadSignal` rows into Business Identity / Digital Presence / Reviews / Contactability / Pain / Opportunity / Growth groups and computes a deterministic `evidence_confidence` and `research_coverage` pair, distinct from the lead's Fit/Need/Urgency Opportunity Score.
+- `GET /leads/{lead_id}/evidence-graph`: new, additive endpoint serving the Evidence Graph. Built from `ProviderNormalizedFact`'s existing flattened columns; the historical `facts_json` shape and the existing `/evidence` endpoint are unchanged.
+- `POST /api/v1/leads/{lead_id}/research` now accepts `"mode": "planned"|"agentic"` (default `planned`) and returns `mode`/`tool_calls_made` in addition to the existing fields.
+- `docs/PROVIDERS.md`: Research agent mode and Evidence Graph sections.
+- Tests: `tests/test_evidence_graph.py`, `tests/test_research_tools.py`, `tests/test_research_agent_loop.py` (26 new tests), including a dedicated invariant test asserting no tool schema exposes a `url`/`actor` parameter other than `resolve_company_domain`'s pure-parsing `url`.
+
+## [Feature] Multi-Source Research Pipeline (Tavily + SerpAPI + Apify) - 2026-09-17
+
+### Added
+
+- `app/modules/provider_apify`: new Apify provider adapter (client, live/demo services, normalizer) used as a deep-extraction/crawling layer, distinct from Tavily/SerpAPI search. Every call is enforced against a fixed Actor-key allowlist (`company_website_crawler`, `business_directory_crawler`, `social_public_profile_crawler`, `reviews_crawler`) resolved server-side to a real Actor ID — no caller, including an LLM tool call, can request an arbitrary Actor ID.
+- `app/modules/research`: `ResearchPlanner` (depth-gated step planning for `quick`/`standard`/`deep`), `ResearchProviderRouter` (dispatches a step to the right provider's live/demo service), `ContradictionDetector` (flags disagreeing claims — phone/website_domain/category/address — across providers), and `ResearchOrchestrator` (ties them together, sequencing Tavily-discovers-site → Apify-crawls-site within one run).
+- `provider_normalized_facts.freshness_score` and `.actor_run_id` columns, and a new `research_contradictions` table, via migration `0020_research_apify_evidence`.
+- `POST /api/v1/leads/{lead_id}/research` now accepts an optional `{"depth": "quick"|"standard"|"deep"}` body and returns `providers_used` and `contradictions_detected` in addition to the existing fields.
+- `docs/PROVIDERS.md`: Apify allowlist/env-var documentation and a research-depth explanation.
+
+### Changed
+
+- `LeadsService.research_lead` no longer calls Tavily directly; it delegates to `ResearchOrchestrator`, which decides per-request which of Tavily/SerpAPI/Apify to call based on `research_depth` and provider availability, instead of always calling every configured provider.
+- Audit event for lead research renamed from `lead.tavily_research_requested` to `lead.research_requested` to reflect the multi-provider pipeline.
+
 ## [Live] Multi-Provider Validation Pass - 2026-07-07
 
 ### Added

@@ -422,6 +422,8 @@ export interface LatestOutreachResponse {
 export interface OutreachGenerateRequest {
   tone?: OutreachTone;
   regenerate?: boolean;
+  /** "en" or "ar"; the server rejects anything else. */
+  language?: string;
 }
 
 export interface OutreachMessageUpdateRequest {
