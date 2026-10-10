@@ -65,6 +65,8 @@ class SearchJob(Base):
     website_preference: Mapped[str] = mapped_column(String(32), default=WebsitePreference.ANY.value)
     keyword_filter: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    dedup_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
     status: Mapped[str] = mapped_column(String(32), default=SearchJobStatus.QUEUED.value)
     queued_at: Mapped[datetime] = mapped_column(DateTime(), default=lambda: datetime.now(tz=UTC))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)

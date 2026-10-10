@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
@@ -16,10 +16,29 @@ from app.shared.enums.jobs import LeadScoreBand
 
 class ScoringRepository:
     def list_evidence_items(self, db: Session, lead_id: int) -> list[LeadEvidenceItem]:
+        dedup_subq = (
+            select(func.max(ProviderNormalizedFact.id).label("id"))
+            .where(
+                ProviderNormalizedFact.lead_id == lead_id,
+                ProviderNormalizedFact.source_unique_id != "",
+            )
+            .group_by(
+                ProviderNormalizedFact.lead_id,
+                ProviderNormalizedFact.source_type,
+                ProviderNormalizedFact.source_unique_id,
+            )
+            .subquery()
+        )
         statement = (
             select(ProviderNormalizedFact, ProviderFetch)
             .join(ProviderFetch, ProviderFetch.id == ProviderNormalizedFact.provider_fetch_id)
-            .where(ProviderNormalizedFact.lead_id == lead_id)
+            .where(
+                ProviderNormalizedFact.lead_id == lead_id,
+                or_(
+                    ProviderNormalizedFact.source_unique_id == "",
+                    ProviderNormalizedFact.id.in_(select(dedup_subq.c.id)),
+                ),
+            )
             .order_by(ProviderNormalizedFact.created_at.desc(), ProviderNormalizedFact.id.desc())
         )
         rows = db.execute(statement).all()

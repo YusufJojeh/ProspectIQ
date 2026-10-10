@@ -29,7 +29,10 @@ from app.modules.provider_serpapi.models import (
 from app.modules.provider_serpapi.normalizers.maps_local_normalizer import MapsLocalNormalizer
 from app.modules.provider_serpapi.normalizers.maps_place_normalizer import MapsPlaceNormalizer
 from app.modules.provider_serpapi.normalizers.web_search_normalizer import WebSearchNormalizer
-from app.modules.provider_serpapi.repository import ProviderEvidenceRepository
+from app.modules.provider_serpapi.repository import (
+    ProviderEvidenceRepository,
+    _compute_source_unique_id,
+)
 from app.modules.provider_serpapi.schemas import (
     LeadCandidate,
     PlaceLookupKey,
@@ -1077,13 +1080,22 @@ class LeadDiscoveryOrchestrator:
             lead_id=lead.id,
             identities=candidate.identities,
         )
-        fact = self.evidence_repository.add_normalized_fact(
+        fact = self.evidence_repository.upsert_normalized_fact(
             db,
             ProviderNormalizedFact(
                 workspace_id=job.workspace_id,
                 lead_id=lead.id,
                 provider_fetch_id=provider_fetch_id,
                 source_type=source_type,
+                source_unique_id=_compute_source_unique_id(
+                    place_id=candidate.place_id,
+                    data_id=candidate.data_id,
+                    data_cid=candidate.data_cid,
+                    company_name=candidate.company_name,
+                    address=candidate.address,
+                    phone=candidate.phone,
+                    website_domain=candidate.website_domain,
+                ),
                 data_cid=candidate.data_cid,
                 data_id=candidate.data_id,
                 place_id=candidate.place_id,
@@ -1123,13 +1135,22 @@ class LeadDiscoveryOrchestrator:
         *,
         source_type: str = "web_search",
     ) -> None:
-        fact = self.evidence_repository.add_normalized_fact(
+        fact = self.evidence_repository.upsert_normalized_fact(
             db,
             ProviderNormalizedFact(
                 workspace_id=lead.workspace_id,
                 lead_id=lead.id,
                 provider_fetch_id=provider_fetch_id,
                 source_type=source_type,
+                source_unique_id=_compute_source_unique_id(
+                    place_id=None,
+                    data_id=None,
+                    data_cid=None,
+                    company_name=lead.company_name,
+                    address=lead.address,
+                    phone=lead.phone,
+                    website_domain=discovery.website_domain,
+                ),
                 data_cid=None,
                 data_id=None,
                 place_id=None,

@@ -57,6 +57,20 @@ class SearchJobRepository:
         )
         return list(db.scalars(statement))
 
+    def find_active_by_fingerprint(
+        self, db: Session, *, workspace_id: int, fingerprint: str
+    ) -> SearchJob | None:
+        return db.scalar(
+            select(SearchJob)
+            .where(
+                SearchJob.workspace_id == workspace_id,
+                SearchJob.dedup_fingerprint == fingerprint,
+                SearchJob.status.in_([SearchJobStatus.QUEUED.value, SearchJobStatus.RUNNING.value]),
+            )
+            .order_by(SearchJob.queued_at.desc())
+            .limit(1)
+        )
+
     def save(self, db: Session, job: SearchJob) -> SearchJob:
         db.add(job)
         db.commit()

@@ -87,6 +87,13 @@ class ProviderNormalizedFact(Base):
             "source_type",
             "created_at",
         ),
+        Index(
+            "ix_provider_norm_fact_dedup",
+            "workspace_id",
+            "lead_id",
+            "source_type",
+            "source_unique_id",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -94,6 +101,7 @@ class ProviderNormalizedFact(Base):
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
     provider_fetch_id: Mapped[int] = mapped_column(ForeignKey("provider_fetches.id"), index=True)
     source_type: Mapped[str] = mapped_column(String(32))
+    source_unique_id: Mapped[str] = mapped_column(String(128), nullable=False, server_default="")
     data_cid: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
     data_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
     place_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)

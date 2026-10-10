@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+from datetime import UTC, datetime
+
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
@@ -12,7 +15,30 @@ from app.modules.provider_serpapi.models import (
 from app.modules.provider_serpapi.schemas import LeadIdentityCandidate, PlaceLookupKey
 
 
+def _compute_source_unique_id(
+    *,
+    place_id: str | None,
+    data_id: str | None,
+    data_cid: str | None,
+    company_name: str,
+    address: str | None,
+    phone: str | None,
+    website_domain: str | None,
+) -> str:
+    if place_id:
+        return f"place_{place_id}"
+    if data_id:
+        return f"did_{data_id}"
+    if data_cid:
+        return f"dcid_{data_cid}"
+    raw = "|".join([company_name or "", address or "", phone or "", website_domain or ""])
+    return "hash_" + hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
 class ProviderEvidenceRepository:
+    _UPSERT_FROZEN_COLUMNS = frozenset(
+        {"id", "workspace_id", "lead_id", "source_type", "source_unique_id", "created_at"}
+    )
     _IDENTITY_WEIGHTS = {
         "data_cid": 120,
         "data_id": 110,
@@ -108,6 +134,38 @@ class ProviderEvidenceRepository:
         if to_add:
             db.add_all(to_add)
             db.commit()
+
+    def upsert_normalized_fact(
+        self, db: Session, fact: ProviderNormalizedFact
+    ) -> ProviderNormalizedFact:
+        if not fact.source_unique_id:
+            return self.add_normalized_fact(db, fact)
+        existing = db.scalar(
+            select(ProviderNormalizedFact).where(
+                ProviderNormalizedFact.workspace_id == fact.workspace_id,
+                ProviderNormalizedFact.lead_id == fact.lead_id,
+                ProviderNormalizedFact.source_type == fact.source_type,
+                ProviderNormalizedFact.source_unique_id == fact.source_unique_id,
+            )
+        )
+        if existing is not None:
+            # Refresh the stored evidence with every value the new fetch provided.
+            # Unset attributes (None before flush) never overwrite stored data.
+            for column in ProviderNormalizedFact.__table__.columns:
+                if column.key in self._UPSERT_FROZEN_COLUMNS:
+                    continue
+                value = getattr(fact, column.key)
+                if value is not None:
+                    setattr(existing, column.key, value)
+            existing.created_at = datetime.now(tz=UTC)
+            db.add(existing)
+            db.commit()
+            db.refresh(existing)
+            return existing
+        db.add(fact)
+        db.commit()
+        db.refresh(fact)
+        return fact
 
     def add_normalized_fact(
         self, db: Session, fact: ProviderNormalizedFact

@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -18,6 +20,27 @@ from app.modules.search_jobs.schemas import (
 from app.shared.enums.jobs import SearchJobStatus, WebsitePreference
 
 
+def _compute_job_fingerprint(payload: SearchJobCreateRequest, workspace_id: int) -> str:
+    key = json.dumps(
+        {
+            "workspace_id": workspace_id,
+            "business_type": payload.business_type.strip().lower(),
+            "city": payload.city.strip().lower(),
+            "region": (payload.region or "").strip().lower(),
+            "radius_km": payload.radius_km,
+            "max_results": payload.max_results,
+            "min_rating": payload.min_rating,
+            "max_rating": payload.max_rating,
+            "min_reviews": payload.min_reviews,
+            "max_reviews": payload.max_reviews,
+            "website_preference": payload.website_preference.value,
+            "keyword_filter": (payload.keyword_filter or "").strip().lower(),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
 class SearchJobService:
     def __init__(self) -> None:
         self.repository = SearchJobRepository()
@@ -32,6 +55,13 @@ class SearchJobService:
         workspace_id: int,
         requested_by_user_id: int,
     ) -> SearchJob:
+        fingerprint = _compute_job_fingerprint(payload, workspace_id)
+        existing = self.repository.find_active_by_fingerprint(
+            db, workspace_id=workspace_id, fingerprint=fingerprint
+        )
+        if existing is not None:
+            return existing
+
         self.billing.enforce_usage(
             db,
             workspace_id=workspace_id,
@@ -71,6 +101,7 @@ class SearchJobService:
             max_reviews=payload.max_reviews,
             website_preference=payload.website_preference.value,
             keyword_filter=payload.keyword_filter,
+            dedup_fingerprint=fingerprint,
             status=SearchJobStatus.QUEUED.value,
         )
         saved = self.repository.add(db, job)
