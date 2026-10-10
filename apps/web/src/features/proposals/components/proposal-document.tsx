@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
-import type { ProposalBrand, ProposalLanguage } from "@/types/proposals";
+import type { BrandFields, ProposalLanguage } from "@/types/proposals";
 
 import { documentLabels, formatDocumentDate } from "../document-labels";
 import { formatMinor, formatMoney } from "../money";
@@ -14,7 +14,7 @@ export interface DocumentMilestone {
 
 /** Everything the printed page shows; the editor feeds it unsaved values. */
 export interface ProposalDocumentData {
-  brand: ProposalBrand;
+  brand: BrandFields;
   language: ProposalLanguage;
   number: string;
   title: string;
@@ -59,13 +59,15 @@ export function ProposalDocument({ data, printable = false }: { data: ProposalDo
     "--pq-bg": brand.background,
     "--pq-radius": `${brand.radius_px}px`,
   } as CSSProperties;
+  const markClass =
+    brand.mark_shape === "hex" ? "pq-mark-hex" : brand.mark_shape === "square" ? "pq-mark-square" : "pq-mark-circle";
   const attnParts = [data.client_contact_name, data.client_location].filter(
     (part): part is string => Boolean(part && part.trim()),
   );
 
   return (
     <article
-      className={`pq-doc${printable ? " pq-print-root" : ""}`}
+      className={`pq-doc${brand.font_style === "serif" ? " pq-serif" : ""}${printable ? " pq-print-root" : ""}`}
       style={style}
       dir={data.language === "ar" ? "rtl" : "ltr"}
       lang={data.language}
@@ -73,9 +75,13 @@ export function ProposalDocument({ data, printable = false }: { data: ProposalDo
     >
       <div className="pq-brandbar">
         <div className="pq-lockup">
-          <div className={`pq-mark ${brand.mark_shape === "hex" ? "pq-mark-hex" : "pq-mark-square"}`}>
-            <span>{brand.mark}</span>
-          </div>
+          {brand.logo_data_url ? (
+            <img className="pq-logo" src={brand.logo_data_url} alt="" />
+          ) : (
+            <div className={`pq-mark ${markClass}`}>
+              <span>{brand.mark}</span>
+            </div>
+          )}
           <div className="pq-wordmark" dir="ltr">
             {brand.name}
             <small>{brand.tagline}</small>

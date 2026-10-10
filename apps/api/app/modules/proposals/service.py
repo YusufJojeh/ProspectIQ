@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -14,7 +13,11 @@ from app.modules.audit_logs.service import AuditLogService
 from app.modules.auth.permissions import assert_workspace_permission
 from app.modules.leads.models import Lead
 from app.modules.leads.repository import LeadsRepository
-from app.modules.proposals.brands import BRAND_PRESETS, BrandPreset, get_brand
+from app.modules.proposals.brand_service import (
+    ProposalBrandService,
+    brand_response,
+    brand_snapshot,
+)
 from app.modules.proposals.documents import (
     EDITABLE_STATUSES,
     STATUS_DRAFT,
@@ -26,9 +29,8 @@ from app.modules.proposals.documents import (
     readiness_issues,
     share_pct,
 )
-from app.modules.proposals.models import Proposal
+from app.modules.proposals.models import Proposal, ProposalBrand
 from app.modules.proposals.schemas import (
-    BrandListResponse,
     BrandResponse,
     MilestoneInput,
     MilestoneResponse,
@@ -71,24 +73,6 @@ def _today() -> date:
     return datetime.now(tz=UTC).date()
 
 
-def _brand_response(brand: BrandPreset) -> BrandResponse:
-    data = asdict(brand)
-    data.pop("default_outcome")
-    data.pop("default_commercial_notes")
-    data.pop("default_validity_notes")
-    data.pop("default_milestones")
-    return BrandResponse(**data)
-
-
-def _require_brand(key: str) -> BrandPreset:
-    brand = get_brand(key)
-    if brand is None:
-        raise ProposalInvalidError(
-            f"Unknown proposal brand '{key}'. Use one of: {', '.join(BRAND_PRESETS)}."
-        )
-    return brand
-
-
 def _milestones_payload(items: list[MilestoneInput]) -> list[dict[str, Any]]:
     return [
         {"title": item.title, "description": item.description, "amount_minor": item.amount_minor}
@@ -107,11 +91,9 @@ class ProposalService:
     def __init__(self) -> None:
         self.leads_repository = LeadsRepository()
         self.audit_logs = AuditLogService()
+        self.brands = ProposalBrandService()
 
     # -- Reads --------------------------------------------------------------
-
-    def list_brands(self) -> BrandListResponse:
-        return BrandListResponse(items=[_brand_response(b) for b in BRAND_PRESETS.values()])
 
     def list_proposals(
         self,
@@ -125,8 +107,11 @@ class ProposalService:
             current_user.role, "leads:view", message="You cannot view proposals."
         )
         query = (
-            select(Proposal, Lead.public_id, Lead.company_name)
+            select(
+                Proposal, Lead.public_id, Lead.company_name, ProposalBrand.public_id, ProposalBrand.name
+            )
             .join(Lead, Lead.id == Proposal.lead_id)
+            .join(ProposalBrand, ProposalBrand.id == Proposal.brand_id)
             .where(Proposal.workspace_id == workspace_id)
             .order_by(Proposal.updated_at.desc(), Proposal.id.desc())
             .limit(200)
@@ -141,7 +126,8 @@ class ProposalService:
                 status=proposal.status,
                 lead_id=lead_id,
                 lead_company_name=company,
-                brand_key=proposal.brand_key,
+                brand_id=brand_id,
+                brand_name=brand_name,
                 title=proposal.title,
                 client_company=proposal.client_company,
                 currency=proposal.currency,
@@ -150,7 +136,7 @@ class ProposalService:
                 ready=not self._issues(proposal, today),
                 updated_at=proposal.updated_at,
             )
-            for proposal, lead_id, company in db.execute(query).all()
+            for proposal, lead_id, company, brand_id, brand_name in db.execute(query).all()
         ]
         return ProposalListResponse(items=items)
 
@@ -179,7 +165,9 @@ class ProposalService:
         )
         if lead is None:
             raise NotFoundError("Lead was not found.")
-        brand = _require_brand(payload.brand_key)
+        brand = self.brands.resolve_for_use(
+            db, workspace_id=workspace_id, current_user=current_user, brand_public_id=payload.brand_id
+        )
         proposal = self.create(
             db,
             workspace_id=workspace_id,
@@ -196,7 +184,7 @@ class ProposalService:
         *,
         workspace_id: int,
         lead: Lead,
-        brand: BrandPreset,
+        brand: ProposalBrand,
         current_user: User,
         language: str = "en",
         title: str | None = None,
@@ -219,20 +207,26 @@ class ProposalService:
             milestones
             if milestones is not None
             else [
-                {"title": m.title, "description": m.description, "amount_minor": None}
-                for m in brand.default_milestones
+                {
+                    "title": str(m.get("title") or ""),
+                    "description": str(m.get("description") or ""),
+                    "amount_minor": None,
+                }
+                for m in brand.default_milestones or []
             ]
         )
         validity_notes = brand.default_validity_notes
-        if days != 30:
-            validity_notes = validity_notes.replace("30 days", f"{days} days")
+        if days != brand.validity_days:
+            validity_notes = validity_notes.replace(
+                f"{brand.validity_days} days", f"{days} days"
+            )
 
         for attempt in range(_NUMBER_ATTEMPTS):
             proposal = Proposal(
                 workspace_id=workspace_id,
                 lead_id=lead.id,
                 number=self._next_number(db, workspace_id=workspace_id, brand=brand, today=today),
-                brand_key=brand.key,
+                brand_id=brand.id,
                 language=language,
                 status=STATUS_DRAFT,
                 title=title or "",
@@ -294,13 +288,14 @@ class ProposalService:
             )
 
         changes = payload.model_dump(exclude_unset=True)
+        brand_ref = changes.pop("brand_id", None)
+        if brand_ref:
+            self._change_brand(db, proposal, brand_ref, current_user)
         for field, value in changes.items():
             if value is None:
                 if field in _CLEARABLE:
                     setattr(proposal, field, None)
                 continue
-            if field == "brand_key":
-                _require_brand(value)
             if field == "milestones":
                 value = _milestones_payload(payload.milestones or [])
             if field in _CLEARABLE and isinstance(value, str) and not value:
@@ -312,11 +307,16 @@ class ProposalService:
 
         # A ready proposal that changes must be checked again before it is
         # trusted: "ready" means a person reviewed exactly this content.
-        if changes and proposal.status == STATUS_READY:
+        if (changes or brand_ref) and proposal.status == STATUS_READY:
             proposal.status = STATUS_DRAFT
         proposal.updated_at = datetime.now(tz=UTC)
         db.add(proposal)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # Another draft took the new brand's next number at the same moment.
+            db.rollback()
+            raise ProposalConflictError("Could not allocate a proposal number. Try again.") from None
         db.refresh(proposal)
         return self.to_response(db, proposal)
 
@@ -352,6 +352,9 @@ class ProposalService:
                 f"Proposal {proposal.number} is not ready to send: {', '.join(issues)}."
             )
         proposal.sent_at = datetime.now(tz=UTC)
+        # Freeze the identity the client received: later brand edits must not
+        # change a document that has already gone out.
+        proposal.brand_snapshot = brand_snapshot(self._brand_of(db, proposal))
         return self._transition(db, proposal, STATUS_SENT, current_user, event="proposal.sent")
 
     def record_decision(
@@ -379,7 +382,7 @@ class ProposalService:
 
     def to_response(self, db: Session, proposal: Proposal) -> ProposalResponse:
         lead = db.get(Lead, proposal.lead_id)
-        brand = get_brand(proposal.brand_key) or next(iter(BRAND_PRESETS.values()))
+        brand = self._document_brand(db, proposal)
         lines = list(proposal.milestones or [])
         totals = compute_totals(lines)
         issues = self._issues(proposal, _today())
@@ -389,7 +392,7 @@ class ProposalService:
             status=proposal.status,  # type: ignore[arg-type]
             lead_id=lead.public_id if lead else "",
             lead_company_name=lead.company_name if lead else "",
-            brand=_brand_response(brand),
+            brand=brand,
             language=proposal.language,  # type: ignore[arg-type]
             title=proposal.title,
             client_company=proposal.client_company,
@@ -460,8 +463,42 @@ class ProposalService:
         )
         return self.to_response(db, proposal)
 
+    def _change_brand(
+        self, db: Session, proposal: Proposal, brand_ref: str, current_user: User
+    ) -> None:
+        previous = self._brand_of(db, proposal)
+        # Saving the editor resends the current brand; that is not a change,
+        # even when the brand has been archived since.
+        if brand_ref == previous.public_id:
+            return
+        brand = self.brands.resolve_for_use(
+            db,
+            workspace_id=proposal.workspace_id,
+            current_user=current_user,
+            brand_public_id=brand_ref,
+        )
+        proposal.brand_id = brand.id
+        # The number carries the brand's prefix; a draft that changes brand
+        # takes the next number in the new brand's series.
+        if previous.number_prefix != brand.number_prefix:
+            proposal.number = self._next_number(
+                db, workspace_id=proposal.workspace_id, brand=brand, today=_today()
+            )
+
     @staticmethod
-    def _next_number(db: Session, *, workspace_id: int, brand: BrandPreset, today: date) -> str:
+    def _brand_of(db: Session, proposal: Proposal) -> ProposalBrand:
+        brand = db.get(ProposalBrand, proposal.brand_id)
+        if brand is None:  # pragma: no cover - FK guarantees it
+            raise ProposalNotFoundError("The proposal's brand was not found.")
+        return brand
+
+    def _document_brand(self, db: Session, proposal: Proposal) -> BrandResponse:
+        if proposal.status not in EDITABLE_STATUSES and proposal.brand_snapshot:
+            return BrandResponse.model_validate(proposal.brand_snapshot)
+        return brand_response(self._brand_of(db, proposal))
+
+    @staticmethod
+    def _next_number(db: Session, *, workspace_id: int, brand: ProposalBrand, today: date) -> str:
         stem = f"{brand.number_prefix}-{today.year}-"
         existing = list(
             db.scalars(

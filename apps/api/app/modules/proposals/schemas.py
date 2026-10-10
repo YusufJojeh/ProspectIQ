@@ -39,35 +39,156 @@ class ProposalReadiness(BaseModel):
     issues: list[str]
 
 
-class BrandResponse(BaseModel):
-    key: str
-    name: str
-    tagline: str
-    mark: str
-    mark_shape: str
-    number_prefix: str
-    signer_label: str
-    client_signer_label: str
-    footer_contact: str
-    paper: str
-    ink: str
-    muted: str
-    line: str
-    accent: str
-    accent_secondary: str
-    background: str
-    radius_px: int
-    default_currency: str
-    validity_days: int
+_HexColor = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^#[0-9A-Fa-f]{6}$")]
+MarkShape = Literal["square", "hex", "circle"]
+FontStyle = Literal["sans", "serif"]
+
+#: ~300 KB of image, base64-encoded. PNG/JPEG/WebP only: an SVG logo could
+#: carry script, and the logo is embedded in a document clients receive.
+MAX_LOGO_DATA_URL_LENGTH = 400_000
+_LOGO_PATTERN = r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$"
+
+
+class BrandMilestone(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=600)] = ""
+
+
+class BrandFields(BaseModel):
+    """Everything a workspace controls about how its proposals look and start."""
+
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    tagline: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ""
+    mark: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4)] = ""
+    mark_shape: MarkShape = "circle"
+    font_style: FontStyle = "sans"
+    logo_data_url: (
+        Annotated[
+            str,
+            StringConstraints(max_length=MAX_LOGO_DATA_URL_LENGTH, pattern=_LOGO_PATTERN),
+        ]
+        | None
+    ) = None
+    number_prefix: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z0-9]{1,8}(-[A-Za-z0-9]{1,6})?$"
+        ),
+    ]
+    signer_label: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ""
+    client_signer_label: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)]
+    ) = ""
+    footer_contact: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] = ""
+    paper: _HexColor
+    ink: _HexColor
+    muted: _HexColor
+    line: _HexColor
+    accent: _HexColor
+    accent_secondary: _HexColor
+    background: _HexColor
+    radius_px: Annotated[int, Field(ge=0, le=24)] = 8
+    default_currency: _Currency = "USD"
+    validity_days: Annotated[int, Field(ge=1, le=365)] = 30
+    default_outcome: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)] = ""
+    default_commercial_notes: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+    ) = ""
+    default_validity_notes: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+    ) = ""
+    default_milestones: Annotated[list[BrandMilestone], Field(max_length=12)] = []
+
+
+class BrandCreateRequest(BrandFields):
+    is_default: bool = False
+
+
+class BrandUpdateRequest(BaseModel):
+    """Partial update; a field left out is unchanged. `logo_data_url: null`
+    removes the logo."""
+
+    name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+        | None
+    ) = None
+    tagline: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] | None = None
+    mark: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4)] | None = None
+    mark_shape: MarkShape | None = None
+    font_style: FontStyle | None = None
+    logo_data_url: (
+        Annotated[
+            str,
+            StringConstraints(max_length=MAX_LOGO_DATA_URL_LENGTH, pattern=_LOGO_PATTERN),
+        ]
+        | None
+    ) = None
+    number_prefix: (
+        Annotated[
+            str,
+            StringConstraints(
+                strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z0-9]{1,8}(-[A-Za-z0-9]{1,6})?$"
+            ),
+        ]
+        | None
+    ) = None
+    signer_label: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] | None
+    ) = None
+    client_signer_label: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] | None
+    ) = None
+    footer_contact: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None
+    ) = None
+    paper: _HexColor | None = None
+    ink: _HexColor | None = None
+    muted: _HexColor | None = None
+    line: _HexColor | None = None
+    accent: _HexColor | None = None
+    accent_secondary: _HexColor | None = None
+    background: _HexColor | None = None
+    radius_px: Annotated[int, Field(ge=0, le=24)] | None = None
+    default_currency: _Currency | None = None
+    validity_days: Annotated[int, Field(ge=1, le=365)] | None = None
+    default_outcome: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)] | None
+    ) = None
+    default_commercial_notes: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None
+    ) = None
+    default_validity_notes: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None
+    ) = None
+    default_milestones: Annotated[list[BrandMilestone], Field(max_length=12)] | None = None
+    archived: bool | None = None
+
+
+class BrandResponse(BrandFields):
+    """A workspace brand. Also the shape of a sent proposal's frozen brand."""
+
+    public_id: str
+    is_default: bool = False
+    archived: bool = False
 
 
 class BrandListResponse(BaseModel):
     items: list[BrandResponse]
 
 
+class BrandTemplateResponse(BaseModel):
+    key: str
+    values: BrandFields
+
+
+class BrandTemplateListResponse(BaseModel):
+    items: list[BrandTemplateResponse]
+
+
 class ProposalCreateRequest(BaseModel):
     lead_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32)]
-    brand_key: str
+    #: A workspace brand's public id; omitted means the workspace default.
+    brand_id: Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)] | None = None
     language: ProposalLanguage = "en"
 
 
@@ -75,7 +196,7 @@ class ProposalUpdateRequest(BaseModel):
     """Partial update. A field left out is unchanged; `null` clears only the
     optional contact fields."""
 
-    brand_key: str | None = None
+    brand_id: Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)] | None = None
     language: ProposalLanguage | None = None
     title: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = None
     client_company: (
@@ -157,7 +278,8 @@ class ProposalSummary(BaseModel):
     status: ProposalStatus
     lead_id: str
     lead_company_name: str
-    brand_key: str
+    brand_id: str
+    brand_name: str
     title: str
     client_company: str
     currency: str

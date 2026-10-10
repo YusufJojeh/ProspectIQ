@@ -105,6 +105,14 @@ const ProposalPage = lazy(async () => {
   const module = await import("@/features/proposals/routes/proposal-page");
   return { default: module.ProposalPage };
 });
+const ProposalBrandsPage = lazy(async () => {
+  const module = await import("@/features/proposals/routes/brands-page");
+  return { default: module.ProposalBrandsPage };
+});
+const ProposalBrandPage = lazy(async () => {
+  const module = await import("@/features/proposals/routes/brand-page");
+  return { default: module.ProposalBrandPage };
+});
 const KnowledgePage = lazy(async () => {
   const module = await import("@/features/knowledge/routes/knowledge-page");
   return { default: module.KnowledgePage };
@@ -349,6 +357,22 @@ function buildRouter() {
           element: lazyPage(ProposalsPage, {
             title: i18n.t("routeLoading.proposalsTitle"),
             description: i18n.t("routeLoading.proposalsDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "proposals/brands",
+          element: lazyPage(ProposalBrandsPage, {
+            title: i18n.t("routeLoading.proposalBrandsTitle"),
+            description: i18n.t("routeLoading.proposalBrandsDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "proposals/brands/:brandId",
+          element: lazyPage(ProposalBrandPage, {
+            title: i18n.t("routeLoading.proposalBrandTitle"),
+            description: i18n.t("routeLoading.proposalBrandDescription"),
             compact: true,
           }),
         },

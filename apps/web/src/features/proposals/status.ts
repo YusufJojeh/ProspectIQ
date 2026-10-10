@@ -19,3 +19,8 @@ export function proposalStatusTone(status: ProposalStatus): BadgeTone {
 export function isEditable(status: ProposalStatus): boolean {
   return status === "draft" || status === "ready";
 }
+
+/** Mirrors the API: brands are designed by workspace owners and admins. */
+export function canManageBrands(role: string | undefined): boolean {
+  return role === "account_owner" || role === "admin" || role === "platform_admin";
+}

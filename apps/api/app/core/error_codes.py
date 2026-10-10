@@ -80,6 +80,8 @@ class ErrorCodes:
     PROPOSAL_CONFLICT = "proposals.conflict"
     PROPOSAL_NOT_READY = "proposals.not_ready"
     PROPOSAL_INVALID = "proposals.invalid"
+    PROPOSAL_BRAND_NOT_FOUND = "proposals.brand_not_found"
+    PROPOSAL_BRAND_CONFLICT = "proposals.brand_conflict"
 
     # Validation Errors (domain-specific)
     VALIDATION_INVALID_EMAIL = "validation.invalid_email"

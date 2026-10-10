@@ -85,10 +85,10 @@ export function ProposalPage() {
     queryFn: () => getProposal(proposalId),
     enabled: proposalId !== "",
   });
+  // Archived brands are included so a draft still on one keeps rendering it.
   const brandsQuery = useQuery({
-    queryKey: proposalKeys.brands,
-    queryFn: listProposalBrands,
-    staleTime: Infinity,
+    queryKey: proposalKeys.brandList(true),
+    queryFn: () => listProposalBrands(true),
   });
   useDocumentTitle(proposalQuery.data?.number ?? t("proposals.title"));
 
@@ -116,7 +116,9 @@ export function ProposalPage() {
     <ProposalWorkspace
       key={`${proposalQuery.data.public_id}:${proposalQuery.data.updated_at}`}
       proposal={proposalQuery.data}
-      brands={brandsQuery.data.items}
+      brands={brandsQuery.data.items.filter(
+        (brand) => !brand.archived || brand.public_id === proposalQuery.data.brand.public_id,
+      )}
     />
   );
 }
@@ -262,7 +264,7 @@ function ProposalWorkspace({ proposal, brands }: { proposal: Proposal; brands: P
                     <section className="grid gap-4 sm:grid-cols-2">
                       <FormField
                         control={form.control}
-                        name="brand_key"
+                        name="brand_id"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>{t("proposals.fields.brand")}</FormLabel>
@@ -274,7 +276,7 @@ function ProposalWorkspace({ proposal, brands }: { proposal: Proposal; brands: P
                               </FormControl>
                               <SelectContent>
                                 {brands.map((brand) => (
-                                  <SelectItem key={brand.key} value={brand.key}>
+                                  <SelectItem key={brand.public_id} value={brand.public_id}>
                                     {brand.name}
                                   </SelectItem>
                                 ))}
@@ -621,7 +623,10 @@ function PreviewPane({
 }) {
   const { t } = useTranslation();
   const values = useWatch({ control }) as ProposalFormValues;
-  const brand = brands.find((item) => item.key === values.brand_key) ?? proposal.brand;
+  // A sent proposal shows the brand frozen when it went out, never today's.
+  const brand = isEditable(proposal.status)
+    ? (brands.find((item) => item.public_id === values.brand_id) ?? proposal.brand)
+    : proposal.brand;
   const data = toDocumentData(values, proposal.number, brand);
   return (
     <section aria-label={t("proposals.previewLabel")} className="space-y-2">

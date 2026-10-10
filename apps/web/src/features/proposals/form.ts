@@ -12,7 +12,7 @@ import { minorToInput, parseMinor } from "./money";
  */
 export const proposalFormSchema = z
   .object({
-    brand_key: z.string().min(1),
+    brand_id: z.string().min(1),
     language: z.enum(["en", "ar"]),
     title: z.string().max(255),
     client_company: z.string().max(255),
@@ -47,7 +47,7 @@ export type ProposalFormValues = z.infer<typeof proposalFormSchema>;
 
 export function toFormValues(proposal: Proposal): ProposalFormValues {
   return {
-    brand_key: proposal.brand.key,
+    brand_id: proposal.brand.public_id,
     language: proposal.language,
     title: proposal.title,
     client_company: proposal.client_company,
@@ -75,7 +75,7 @@ function amountOf(value: string): number | null {
 
 export function toUpdateRequest(values: ProposalFormValues): ProposalUpdateRequest {
   return {
-    brand_key: values.brand_key,
+    brand_id: values.brand_id,
     language: values.language,
     title: values.title.trim(),
     client_company: values.client_company.trim(),

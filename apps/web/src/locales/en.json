@@ -131,7 +131,11 @@
     "proposalsTitle": "Loading proposals",
     "proposalsDescription": "Fetching your quotations.",
     "proposalTitle": "Loading proposal",
-    "proposalDescription": "Preparing the document preview."
+    "proposalDescription": "Preparing the document preview.",
+    "proposalBrandsTitle": "Loading brands",
+    "proposalBrandsDescription": "Fetching your proposal letterheads.",
+    "proposalBrandTitle": "Loading brand",
+    "proposalBrandDescription": "Preparing the brand editor."
   },
   "command": {
     "placeholder": "Search leads, jobs, evidence, or run an action...",
@@ -2617,6 +2621,113 @@
     "newProposal": "New proposal",
     "creating": "Creating…",
     "leadCardTitle": "Proposals",
-    "leadCardDescription": "Priced quotations for this lead in your branded layout."
+    "leadCardDescription": "Priced quotations for this lead in your branded layout.",
+    "brands": {
+      "title": "Proposal brands",
+      "description": "Your workspace's own letterheads: name, logo, colours, numbering and default terms. Every proposal is drafted in one of them.",
+      "manage": "Manage brands",
+      "newBrand": "New brand",
+      "newDescription": "Design a letterhead for this workspace. Start from a template, then make it yours.",
+      "editDescription": "Changes apply to drafts and ready proposals. Sent proposals keep the brand they were sent with.",
+      "allBrands": "All brands",
+      "yourBrands": "Your brands",
+      "showArchived": "Show archived",
+      "loadError": "Could not load proposal brands.",
+      "default": "Default",
+      "archived": "Archived",
+      "templatesTitle": "Start from a template",
+      "templatesDescription": "Templates are references only. A new brand copies the template once and is then fully yours to change.",
+      "readOnly": "Only workspace owners and admins can change brands. You can still use them on proposals.",
+      "startFrom": "Start from",
+      "referenceHint": "This is a reference kit. Replace the name, logo, contact and colours with your own before using it.",
+      "editorTitle": "Brand details",
+      "editorDescription": "Everything here shows on the proposal document. The preview updates as you type.",
+      "previewHint": "Preview with a sample client and prices.",
+      "sampleClient": "Sample Client Co.",
+      "sampleProject": "Website redesign",
+      "numberHint": "Proposals are numbered PREFIX-YEAR-001, for example ACME-Q-2026-001.",
+      "defaultsHint": "New proposals in this brand start with these texts and milestones. Each proposal can still change them.",
+      "save": "Save brand",
+      "create": "Create brand",
+      "saved": "Brand saved.",
+      "makeDefault": "Make default",
+      "madeDefault": "{{name}} is now the default brand.",
+      "archive": "Archive",
+      "restore": "Restore",
+      "archivedToast": "Brand archived.",
+      "restored": "Brand restored.",
+      "confirmArchiveTitle": "Archive this brand?",
+      "confirmArchiveDescription": "It can no longer be picked for new proposals. Existing proposals keep it, and you can restore it later.",
+      "uploadLogo": "Upload logo",
+      "replaceLogo": "Replace logo",
+      "removeLogo": "Remove logo",
+      "logoAlt": "Brand logo",
+      "logoHint": "PNG, JPEG or WebP up to 300 KB. Replaces the text mark on the document.",
+      "logoErrors": {
+        "type": "Use a PNG, JPEG or WebP image.",
+        "size": "The logo must be 300 KB or smaller.",
+        "read": "Could not read that file."
+      },
+      "sections": {
+        "identity": "Identity",
+        "colors": "Colours",
+        "document": "Numbering and signatures",
+        "defaults": "Default content"
+      },
+      "fields": {
+        "name": "Brand name",
+        "tagline": "Tagline",
+        "logo": "Logo",
+        "mark": "Text mark",
+        "markShape": "Mark shape",
+        "fontStyle": "Typeface",
+        "radius": "Corner radius (px)",
+        "numberPrefix": "Number prefix",
+        "currency": "Default currency",
+        "validityDays": "Valid for (days)",
+        "footerContact": "Footer contact",
+        "signerLabel": "Your signature line",
+        "clientSignerLabel": "Client signature line",
+        "defaultMilestones": "Default milestones"
+      },
+      "shapes": {
+        "circle": "Circle",
+        "square": "Square",
+        "hex": "Hexagon"
+      },
+      "fonts": {
+        "sans": "Sans serif",
+        "serif": "Serif"
+      },
+      "colors": {
+        "accent": "Accent",
+        "accent_secondary": "Second accent",
+        "ink": "Text",
+        "muted": "Muted text",
+        "paper": "Paper",
+        "line": "Lines",
+        "background": "Page background"
+      },
+      "templates": {
+        "classic": {
+          "name": "Classic",
+          "hint": "Neutral letterhead named after your workspace."
+        },
+        "yusuf_jojeh": {
+          "name": "Yusuf Jojeh kit",
+          "hint": "Reference: warm studio kit."
+        },
+        "hexaterminal": {
+          "name": "HexaTerminal kit",
+          "hint": "Reference: dark technical kit."
+        }
+      },
+      "errors": {
+        "required": "This is required.",
+        "invalidColor": "Use a hex colour like #1D4ED8.",
+        "invalidPrefix": "Letters and digits, optionally one dash, e.g. ACME-Q.",
+        "invalidCurrency": "Use a 3-letter code like USD."
+      }
+    }
   }
 }

@@ -37,5 +37,7 @@ export const appPaths = {
   campaignDetail: (campaignId: string) => `/app/campaigns/${campaignId}`,
   dealDetail: (dealId: string) => `/app/crm/deals/${dealId}`,
   proposalDetail: (proposalId: string) => `/app/proposals/${proposalId}`,
+  proposalBrands: "/app/proposals/brands",
+  proposalBrandDetail: (brandId: string) => `/app/proposals/brands/${brandId}`,
   searchJobDetail: (jobId: string) => `/app/searches/jobs/${jobId}`,
 } as const;

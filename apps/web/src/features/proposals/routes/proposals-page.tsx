@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { Palette } from "lucide-react";
 
 import { appPaths } from "@/app/paths";
 import { PageHeader } from "@/components/shell/page-header";
@@ -12,6 +13,7 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import type { ProposalStatus } from "@/types/proposals";
 
 import { listProposals, proposalKeys } from "../api";
+import { appProposalBrandsPath } from "../paths";
 import { ProposalList } from "../components/proposal-list";
 
 type Filter = "all" | ProposalStatus;
@@ -29,7 +31,18 @@ export function ProposalsPage() {
 
   return (
     <div>
-      <PageHeader title={t("proposals.title")} description={t("proposals.description")} />
+      <PageHeader
+        title={t("proposals.title")}
+        description={t("proposals.description")}
+        actions={
+          <Button asChild size="sm" variant="outline" className="bg-transparent">
+            <Link to={appProposalBrandsPath()}>
+              <Palette className="size-4" aria-hidden />
+              {t("proposals.brands.title")}
+            </Link>
+          </Button>
+        }
+      />
       <div className="mx-auto max-w-5xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
         <ToggleGroup
           type="single"

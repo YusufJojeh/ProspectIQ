@@ -5,7 +5,6 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.modules.knowledge.constants import COLLECTION_TYPES
-from app.modules.proposals.brands import BRAND_KEYS
 
 # --- The single authoritative tool registry -----------------------------
 #
@@ -377,8 +376,8 @@ WRITE_TOOLS: tuple[ToolDefinition, ...] = (
     ToolDefinition(
         name="draft_proposal",
         description=(
-            "Draft a priced proposal / quotation for this lead in one of the workspace's "
-            "branded layouts. Call search_sales_knowledge for pricing_guidance, "
+            "Draft a priced proposal / quotation for this lead in one of the workspace's own "
+            "proposal brands (omit brand to use the workspace default). Call search_sales_knowledge for pricing_guidance, "
             "past_proposals and proposal_templates FIRST: an amount is kept only when it "
             "appears in pricing you retrieved this run (a package total split across "
             "milestones counts), otherwise the line is left unpriced for the salesperson. "
@@ -388,7 +387,11 @@ WRITE_TOOLS: tuple[ToolDefinition, ...] = (
         parameters={
             "type": "object",
             "properties": {
-                "brand": {"type": "string", "enum": list(BRAND_KEYS)},
+                "brand": {
+                    "type": "string",
+                    "description": "Name of one of the workspace's proposal brands. Omit for the default.",
+                    "maxLength": 120,
+                },
                 "title": {"type": "string", "minLength": 1, "maxLength": 200},
                 "outcome": {"type": "string", "maxLength": 2000},
                 "currency": {"type": "string", "minLength": 3, "maxLength": 3},
@@ -416,7 +419,7 @@ WRITE_TOOLS: tuple[ToolDefinition, ...] = (
                     "maxLength": 1000,
                 },
             },
-            "required": ["brand", "title", "milestones"],
+            "required": ["title", "milestones"],
             "additionalProperties": False,
         },
         tool_type=WRITE_PROPOSAL,

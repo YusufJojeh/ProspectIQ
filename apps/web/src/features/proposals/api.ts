@@ -1,5 +1,8 @@
 import { request } from "@/lib/api-client";
 import type {
+  BrandCreateRequest,
+  BrandTemplate,
+  BrandUpdateRequest,
   Proposal,
   ProposalBrand,
   ProposalDecision,
@@ -15,10 +18,34 @@ export const proposalKeys = {
   list: (leadId: string | null) => ["proposals", "list", leadId ?? "all"] as const,
   detail: (proposalId: string) => ["proposals", "detail", proposalId] as const,
   brands: ["proposals", "brands"] as const,
+  brandList: (includeArchived: boolean) => ["proposals", "brands", "list", includeArchived] as const,
+  brand: (brandId: string) => ["proposals", "brands", "detail", brandId] as const,
+  brandTemplates: ["proposals", "brand-templates"] as const,
 };
 
-export function listProposalBrands() {
-  return request<{ items: ProposalBrand[] }>(`${BASE}/brands`);
+export function listProposalBrands(includeArchived = false) {
+  const query = includeArchived ? "?include_archived=true" : "";
+  return request<{ items: ProposalBrand[] }>(`${BASE}/brands${query}`);
+}
+
+export function listBrandTemplates() {
+  return request<{ items: BrandTemplate[] }>(`${BASE}/brand-templates`);
+}
+
+export function getProposalBrand(brandId: string) {
+  return request<ProposalBrand>(`${BASE}/brands/${brandId}`);
+}
+
+export function createProposalBrand(payload: BrandCreateRequest) {
+  return request<ProposalBrand>(`${BASE}/brands`, { method: "POST" }, payload);
+}
+
+export function updateProposalBrand(brandId: string, payload: BrandUpdateRequest) {
+  return request<ProposalBrand>(`${BASE}/brands/${brandId}`, { method: "PATCH" }, payload);
+}
+
+export function setDefaultProposalBrand(brandId: string) {
+  return request<ProposalBrand>(`${BASE}/brands/${brandId}/default`, { method: "POST" });
 }
 
 export function listProposals(leadId?: string | null) {
@@ -32,7 +59,7 @@ export function getProposal(proposalId: string) {
 
 export function createProposal(payload: {
   lead_id: string;
-  brand_key: string;
+  brand_id?: string;
   language?: ProposalLanguage;
 }) {
   return request<Proposal>(BASE, { method: "POST" }, payload);

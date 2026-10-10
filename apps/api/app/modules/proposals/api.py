@@ -5,8 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
+from app.modules.proposals.brand_service import ProposalBrandService
 from app.modules.proposals.schemas import (
+    BrandCreateRequest,
     BrandListResponse,
+    BrandResponse,
+    BrandTemplateListResponse,
+    BrandUpdateRequest,
     ProposalCreateRequest,
     ProposalDecisionRequest,
     ProposalListResponse,
@@ -19,9 +24,84 @@ from app.modules.users.models import User
 router = APIRouter(prefix="/api/v1/proposals", tags=["proposals"])
 
 
+# Brand routes are declared before "/{proposal_id}" so "brands" and
+# "brand-templates" are never read as a proposal id.
+
+
 @router.get("/brands", response_model=BrandListResponse)
-def list_brands(_: User = Depends(get_current_user)) -> BrandListResponse:
-    return ProposalService().list_brands()
+def list_brands(
+    include_archived: bool = Query(default=False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> BrandListResponse:
+    return ProposalBrandService().list_brands(
+        db, workspace_id=workspace_id, current_user=current_user, include_archived=include_archived
+    )
+
+
+@router.get("/brand-templates", response_model=BrandTemplateListResponse)
+def list_brand_templates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> BrandTemplateListResponse:
+    return ProposalBrandService().list_templates(
+        db, workspace_id=workspace_id, current_user=current_user
+    )
+
+
+@router.post("/brands", response_model=BrandResponse, status_code=status.HTTP_201_CREATED)
+def create_brand(
+    payload: BrandCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> BrandResponse:
+    return ProposalBrandService().create(
+        db, workspace_id=workspace_id, payload=payload, current_user=current_user
+    )
+
+
+@router.get("/brands/{brand_id}", response_model=BrandResponse)
+def get_brand(
+    brand_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> BrandResponse:
+    return ProposalBrandService().get(
+        db, workspace_id=workspace_id, brand_public_id=brand_id, current_user=current_user
+    )
+
+
+@router.patch("/brands/{brand_id}", response_model=BrandResponse)
+def update_brand(
+    brand_id: str,
+    payload: BrandUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> BrandResponse:
+    return ProposalBrandService().update(
+        db,
+        workspace_id=workspace_id,
+        brand_public_id=brand_id,
+        payload=payload,
+        current_user=current_user,
+    )
+
+
+@router.post("/brands/{brand_id}/default", response_model=BrandResponse)
+def set_default_brand(
+    brand_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> BrandResponse:
+    return ProposalBrandService().set_default(
+        db, workspace_id=workspace_id, brand_public_id=brand_id, current_user=current_user
+    )
 
 
 @router.get("", response_model=ProposalListResponse)

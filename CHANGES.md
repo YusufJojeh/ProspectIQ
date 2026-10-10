@@ -1,5 +1,45 @@
 # CHANGES
 
+## [Proposals] Each workspace designs its own proposal brands - 2026-10-11
+
+### Changed
+- Proposal brands are now owned by each workspace (tenant) and are no longer two hard-coded presets. Yusuf Jojeh and HexaTerminal are now only reference templates, next to a neutral **Classic** template named after the workspace.
+- A brand holds:
+  - Identity: name, tagline, text mark and shape, an optional logo (PNG, JPEG or WebP data URL up to about 300 KB; SVG is refused because it can carry script), typeface (sans or serif), corner radius, and seven colours.
+  - Document settings: number prefix (e.g. `BSD-Q` gives `BSD-Q-2026-001`), signer labels, footer contact, default currency and validity.
+  - Default content: outcome, commercial notes, validity notes and milestones.
+- Every workspace always has one active default brand. The first time one is needed, a Classic brand is created automatically. The last active brand cannot be archived, and archiving the default brand promotes another one.
+- A proposal stores its `brand_id`. Drafts and ready proposals render from the live brand. When a proposal is marked sent, the brand is frozen into `brand_snapshot`, so later edits to the brand never change a document that was already sent.
+  - Moving a draft to a brand with a different prefix renumbers it.
+- The Copilot's `draft_proposal` tool takes an optional brand **name** and uses the workspace default when none is given. An unknown name is refused, and the error lists the workspace's active brands. The brand is re-checked when the action is approved.
+- Migration `0028_proposal_brands`:
+  - Creates `proposal_brands`.
+  - Gives each workspace a brand for every preset its existing proposals used.
+  - Points those proposals at their brand and snapshots the ones already sent.
+  - Replaces `proposals.brand_key` with `brand_id` (foreign key) and `brand_snapshot`.
+
+### Added
+- Endpoints under `/api/v1/proposals`, with existing auth and workspace scoping. Reading needs `leads:view`; changing brands needs `workspace:manage` (owners and admins).
+  - `GET /brands?include_archived=`
+  - `GET /brand-templates`
+  - `POST /brands`
+  - `GET/PATCH /brands/{id}` (`archived: true|false` archives or restores)
+  - `POST /brands/{id}/default`
+- Audit events: `proposal_brand.created/updated/archived/restored/default`.
+- Web:
+  - **Proposals → Brands** page lists the workspace's brands and the starter templates.
+  - Brand editor with a live, sample-priced EN/AR preview of the document: logo upload, colour pickers, numbering, signatures, and default text and milestones. It also has make default, archive and restore.
+  - Sales users get a read-only view.
+- The new-proposal button and the proposal editor pick from the workspace's own brands. The proposal editor's picker also keeps the proposal's current brand if it has been archived.
+
+### Verification
+- `pytest`: full suite passes, including 32 proposal tests (tenant brand design, Classic default, renumbering, archive rules, manager-only changes, copilot brand resolution, frozen snapshot).
+- `ruff check` and `mypy`: clean.
+- `npm run build`: 0 TS errors.
+- `vitest`: proposals, 8 tests.
+- `eslint`: clean.
+- Checked in the browser: created a "Bright Smile Dental" brand from Classic (`BSD-Q`, EUR, teal accent) and made it the workspace default.
+
 ## [Proposals] Send-ready proposals and quotations, drafted by the Sales Copilot - 2026-10-11
 
 ### Added

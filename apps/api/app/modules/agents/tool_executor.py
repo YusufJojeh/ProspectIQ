@@ -38,7 +38,8 @@ from app.modules.outreach.send_gateway import (
     SendRequest,
 )
 from app.modules.outreach.service import OutreachGenerationService
-from app.modules.proposals.brands import get_brand
+from app.modules.proposals.brand_service import ProposalBrandService
+from app.modules.proposals.models import ProposalBrand
 from app.modules.proposals.pricing import ground_milestone_amounts
 from app.modules.proposals.service import ProposalService
 from app.modules.research.agent_loop import ResearchAgentLoop
@@ -123,6 +124,7 @@ class AgentToolExecutor:
         #: produced them.
         self.run_public_id: str | None = None
         self.proposal_service = ProposalService()
+        self.proposal_brands = ProposalBrandService()
 
     @property
     def searches_performed(self) -> int:
@@ -454,9 +456,7 @@ class AgentToolExecutor:
         cannot be marked ready until a person prices it.
         """
         assert self.lead is not None
-        brand = get_brand(str(arguments.get("brand") or ""))
-        if brand is None:
-            raise ApiError("Unknown proposal brand.")
+        brand = self._proposal_brand(str(arguments.get("brand") or ""))
         currency = str(arguments.get("currency") or brand.default_currency).strip().upper()
         if len(currency) != 3 or not currency.isalpha():
             raise ApiError("currency must be a 3-letter ISO code such as USD.")
@@ -473,7 +473,7 @@ class AgentToolExecutor:
             for item, amount in zip(raw_lines, grounding.amounts_minor, strict=True)
         ]
         payload = {
-            "brand": brand.key,
+            "brand_id": brand.public_id,
             "language": arguments.get("language") or "en",
             "title": str(arguments["title"]).strip(),
             "outcome": str(arguments.get("outcome") or "").strip() or None,
@@ -501,6 +501,22 @@ class AgentToolExecutor:
             "pricing_basis": payload["pricing_basis"],
         }
         return preview, payload, "proposal", self.lead.public_id
+
+    def _proposal_brand(self, reference: str) -> ProposalBrand:
+        if not reference.strip():
+            return self.proposal_brands.ensure_default(
+                self.db, workspace_id=self.workspace_id, current_user=self.current_user
+            )
+        brand = self.proposal_brands.find_active(
+            self.db, workspace_id=self.workspace_id, reference=reference
+        )
+        if brand is None:
+            names = self.proposal_brands.active_names(self.db, workspace_id=self.workspace_id)
+            raise ApiError(
+                f"Unknown proposal brand '{reference}'. Use one of: {', '.join(names)}, "
+                "or omit brand for the workspace default."
+            )
+        return brand
 
     def _get_lead_notes(self, _arguments: dict[str, Any]) -> dict[str, Any]:
         assert self.lead is not None
@@ -869,9 +885,14 @@ class AgentToolExecutor:
 
     def _execute_draft_proposal(self, payload: dict[str, Any]) -> dict[str, Any]:
         assert self.lead is not None
-        brand = get_brand(str(payload.get("brand") or ""))
-        if brand is None:
-            raise ApiError("Unknown proposal brand.")
+        # Re-resolved at approval time: a brand archived while the action
+        # waited is refused rather than used.
+        brand = self.proposal_brands.resolve_for_use(
+            self.db,
+            workspace_id=self.workspace_id,
+            current_user=self.current_user,
+            brand_public_id=str(payload.get("brand_id") or "") or None,
+        )
         proposal = self.proposal_service.create(
             self.db,
             workspace_id=self.workspace_id,

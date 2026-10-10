@@ -15,13 +15,23 @@ export type ProposalIssue =
   | "expired"
   | "placeholder_text";
 
-export interface ProposalBrand {
-  key: string;
+export type BrandMarkShape = "square" | "hex" | "circle";
+export type BrandFontStyle = "sans" | "serif";
+
+export interface BrandMilestone {
+  title: string;
+  description: string;
+}
+
+/** Everything a workspace controls about how its proposals look and start. */
+export interface BrandFields {
   name: string;
   tagline: string;
   mark: string;
-  /** "square" (Yusuf Jojeh kit) or "hex" (HexaTerminal kit). */
-  mark_shape: string;
+  mark_shape: BrandMarkShape;
+  font_style: BrandFontStyle;
+  /** PNG/JPEG/WebP data URL; replaces the mark when set. */
+  logo_data_url: string | null;
   number_prefix: string;
   signer_label: string;
   client_signer_label: string;
@@ -36,7 +46,30 @@ export interface ProposalBrand {
   radius_px: number;
   default_currency: string;
   validity_days: number;
+  default_outcome: string;
+  default_commercial_notes: string;
+  default_validity_notes: string;
+  default_milestones: BrandMilestone[];
 }
+
+/** One of the workspace's own proposal brands. */
+export interface ProposalBrand extends BrandFields {
+  public_id: string;
+  is_default: boolean;
+  archived: boolean;
+}
+
+/** A starting point for a new brand (the reference kits and a neutral style). */
+export interface BrandTemplate {
+  key: string;
+  values: BrandFields;
+}
+
+export interface BrandCreateRequest extends BrandFields {
+  is_default?: boolean;
+}
+
+export type BrandUpdateRequest = Partial<BrandFields> & { archived?: boolean };
 
 export interface ProposalMilestone {
   title: string;
@@ -89,7 +122,8 @@ export interface ProposalSummary {
   status: ProposalStatus;
   lead_id: string;
   lead_company_name: string;
-  brand_key: string;
+  brand_id: string;
+  brand_name: string;
   title: string;
   client_company: string;
   currency: string;
@@ -106,7 +140,7 @@ export interface ProposalMilestoneInput {
 }
 
 export interface ProposalUpdateRequest {
-  brand_key?: string;
+  brand_id?: string;
   language?: ProposalLanguage;
   title?: string;
   client_company?: string;
