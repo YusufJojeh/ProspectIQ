@@ -13,3 +13,7 @@ export function appProposalBrandPath(brandId: string, template?: string): string
   const path = appPaths.proposalBrandDetail(brandId);
   return template ? `${path}?template=${encodeURIComponent(template)}` : path;
 }
+
+export function appLeadAuditPath(leadId: string): string {
+  return appPaths.leadAudit(leadId);
+}

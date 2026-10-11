@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { BrandFields, ProposalLanguage } from "@/types/proposals";
 
@@ -45,11 +45,9 @@ function sharePct(amount: number | null, total: number): string {
   return `${Math.round((amount * 1000) / total) / 10}%`;
 }
 
-export function ProposalDocument({ data, printable = false }: { data: ProposalDocumentData; printable?: boolean }) {
-  const labels = documentLabels(data.language);
-  const { brand } = data;
-  const totals = documentTotals(data.milestones);
-  const style = {
+/** Brand tokens as the CSS variables the stylesheet reads. */
+export function documentStyle(brand: BrandFields): CSSProperties {
+  return {
     "--pq-paper": brand.paper,
     "--pq-ink": brand.ink,
     "--pq-muted": brand.muted,
@@ -59,20 +57,18 @@ export function ProposalDocument({ data, printable = false }: { data: ProposalDo
     "--pq-bg": brand.background,
     "--pq-radius": `${brand.radius_px}px`,
   } as CSSProperties;
+}
+
+export function documentClassName(brand: BrandFields, printable: boolean): string {
+  return `pq-doc${brand.font_style === "serif" ? " pq-serif" : ""}${printable ? " pq-print-root" : ""}`;
+}
+
+/** The letterhead every client document starts with: logo or mark, name, document type. */
+export function DocumentBrandbar({ brand, docType, code }: { brand: BrandFields; docType: string; code: string }) {
   const markClass =
     brand.mark_shape === "hex" ? "pq-mark-hex" : brand.mark_shape === "square" ? "pq-mark-square" : "pq-mark-circle";
-  const attnParts = [data.client_contact_name, data.client_location].filter(
-    (part): part is string => Boolean(part && part.trim()),
-  );
-
   return (
-    <article
-      className={`pq-doc${brand.font_style === "serif" ? " pq-serif" : ""}${printable ? " pq-print-root" : ""}`}
-      style={style}
-      dir={data.language === "ar" ? "rtl" : "ltr"}
-      lang={data.language}
-      aria-label={`${labels.docType} ${data.number}`}
-    >
+    <>
       <div className="pq-brandbar">
         <div className="pq-lockup">
           {brand.logo_data_url ? (
@@ -88,12 +84,33 @@ export function ProposalDocument({ data, printable = false }: { data: ProposalDo
           </div>
         </div>
         <div className="pq-doc-code">
-          {labels.docType}
+          {docType}
           <br />
-          <span dir="ltr">{data.number}</span>
+          <span dir="ltr">{code}</span>
         </div>
       </div>
       <div className="pq-accent-line" />
+    </>
+  );
+}
+
+export function ProposalDocument({ data, printable = false }: { data: ProposalDocumentData; printable?: boolean }) {
+  const labels = documentLabels(data.language);
+  const { brand } = data;
+  const totals = documentTotals(data.milestones);
+  const attnParts = [data.client_contact_name, data.client_location].filter(
+    (part): part is string => Boolean(part && part.trim()),
+  );
+
+  return (
+    <article
+      className={documentClassName(brand, printable)}
+      style={documentStyle(brand)}
+      dir={data.language === "ar" ? "rtl" : "ltr"}
+      lang={data.language}
+      aria-label={`${labels.docType} ${data.number}`}
+    >
+      <DocumentBrandbar brand={brand} docType={labels.docType} code={data.number} />
 
       <div className="pq-grid-2 pq-grid-head pq-section">
         <div>
@@ -205,7 +222,6 @@ export function ProposalDocument({ data, printable = false }: { data: ProposalDo
   );
 }
 
-/** Scales the fixed-width A4 page down to the width of its container. */
 export function ScaledProposalDocument({
   data,
   printable = false,
@@ -213,6 +229,15 @@ export function ScaledProposalDocument({
   data: ProposalDocumentData;
   printable?: boolean;
 }) {
+  return (
+    <ScaledPage>
+      <ProposalDocument data={data} printable={printable} />
+    </ScaledPage>
+  );
+}
+
+/** Scales any fixed-width A4 client document down to its container. */
+export function ScaledPage({ children }: { children: ReactNode }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -238,7 +263,7 @@ export function ScaledProposalDocument({
     <div ref={frameRef} className="pq-scaler-frame" style={{ height }}>
       <div ref={pageRef} className="pq-scaler" style={{ transform: `scale(${scale})` }}>
         <div className="overflow-hidden rounded-md shadow-lg ring-1 ring-black/5">
-          <ProposalDocument data={data} printable={printable} />
+          {children}
         </div>
       </div>
     </div>

@@ -1,5 +1,38 @@
 # CHANGES
 
+## [Proposals] Presence audit: a branded one-page document sales teams send to prospects - 2026-10-11
+
+### Why
+- Agencies selling to local businesses open conversations with a free audit of the prospect's own online presence. Owners respond to their own data far more than to a generic pitch, and the call then moves from "why marketing" to "what to fix".
+- LeadScope already holds that data for every lead: website, rating, reviews, phone, email, business profile and collected signals. It also has something generic audit tools lack: every other business found in the same search, so it can compare the prospect with businesses like it nearby.
+
+### Added
+- `GET /api/v1/proposals/lead-audit/{lead_id}`, with existing auth. It needs `leads:view` and is scoped to the workspace. It is read-only and stores nothing.
+  - **Findings** (`app/modules/proposals/audit.py`, pure rules): website, rating, reviews, phone, contact email and business profile, each marked `good`, `improve` or `missing`. Opportunities are listed first.
+  - Findings carry codes and numbers only. The document words them in its own language (EN/AR), so nothing is invented.
+  - **Benchmark**: compares the lead with the other leads from the same search (or failing that, the same category in the same city), always inside the workspace.
+    - It shows median rating, median reviews and the share that have a website.
+    - It is shown only when at least 3 businesses are available, and no other business is named.
+  - **Evidence**: up to 4 of the lead's collected signals. Only http(s) links are printed as sources.
+- **Web**: a "Presence audit" button on each lead's proposals card opens `/app/leads/:leadId/audit`. On that page the rep:
+  - picks the workspace brand and the language (EN/AR, right-to-left for Arabic), and chooses which checks to include;
+  - opts in to the benchmark and to each piece of evidence (evidence is off by default because it was written for internal use);
+  - can add a personal note and a next step;
+  - then downloads an A4 PDF in the workspace's brand and copies a cover email that lists the top opportunities.
+- The proposal letterhead is now shared (`DocumentBrandbar`, `documentStyle`, `ScaledPage`), so every client document uses the same tenant brand.
+
+### Considered and not built (yet)
+- **ROI calculator**: rejected for now. It needs revenue figures we do not have, and invented numbers in a client document damage trust.
+- **Case-study one-pager and rate card**: these depend on content the tenant writes, not on lead data. They are a good next step as brand-styled templates, after the audit proves useful.
+- **Saving and tracking sent audits**: deferred. Version one is generated on demand, so the numbers always match the lead today. If reps ask for history, add a snapshot table like proposals have.
+
+### Verification
+- `pytest`: full suite passes, including `tests/test_proposal_audit.py` (rules, peer benchmark, link sanitising, workspace isolation).
+- `ruff check` and `mypy`: clean.
+- `npm run build`: 0 TS errors.
+- `vitest`: 14 proposal tests, including audit wording and a render test in EN and AR. `eslint` is clean.
+- Browser check not done: the local database server was not running, so the dev app could not sign in.
+
 ## [Proposals] Each workspace designs its own proposal brands - 2026-10-11
 
 ### Changed

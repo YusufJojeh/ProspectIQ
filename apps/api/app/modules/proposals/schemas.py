@@ -291,3 +291,41 @@ class ProposalSummary(BaseModel):
 
 class ProposalListResponse(BaseModel):
     items: list[ProposalSummary]
+
+
+AuditFindingKey = Literal["website", "rating", "reviews", "phone", "email", "social"]
+AuditFindingStatus = Literal["good", "improve", "missing"]
+
+
+class AuditFinding(BaseModel):
+    key: AuditFindingKey
+    status: AuditFindingStatus
+    #: Numbers the sentence quotes (rating, counts, peer medians); the
+    #: document words them in its own language.
+    values: dict[str, float | int]
+
+
+class AuditBenchmark(BaseModel):
+    peer_count: int
+    median_rating: float | None
+    median_reviews: int
+    website_pct: int
+
+
+class AuditEvidence(BaseModel):
+    signal_type: str
+    text: str
+    source_url: str | None
+
+
+class LeadAuditResponse(BaseModel):
+    lead_id: str
+    company_name: str
+    category: str | None
+    city: str | None
+    website_url: str | None
+    email: str | None
+    generated_on: date
+    findings: list[AuditFinding]
+    benchmark: AuditBenchmark | None
+    evidence: list[AuditEvidence]

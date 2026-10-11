@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { ClipboardCheck } from "lucide-react";
 
 import { appPaths } from "@/app/paths";
 import { QueryStateNotice } from "@/components/shared/query-state-notice";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { listProposals, proposalKeys } from "../api";
+import { appLeadAuditPath } from "../paths";
 import { NewProposalButton } from "./new-proposal-button";
 import { ProposalList } from "./proposal-list";
 
@@ -26,7 +28,15 @@ export function LeadProposalsCard({ leadId }: { leadId: string }) {
           <CardTitle>{t("proposals.leadCardTitle")}</CardTitle>
           <CardDescription>{t("proposals.leadCardDescription")}</CardDescription>
         </div>
-        <NewProposalButton leadId={leadId} />
+        <div className="flex flex-wrap items-start gap-2">
+          <Button asChild size="sm" variant="outline" className="bg-transparent">
+            <Link to={appLeadAuditPath(leadId)}>
+              <ClipboardCheck className="size-4" aria-hidden />
+              {t("proposals.audit.open")}
+            </Link>
+          </Button>
+          <NewProposalButton leadId={leadId} />
+        </div>
       </CardHeader>
       <CardContent>
         {query.isError ? (

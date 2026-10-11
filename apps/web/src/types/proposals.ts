@@ -156,3 +156,39 @@ export interface ProposalUpdateRequest {
   validity_notes?: string;
   sender_contact?: string;
 }
+
+export type AuditFindingKey = "website" | "rating" | "reviews" | "phone" | "email" | "social";
+export type AuditFindingStatus = "good" | "improve" | "missing";
+
+export interface AuditFinding {
+  key: AuditFindingKey;
+  status: AuditFindingStatus;
+  /** Numbers the sentence quotes, e.g. rating and peer_median. */
+  values: Record<string, number>;
+}
+
+export interface AuditBenchmark {
+  peer_count: number;
+  median_rating: number | null;
+  median_reviews: number;
+  website_pct: number;
+}
+
+export interface AuditEvidence {
+  signal_type: string;
+  text: string;
+  source_url: string | null;
+}
+
+export interface LeadAudit {
+  lead_id: string;
+  company_name: string;
+  category: string | null;
+  city: string | null;
+  website_url: string | null;
+  email: string | null;
+  generated_on: string;
+  findings: AuditFinding[];
+  benchmark: AuditBenchmark | null;
+  evidence: AuditEvidence[];
+}

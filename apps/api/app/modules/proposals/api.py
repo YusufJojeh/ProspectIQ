@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.policies import get_current_user, get_current_workspace_id
+from app.modules.proposals.audit_service import LeadAuditService
 from app.modules.proposals.brand_service import ProposalBrandService
 from app.modules.proposals.schemas import (
     BrandCreateRequest,
@@ -12,6 +13,7 @@ from app.modules.proposals.schemas import (
     BrandResponse,
     BrandTemplateListResponse,
     BrandUpdateRequest,
+    LeadAuditResponse,
     ProposalCreateRequest,
     ProposalDecisionRequest,
     ProposalListResponse,
@@ -24,8 +26,20 @@ from app.modules.users.models import User
 router = APIRouter(prefix="/api/v1/proposals", tags=["proposals"])
 
 
-# Brand routes are declared before "/{proposal_id}" so "brands" and
-# "brand-templates" are never read as a proposal id.
+# Brand and audit routes are declared before "/{proposal_id}" so "brands",
+# "brand-templates" and "lead-audit" are never read as a proposal id.
+
+
+@router.get("/lead-audit/{lead_id}", response_model=LeadAuditResponse)
+def get_lead_audit(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    workspace_id: int = Depends(get_current_workspace_id),
+) -> LeadAuditResponse:
+    return LeadAuditService().build(
+        db, workspace_id=workspace_id, lead_public_id=lead_id, current_user=current_user
+    )
 
 
 @router.get("/brands", response_model=BrandListResponse)

@@ -1,0 +1,75 @@
+/* The presence audit page: built on the proposal's .pq-doc tokens. */
+.pq-doc .pq-break {
+  overflow-wrap: anywhere;
+}
+.pq-doc .pq-audit-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: calc(var(--pq-radius) + 2px);
+  background: var(--pq-ink);
+  color: var(--pq-paper);
+  font-size: 13px;
+}
+.pq-doc .pq-audit-count {
+  font: 800 26px/1 var(--pq-font-mono);
+  color: var(--pq-accent);
+}
+.pq-doc .pq-audit-findings,
+.pq-doc .pq-audit-evidence {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pq-doc .pq-audit-finding {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--pq-line);
+  font-size: 10px;
+}
+.pq-doc .pq-audit-finding p {
+  margin: 2px 0 0;
+}
+.pq-doc .pq-audit-pill {
+  display: inline-block;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font: 700 7.2px/1.2 var(--pq-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid currentColor;
+}
+.pq-doc .pq-audit-good .pq-audit-pill {
+  color: var(--pq-muted);
+}
+.pq-doc .pq-audit-improve .pq-audit-pill {
+  color: var(--pq-accent);
+}
+.pq-doc .pq-audit-missing .pq-audit-pill {
+  color: var(--pq-paper);
+  background: var(--pq-accent);
+  border-color: var(--pq-accent);
+}
+.pq-doc .pq-audit-evidence li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--pq-line);
+}
+.pq-doc .pq-audit-evidence p {
+  margin: 0 0 2px;
+}
+.pq-doc .pq-audit-cta {
+  padding: 10px 12px;
+  border: 1px solid var(--pq-accent);
+  border-radius: calc(var(--pq-radius) + 2px);
+}
+.pq-doc .pq-audit-cta p {
+  margin-bottom: 4px;
+}
+.pq-doc .pq-audit-method {
+  margin-bottom: 4px;
+}

@@ -34,6 +34,7 @@ export const appPaths = {
   usage: "/app/usage",
   providerHealth: "/app/provider-health",
   leadDetail: (leadId: string) => `/app/leads/${leadId}`,
+  leadAudit: (leadId: string) => `/app/leads/${leadId}/audit`,
   campaignDetail: (campaignId: string) => `/app/campaigns/${campaignId}`,
   dealDetail: (dealId: string) => `/app/crm/deals/${dealId}`,
   proposalDetail: (proposalId: string) => `/app/proposals/${proposalId}`,

@@ -105,6 +105,10 @@ const ProposalPage = lazy(async () => {
   const module = await import("@/features/proposals/routes/proposal-page");
   return { default: module.ProposalPage };
 });
+const LeadAuditPage = lazy(async () => {
+  const module = await import("@/features/proposals/routes/lead-audit-page");
+  return { default: module.LeadAuditPage };
+});
 const ProposalBrandsPage = lazy(async () => {
   const module = await import("@/features/proposals/routes/brands-page");
   return { default: module.ProposalBrandsPage };
@@ -317,6 +321,14 @@ function buildRouter() {
           element: lazyPage(LeadDetailPage, {
             title: i18n.t("routeLoading.leadDetailTitle"),
             description: i18n.t("routeLoading.leadDetailDescription"),
+            compact: true,
+          }),
+        },
+        {
+          path: "leads/:leadId/audit",
+          element: lazyPage(LeadAuditPage, {
+            title: i18n.t("routeLoading.leadAuditTitle"),
+            description: i18n.t("routeLoading.leadAuditDescription"),
             compact: true,
           }),
         },

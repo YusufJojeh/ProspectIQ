@@ -3,6 +3,7 @@ import type {
   BrandCreateRequest,
   BrandTemplate,
   BrandUpdateRequest,
+  LeadAudit,
   Proposal,
   ProposalBrand,
   ProposalDecision,
@@ -21,6 +22,7 @@ export const proposalKeys = {
   brandList: (includeArchived: boolean) => ["proposals", "brands", "list", includeArchived] as const,
   brand: (brandId: string) => ["proposals", "brands", "detail", brandId] as const,
   brandTemplates: ["proposals", "brand-templates"] as const,
+  audit: (leadId: string) => ["proposals", "lead-audit", leadId] as const,
 };
 
 export function listProposalBrands(includeArchived = false) {
@@ -79,4 +81,8 @@ export function markProposalSent(proposalId: string) {
 
 export function recordProposalDecision(proposalId: string, decision: ProposalDecision) {
   return request<Proposal>(`${BASE}/${proposalId}/decision`, { method: "POST" }, { decision });
+}
+
+export function getLeadAudit(leadId: string) {
+  return request<LeadAudit>(`${BASE}/lead-audit/${encodeURIComponent(leadId)}`);
 }

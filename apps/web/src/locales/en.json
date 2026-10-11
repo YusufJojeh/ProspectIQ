@@ -135,7 +135,9 @@
     "proposalBrandsTitle": "Loading brands",
     "proposalBrandsDescription": "Fetching your proposal letterheads.",
     "proposalBrandTitle": "Loading brand",
-    "proposalBrandDescription": "Preparing the brand editor."
+    "proposalBrandDescription": "Preparing the brand editor.",
+    "leadAuditTitle": "Loading presence audit",
+    "leadAuditDescription": "Comparing this business with its search."
   },
   "command": {
     "placeholder": "Search leads, jobs, evidence, or run an action...",
@@ -2728,6 +2730,31 @@
         "invalidPrefix": "Letters and digits, optionally one dash, e.g. ACME-Q.",
         "invalidCurrency": "Use a 3-letter code like USD."
       }
+    },
+    "audit": {
+      "title": "Presence audit",
+      "eyebrow": "Client documents",
+      "open": "Presence audit",
+      "description": "A one-page, branded audit of how this business shows up online, compared with similar businesses from the same search. Choose what to include, then download the PDF.",
+      "loadError": "Could not build the presence audit.",
+      "customize": "What the client sees",
+      "customizeDescription": "Every number comes from data already collected for this lead. Nothing is invented and nothing is saved.",
+      "checks": "Checks",
+      "status": {
+        "good": "Strength",
+        "improve": "Opportunity",
+        "missing": "Missing"
+      },
+      "benchmark": "Local comparison",
+      "benchmarkInclude": "Compare with {{count}} similar businesses from the same search",
+      "benchmarkUnavailable": "Not enough similar businesses in this search for a fair comparison (at least 3 are needed).",
+      "evidence": "What we noticed",
+      "evidenceHint": "Collected signals are off by default. Include only what you are comfortable saying to the client.",
+      "noEvidence": "No collected signals for this lead.",
+      "note": "Personal note",
+      "notePlaceholder": "Optional: one or two sentences in your own words.",
+      "nextStep": "Next step",
+      "privacyHint": "Peer figures are medians only; no other business is named."
     }
   }
 }
